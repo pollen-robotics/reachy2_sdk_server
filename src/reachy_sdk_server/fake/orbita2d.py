@@ -1,53 +1,83 @@
-import random
-import uuid
-
+from typing import Iterator
 from google.protobuf.empty_pb2 import Empty
-
-from reachy_sdk_api_v2.component_pb2 import ComponentId
-from reachy_sdk_api_v2 import orbita2d_pb2, orbita2d_pb2_grpc
+from google.protobuf.timestamp_pb2 import Timestamp
+from grpc import ServicerContext
 from reachy_sdk_api_v2.orbita2d_pb2 import (
     ListOfOrbita2DInfo,
-    Orbita2DStateRequest,
+    Orbita2DCommand,
+    Orbita2DInfo,
     Orbita2DState,
+    Orbita2DStateRequest,
+    Orbita2DStreamStateRequest,
 )
+from reachy_sdk_api_v2.orbita2d_pb2_grpc import Orbita2DServiceServicer
+
+from .component import (
+    check_component_id,
+    get_component,
+    get_all_components_by_type,
+    make_random_component,
+)
+from .utils import endless_get_stream
 
 
-def make_random_orbita2d_info():
-    id = f"orbita2d-{uuid.uuid4()}"
-    serial_number = uuid.uuid4().hex
-
-    return orbita2d_pb2.Orbita2DInfo(
-        id=ComponentId(id=id),
-        serial_number=serial_number,
-    )
-
-
-class Orbita2D(orbita2d_pb2_grpc.Orbita2DServiceServicer):
+class Orbita2D(Orbita2DServiceServicer):
     def __init__(self) -> None:
-        self.orbita2d = [
-            make_random_orbita2d_info() for _ in range(random.randint(1, 5))
-        ]
+        for _ in range(4):
+            make_random_component(Orbita2DInfo, "orbita2d")
 
-    def GetAllOrbita2D(self, request: Empty, context) -> ListOfOrbita2DInfo:
-        return ListOfOrbita2DInfo(info=self.orbita2d)
+    def GetAllOrbita2D(
+        self, request: Empty, context: ServicerContext
+    ) -> ListOfOrbita2DInfo:
+        return ListOfOrbita2DInfo(info=get_all_components_by_type(Orbita2DInfo))
 
-    def GetState(self, request: Orbita2DStateRequest, context) -> Orbita2DState:
-        return Orbita2DState()
+    def GetState(
+        self, request: Orbita2DStateRequest, context: ServicerContext
+    ) -> Orbita2DState:
+        check_component_id(request.id, "orbita2d", context)
 
-    def StreamState(self, request, context):
-        return super().StreamState(request, context)
+        c = get_component(request.id)
 
-    def SendCommand(self, request, context):
+        timestamp = Timestamp()
+        timestamp.GetCurrentTime()
+
+        return Orbita2DState(
+            # fill up state with c values
+            timestamp=timestamp,
+        )
+
+    def StreamState(
+        self, request: Orbita2DStreamStateRequest, context: ServicerContext
+    ):
+        return endless_get_stream(
+            self.GetState, request.req, context, period=1 / request.freq
+        )
+
+    def SendCommand(self, request: Orbita2DCommand, context: ServicerContext):
+        check_component_id(request.id, "orbita2d", context)
+
+        c = get_component(request.id)
+        # TODO: apply command
+
         return super().SendCommand(request, context)
 
-    def StreamCommand(self, request, context):
-        return super().StreamCommand(request, context)
+    def StreamCommand(
+        self, request_iterator: Iterator[Orbita2DCommand], context: ServicerContext
+    ):
+        for request in request_iterator:
+            self.SendCommand(request, context)
 
-    def Audit(self, request, context):
+    def Audit(self, request, context: ServicerContext):
+        check_component_id(request.id, "orbita2d", context)
+
         return super().Audit(request, context)
 
-    def HeartBeat(self, request, context):
+    def HeartBeat(self, request, context: ServicerContext):
+        check_component_id(request.id, "orbita2d", context)
+
         return super().HeartBeat(request, context)
 
-    def Restart(self, request, context):
+    def Restart(self, request, context: ServicerContext):
+        check_component_id(request.id, "orbita2d", context)
+
         return super().Restart(request, context)
