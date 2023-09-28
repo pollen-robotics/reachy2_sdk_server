@@ -5,6 +5,7 @@ from google.protobuf.wrappers_pb2 import BoolValue
 from google.protobuf.timestamp_pb2 import Timestamp
 from grpc import ServicerContext
 from reachy_sdk_api_v2.orbita2d_pb2 import (
+    Axis,
     Float2D,
     ListOfOrbita2DInfo,
     Orbita2DCommand,
@@ -48,6 +49,8 @@ class Orbita2DServicer(Orbita2DServiceServicer):
                 Orbita2DInfo(
                     id=ComponentId(id=orbita.id),
                     serial_number=orbita.serial_number,
+                    axis_1=getattr(Axis, orbita._axis1_type.upper()),
+                    axis_2=getattr(Axis, orbita._axis2_type.upper()),
                 ) for orbita in self.orbitas.values()]
         )
 
