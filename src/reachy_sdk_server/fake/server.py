@@ -5,10 +5,11 @@ import logging
 import sys
 
 
-from reachy_sdk_api_v2 import orbita2d_pb2_grpc, orbita3d_pb2_grpc, arm_pb2_grpc
+from reachy_sdk_api_v2 import orbita2d_pb2_grpc, orbita3d_pb2_grpc, arm_pb2_grpc, reachy_pb2_grpc
 from .arm import ArmServicer, FakeArm
 from .orbita2d import Orbita2DServicer
 from .orbita3d import Orbita3DServicer
+from .reachy import ReachyServicer
 
 
 def main(args: argparse.Namespace) -> int:
@@ -27,6 +28,7 @@ def main(args: argparse.Namespace) -> int:
     orbita3d_pb2_grpc.add_Orbita3DServiceServicer_to_server(o3d_servicer, server)
     print("Orbita3DServiceServicer_to_server")
     arm_pb2_grpc.add_ArmServiceServicer_to_server(ArmServicer({"right_arm": fake_arm}), server)
+    reachy_pb2_grpc.add_ReachyServiceServicer_to_server(ReachyServicer(fake_arm), server)
 
     server.add_insecure_port(f"[::]:{args.port}")
     server.start()
