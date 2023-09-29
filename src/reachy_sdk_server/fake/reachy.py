@@ -2,7 +2,7 @@ from google.protobuf.empty_pb2 import Empty
 
 from reachy_sdk_api_v2.arm_pb2 import Arm, ArmDescription
 from reachy_sdk_api_v2.component_pb2 import ComponentId
-from reachy_sdk_api_v2.orbita2d_pb2 import Orbita2DInfo
+from reachy_sdk_api_v2.orbita2d_pb2 import Orbita2DInfo, Axis
 from reachy_sdk_api_v2.orbita3d_pb2 import Orbita3DInfo
 from reachy_sdk_api_v2.part_pb2 import PartId, PartInfo
 from reachy_sdk_api_v2.reachy_pb2_grpc import ReachyServiceServicer
@@ -24,12 +24,16 @@ class ReachyServicer(ReachyServiceServicer):
                             id=self.right_arm.shoulder.id
                             ),
                         serial_number=self.right_arm.shoulder.serial_number,
+                        axis_1=getattr(Axis, self.right_arm.shoulder._axis1_type.upper()),
+                        axis_2=getattr(Axis, self.right_arm.shoulder._axis2_type.upper()),
                     ),
                     elbow=Orbita2DInfo(
                         id=ComponentId(
                             id=self.right_arm.elbow.id
                             ),
                         serial_number=self.right_arm.elbow.serial_number,
+                        axis_1=getattr(Axis, self.right_arm.elbow._axis1_type.upper()),
+                        axis_2=getattr(Axis, self.right_arm.elbow._axis2_type.upper()),
                     ),
                     wrist=Orbita3DInfo(
                         id=ComponentId(
