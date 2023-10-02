@@ -86,15 +86,6 @@ class ReachyServicer(ReachyServiceServicer):
                         yaw=0.7,
                     )
                 ),
-                joints_positions=ArmPosition(
-                    shoulder_pitch=0.1,
-                    shoulder_roll=0.2,
-                    elbow_yaw=0.3,
-                    elbow_pitch=0.4,
-                    wrist_roll=0.5,
-                    wrist_pitch=0.6,
-                    wrist_yaw=0.7,
-                )
             ),
             # head_state=HeadState(
             # ),
