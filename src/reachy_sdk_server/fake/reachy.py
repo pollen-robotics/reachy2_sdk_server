@@ -150,40 +150,40 @@ class ReachyServicer(ReachyServiceServicer):
                         )
                     ),
                 ),
-                wrist_state=Orbita2DState(
+                wrist_state=Orbita3DState(
                     name=self.right_arm.wrist.id,
                     temperature=Float3D(
-                        roll=self.temp,
+                        roll=self._temp,
                         pitch=0.6,
                         yaw=0.7,
                     ),
                     present_position=Float3D(
-                        roll=self.temp,
+                        roll=self._temp,
                         pitch=0.6,
                         yaw=0.7,
                     ),
                     present_speed=Float3D(
-                        roll=self.temp,
+                        roll=self._temp,
                         pitch=0.6,
                         yaw=0.7,
                     ),
                     present_load=Float3D(
-                        roll=self.temp,
+                        roll=self._temp,
                         pitch=0.6,
                         yaw=0.7,
                     ),
                     goal_position=Float3D(
-                        roll=self.temp,
+                        roll=self._temp,
                         pitch=0.6,
                         yaw=0.7,
                     ),
                     speed_limit=Float3D(
-                        roll=self.temp,
+                        roll=self._temp,
                         pitch=0.6,
                         yaw=0.7,
                     ),
                     torque_limit=Float3D(
-                        roll=self.temp,
+                        roll=self._temp,
                         pitch=0.6,
                         yaw=0.7,
                     ),
