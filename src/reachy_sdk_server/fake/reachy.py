@@ -8,9 +8,9 @@ from reachy_sdk_api_v2.arm_pb2 import Arm, ArmDescription, ArmState, ArmPosition
 from reachy_sdk_api_v2.head_pb2 import HeadState
 from reachy_sdk_api_v2.hand_pb2 import HandState
 from reachy_sdk_api_v2.mobile_base_pb2 import MobileBaseState
-from reachy_sdk_api_v2.component_pb2 import ComponentId
-from reachy_sdk_api_v2.orbita2d_pb2 import Orbita2DInfo, Axis, Orbita2DState, Float2D
-from reachy_sdk_api_v2.orbita3d_pb2 import Orbita3DInfo, Orbita3DState, Float3D
+from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains
+from reachy_sdk_api_v2.orbita2d_pb2 import Orbita2DInfo, Axis, Orbita2DState, Float2D, PID2D
+from reachy_sdk_api_v2.orbita3d_pb2 import Orbita3DInfo, Orbita3DState, Float3D, PID3D
 from reachy_sdk_api_v2.part_pb2 import PartId, PartInfo
 from reachy_sdk_api_v2.reachy_pb2_grpc import ReachyServiceServicer
 from reachy_sdk_api_v2.reachy_pb2 import Reachy, ReachyId
@@ -69,22 +69,141 @@ class ReachyServicer(ReachyServiceServicer):
                     temperature=Float2D(
                         axis_1=self._temp,
                         axis_2=0.6
-                    )
+                    ),
+                    present_position=Float2D(
+                        axis_1=self._temp,
+                        axis_2=0.6
+                    ),
+                    present_speed=Float2D(
+                        axis_1=self._temp,
+                        axis_2=0.6
+                    ),
+                    present_load=Float2D(
+                        axis_1=self._temp,
+                        axis_2=0.6
+                    ),
+                    goal_position=Float2D(
+                        axis_1=self._temp,
+                        axis_2=0.6
+                    ),
+                    speed_limit=Float2D(
+                        axis_1=self._temp,
+                        axis_2=0.6
+                    ),
+                    torque_limit=Float2D(
+                        axis_1=self._temp,
+                        axis_2=0.6
+                    ),
+                    pid=PID2D(
+                        gains_axis_1=PIDGains(
+                            p=500,
+                            i=200,
+                            d=3,
+                        ),
+                        gains_axis_2=PIDGains(
+                            p=400,
+                            i=700,
+                            d=4,
+                        )
+                    ),
                 ),
                 elbow_state=Orbita2DState(
                     name=self.right_arm.elbow.id,
                     temperature=Float2D(
-                        axis_1=0.5,
+                        axis_1=self._temp,
                         axis_2=0.6
-                    )
+                    ),
+                    present_position=Float2D(
+                        axis_1=self._temp,
+                        axis_2=0.6
+                    ),
+                    present_speed=Float2D(
+                        axis_1=self._temp,
+                        axis_2=0.6
+                    ),
+                    present_load=Float2D(
+                        axis_1=self._temp,
+                        axis_2=0.6
+                    ),
+                    goal_position=Float2D(
+                        axis_1=self._temp,
+                        axis_2=0.6
+                    ),
+                    speed_limit=Float2D(
+                        axis_1=self._temp,
+                        axis_2=0.6
+                    ),
+                    torque_limit=Float2D(
+                        axis_1=self._temp,
+                        axis_2=0.6
+                    ),
+                    pid=PID2D(
+                        gains_axis_1=PIDGains(
+                            p=500,
+                            i=200,
+                            d=3,
+                        ),
+                        gains_axis_2=PIDGains(
+                            p=400,
+                            i=700,
+                            d=4,
+                        )
+                    ),
                 ),
-                wrist_state=Orbita3DState(
+                wrist_state=Orbita2DState(
                     name=self.right_arm.wrist.id,
                     temperature=Float3D(
-                        roll=0.5,
+                        roll=self.temp,
                         pitch=0.6,
                         yaw=0.7,
-                    )
+                    ),
+                    present_position=Float3D(
+                        roll=self.temp,
+                        pitch=0.6,
+                        yaw=0.7,
+                    ),
+                    present_speed=Float3D(
+                        roll=self.temp,
+                        pitch=0.6,
+                        yaw=0.7,
+                    ),
+                    present_load=Float3D(
+                        roll=self.temp,
+                        pitch=0.6,
+                        yaw=0.7,
+                    ),
+                    goal_position=Float3D(
+                        roll=self.temp,
+                        pitch=0.6,
+                        yaw=0.7,
+                    ),
+                    speed_limit=Float3D(
+                        roll=self.temp,
+                        pitch=0.6,
+                        yaw=0.7,
+                    ),
+                    torque_limit=Float3D(
+                        roll=self.temp,
+                        pitch=0.6,
+                        yaw=0.7,
+                    ),
+                    pid=PID3D(
+                        roll=PIDGains(
+                            p=500,
+                            i=200,
+                            d=3,
+                        ),
+                        pitch=PIDGains(
+                            p=400,
+                            i=700,
+                            d=4,
+                        ),
+                        yaw=PIDGains(
+                            p=200,
+                            i=100,
+                            d=1,
+                        ),
+                    ),
                 ),
             ),
             # head_state=HeadState(
