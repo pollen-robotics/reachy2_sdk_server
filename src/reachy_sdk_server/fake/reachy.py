@@ -3,6 +3,7 @@ import grpc
 import time
 
 from google.protobuf.empty_pb2 import Empty
+from google.protobuf.wrappers_pb2 import BoolValue
 
 from reachy_sdk_api_v2.arm_pb2 import Arm, ArmDescription, ArmState, ArmPosition
 from reachy_sdk_api_v2.head_pb2 import HeadState
@@ -82,6 +83,7 @@ class ReachyServicer(ReachyServiceServicer):
                         axis_1=self._temp,
                         axis_2=0.6
                     ),
+                    compliant=BoolValue(value=self.right_arm.shoulder.compliant),
                     goal_position=Float2D(
                         axis_1=self._temp,
                         axis_2=0.6
@@ -125,6 +127,7 @@ class ReachyServicer(ReachyServiceServicer):
                         axis_1=self._temp,
                         axis_2=0.6
                     ),
+                    compliant=BoolValue(value=self.right_arm.shoulder.compliant),
                     goal_position=Float2D(
                         axis_1=self._temp,
                         axis_2=0.6
@@ -172,6 +175,7 @@ class ReachyServicer(ReachyServiceServicer):
                         pitch=0.6,
                         yaw=0.7,
                     ),
+                    compliant=BoolValue(value=self.right_arm.shoulder.compliant),
                     goal_position=Float3D(
                         roll=self._temp,
                         pitch=0.6,
