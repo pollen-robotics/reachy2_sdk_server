@@ -26,18 +26,18 @@ from .utils import endless_get_stream
 class Orbita2DServicer(Orbita2DServiceServicer):
     def __init__(self) -> None:
         self.orbitas: Dict[str, FakeOrbita2D] = {}
-        self.add_orbita2d("orbita2d_r_shoulder", "pitch",  "roll")
-        self.add_orbita2d("orbita2d_r_elbow", "yaw",  "pitch")
-        self.add_orbita2d("orbita2d_l_shoulder", "pitch",  "roll")
-        self.add_orbita2d("orbita2d_l_elbow", "yaw",  "pitch")
+        self.add_orbita2d(10, "orbita2d_r_shoulder", "pitch",  "roll")
+        self.add_orbita2d(11, "orbita2d_r_elbow", "yaw",  "pitch")
+        self.add_orbita2d(20, "orbita2d_l_shoulder", "pitch",  "roll")
+        self.add_orbita2d(21, "orbita2d_l_elbow", "yaw",  "pitch")
 
-    def add_orbita2d(self, id: str, axis1_type: str, axis2_type: str) -> None:
-        self.orbitas[id] = FakeOrbita2D(id, axis1_type, axis2_type)
+    def add_orbita2d(self, id: int, name: str, axis1_type: str, axis2_type: str) -> None:
+        self.orbitas[name] = FakeOrbita2D(id, name, axis1_type, axis2_type)
 
-    def check_component_id(self, id: str, context: ServicerContext = None) -> bool:
-        if id not in self.orbitas.keys():
+    def check_component_id(self, name: str, context: ServicerContext = None) -> bool:
+        if name not in self.orbitas.keys():
             if context:
-                context.abort(404, f"{id} not found")
+                context.abort(404, f"{name} not found")
             return False
         return True
 
@@ -57,10 +57,10 @@ class Orbita2DServicer(Orbita2DServiceServicer):
     def GetState(
         self, request: Orbita2DStateRequest, context: ServicerContext
     ) -> Orbita2DState:
-        self.check_component_id(request.id.id, context)
+        self.check_component_id(request.id.name, context)
 
         kwargs = {}
-        orbita = self.orbitas[request.id.id]
+        orbita = self.orbitas[request.id.name]
 
         timestamp = Timestamp()
         timestamp.GetCurrentTime()
@@ -145,8 +145,9 @@ class FakeAxis:
 
 
 class FakeOrbita2D:
-    def __init__(self, id: str, axis1_type: str, axis2_type: str) -> None:
+    def __init__(self, id: int, name: str, axis1_type: str, axis2_type: str) -> None:
         self.id = id
+        self.name = name
         self._axis1_type = axis1_type
         self._axis2_type = axis2_type
 
