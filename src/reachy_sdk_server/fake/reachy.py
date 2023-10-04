@@ -30,8 +30,9 @@ from reachy_sdk_api_v2.part_pb2 import PartId, PartInfo
 from reachy_sdk_api_v2.reachy_pb2 import ReachyStreamStateRequest, ReachyState
 
 class ReachyServicer(ReachyServiceServicer):
-    def __init__(self, right_arm) -> None:
+    def __init__(self, right_arm, head) -> None:
         self.right_arm = right_arm
+        self.head = head
         self._temp = 0.01
 
     def GetReachy(self, request: Empty, context) -> Reachy:
@@ -62,6 +63,31 @@ class ReachyServicer(ReachyServiceServicer):
                             id=self.right_arm.wrist.id
                             ),
                         serial_number=self.right_arm.wrist.serial_number,
+                    ),
+                )
+            ),
+            head=Head(
+                part_id=PartId(
+                    name=self.head.name,
+                ),
+                description=HeadDescription(
+                    neck=Orbita3DInfo(
+                        id=ComponentId(
+                            id=self.head.neck.id
+                            ),
+                        serial_number=self.head.neck.serial_number,
+                    ),
+                    l_antenna=DynamixelMotorInfo(
+                        id=ComponentId(
+                            id=self.head.l_antenna.id
+                            ),
+                        serial_number=self.head.l_antenna.serial_number,
+                    ),
+                    r_antenna=DynamixelMotorInfo(
+                        id=ComponentId(
+                            id=self.head.r_antenna.id
+                            ),
+                        serial_number=self.head.r_antenna.serial_number,
                     ),
                 )
             )
@@ -222,8 +248,97 @@ class ReachyServicer(ReachyServiceServicer):
                     ),
                 ),
             ),
-            # head_state=HeadState(
-            # ),
+            head_state=HeadState(
+                name=self.head.name,
+                neck_state=Orbita3DState(
+                    name=self.right_arm.wrist.id,
+                    temperature=Float3D(
+                        roll=512,
+                        pitch=0.6,
+                        yaw=0.7,
+                    ),
+                    present_position=Float3D(
+                        roll=self._temp,
+                        pitch=0.6,
+                        yaw=0.7,
+                    ),
+                    present_speed=Float3D(
+                        roll=self._temp,
+                        pitch=0.6,
+                        yaw=0.7,
+                    ),
+                    present_load=Float3D(
+                        roll=self._temp,
+                        pitch=0.6,
+                        yaw=0.7,
+                    ),
+                    compliant=BoolValue(value=self.head.neck.compliant),
+                    goal_position=Float3D(
+                        roll=self._temp,
+                        pitch=0.6,
+                        yaw=0.7,
+                    ),
+                    speed_limit=Float3D(
+                        roll=self._temp,
+                        pitch=0.6,
+                        yaw=0.7,
+                    ),
+                    torque_limit=Float3D(
+                        roll=self._temp,
+                        pitch=0.6,
+                        yaw=0.7,
+                    ),
+                    pid=PID3D(
+                        roll=PIDGains(
+                            p=500,
+                            i=200,
+                            d=3,
+                        ),
+                        pitch=PIDGains(
+                            p=400,
+                            i=700,
+                            d=4,
+                        ),
+                        yaw=PIDGains(
+                            p=200,
+                            i=100,
+                            d=1,
+                        ),
+                    ),
+                ),
+                l_antenna_state=DynamixelMotorState(
+                    name=self.head.l_antenna.id,
+                    temperature=FloatValue(value=80.0),
+                    present_position=FloatValue(value=-50.0),
+                    present_speed=FloatValue(value=2.0),
+                    present_load=FloatValue(value=26.0),
+                    compliant=BoolValue(value=self.head.l_antenna.compliant),
+                    goal_position=FloatValue(value=54.0),
+                    speed_limit=FloatValue(value=90.0),
+                    torque_limit=FloatValue(value=21.0),
+                    pid=PIDGains(
+                            p=500,
+                            i=200,
+                            d=3,
+                        ),
+                ),
+                r_antenna_state=DynamixelMotorState(
+                    name=self.head.r_antenna.id,
+                    temperature=FloatValue(value=854.0),
+                    present_position=FloatValue(value=-820.0),
+                    present_speed=FloatValue(value=24.0),
+                    present_load=FloatValue(value=85.0),
+                    compliant=BoolValue(value=self.head.r_antenna.compliant),
+                    goal_position=FloatValue(value=534.0),
+                    speed_limit=FloatValue(value=80.0),
+                    torque_limit=FloatValue(value=3.0),
+                    pid=PIDGains(
+                            p=82,
+                            i=42,
+                            d=1,
+                        ),
+                ),
+            ),
             # l_hand_state=HandState(
             # ),
             # r_hand_state=HandState(

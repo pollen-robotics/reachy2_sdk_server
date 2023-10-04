@@ -27,6 +27,7 @@ class Orbita3DServicer(Orbita3DServiceServicer):
         self.orbitas: Dict[str, FakeOrbita3D] = {}
         self.add_orbita3d("orbita3d_r_wrist")
         self.add_orbita3d("orbita3d_l_wrist")
+        self.add_orbita3d("orbita3d_neck")
 
     def add_orbita3d(self, id: str) -> None:
         self.orbitas[id] = FakeOrbita3D(id)

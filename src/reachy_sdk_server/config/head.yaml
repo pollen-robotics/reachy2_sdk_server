@@ -1,0 +1,13 @@
+head:
+  neck:
+    name: neck
+    actuator: orbita3d
+    axis1: roll
+    axis2: pitch
+    axis3: yaw
+  l_antenna:
+    name: l_antenna
+    actuator: dynamixel_motor
+  r_antenna:
+    name: r_antenna
+    actuator: dynamixel_motor
