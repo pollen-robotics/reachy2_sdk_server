@@ -1,0 +1,18 @@
+reachy:
+  right_arm:
+    shoulder:
+      name: r_shoulder
+      actuator: orbita2d
+      axis1: pitch
+      axis2: roll
+    elbow:
+      name: r_elbow
+      actuator: orbita2d
+      axis1: yaw
+      axis2: pitch
+    wrist:
+      name: r_wrist
+      actuator: orbita3d
+      axis1: roll
+      axis2: pitch
+      axis3: yaw
