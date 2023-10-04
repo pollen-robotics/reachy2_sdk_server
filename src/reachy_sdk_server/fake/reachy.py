@@ -1,3 +1,21 @@
+from google.protobuf.empty_pb2 import Empty
+from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
+
+import grpc
+
+from typing import Iterator
+
+from reachy_sdk_api_v2.arm_pb2 import Arm, ArmDescription, ArmState
+from reachy_sdk_api_v2.head_pb2 import Head, HeadDescription, HeadState
+from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains
+from reachy_sdk_api_v2.orbita2d_pb2 import Orbita2DInfo, Axis
+from reachy_sdk_api_v2.orbita3d_pb2 import Orbita3DInfo
+from reachy_sdk_api_v2.dynamixel_motor_pb2 import DynamixelMotorInfo, DynamixelMotorState
+from reachy_sdk_api_v2.part_pb2 import PartId, PartInfo
+from reachy_sdk_api_v2.reachy_pb2_grpc import ReachyServiceServicer
+from reachy_sdk_api_v2.reachy_pb2 import Reachy, ReachyId, ReachyState
+from reachy_sdk_api_v2.orbita3d_pb2 import Orbita3DState, Float3D, PID3D
+from reachy_sdk_api_v2.component_pb2 import PIDGains
 from typing import Iterator
 import grpc
 import time
@@ -5,16 +23,10 @@ import time
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue
 
-from reachy_sdk_api_v2.arm_pb2 import Arm, ArmDescription, ArmState, ArmPosition
-from reachy_sdk_api_v2.head_pb2 import HeadState
-from reachy_sdk_api_v2.hand_pb2 import HandState
-from reachy_sdk_api_v2.mobile_base_pb2 import MobileBaseState
 from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains
 from reachy_sdk_api_v2.orbita2d_pb2 import Orbita2DInfo, Axis, Orbita2DState, Float2D, PID2D
 from reachy_sdk_api_v2.orbita3d_pb2 import Orbita3DInfo, Orbita3DState, Float3D, PID3D
 from reachy_sdk_api_v2.part_pb2 import PartId, PartInfo
-from reachy_sdk_api_v2.reachy_pb2_grpc import ReachyServiceServicer
-from reachy_sdk_api_v2.reachy_pb2 import Reachy, ReachyId
 from reachy_sdk_api_v2.reachy_pb2 import ReachyStreamStateRequest, ReachyState
 
 class ReachyServicer(ReachyServiceServicer):
