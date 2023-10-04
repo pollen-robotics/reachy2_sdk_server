@@ -160,7 +160,7 @@ class FakeArm:
             orbita2ds: List[Dict[str, FakeOrbita2D]],
             orbita3ds: List[Dict[str, FakeOrbita3D]]) -> None:
         config = read_config_file(
-            f'/home/simsim/Pollen/dev/reachy_sdk_server/src/reachy_sdk_server/config/{self.side}_arm.yaml'
+            f'/home/demo/dev/reachy_sdk_server/src/reachy_sdk_server/config/{self.side}_arm.yaml'
         )[f'{self.side}_arm']
         for sub_part in config:
             if config[sub_part]['actuator'] == 'orbita2d':
