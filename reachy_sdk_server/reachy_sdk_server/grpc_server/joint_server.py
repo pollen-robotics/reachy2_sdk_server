@@ -12,7 +12,11 @@ class ReachyGRPCJointSDKServicer:
     def __init__(self, reachy_config_path: str = None) -> None:
         rclpy.init()
         self.bridge_node = AbstractBridgeNode(reachy_config_path=reachy_config_path)
-        threading.Thread(target=lambda: rclpy.spin(self.bridge_node)).start()
+
+        executor = rclpy.executors.MultiThreadedExecutor()
+        executor.add_node(self.bridge_node)
+        threading.Thread(target=executor.spin).start()
+        # threading.Thread(target=lambda: rclpy.spin(self.bridge_node)).start()
 
         self.logger = self.bridge_node.get_logger()
         self.services = [

@@ -43,11 +43,11 @@ class Orbita2dServicer:
             info=[
                 Orbita2DInfo(
                     id=ComponentId(
-                        id=o["id"],
-                        name=o["name"],
+                        id=o.id,
+                        name=o.name,
                     ),
-                    axis_1=axis_from_str(o["axis1"]),
-                    axis_2=axis_from_str(o["axis2"]),
+                    axis_1=axis_from_str(o.extra["axis1"]),
+                    axis_2=axis_from_str(o.extra["axis2"]),
                 )
                 for o in orbita2d
             ]
