@@ -1,3 +1,2 @@
-reachy_sdl_api_v2
-grpcio
-setuptools==58.2.0
+grpcio-tools
+reachy-sdk-api-v2
