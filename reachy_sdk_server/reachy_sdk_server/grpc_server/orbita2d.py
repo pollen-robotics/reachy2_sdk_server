@@ -177,10 +177,10 @@ conversion_table = {
     ),
     "temperature": lambda o: Float2D(axis_1=37.5, axis_2=37.5),
     "compliant": lambda o: BoolValue(value=not o.actuator.state["torque"]),
-    # "goal_position": lambda o: Float2D(
-    #     axis_1=o.state["goal_position"],
-    #     axis_2=o.state["goal_position"],
-    # ),
+    "goal_position": lambda o: Float2D(
+        axis_1=o.axis1.state["target_position"],
+        axis_2=o.axis2.state["target_position"],
+    ),
     "speed_limit": lambda o: Float2D(
         axis_1=o.raw_motor_1.state["speed_limit"],
         axis_2=o.raw_motor_2.state["speed_limit"],

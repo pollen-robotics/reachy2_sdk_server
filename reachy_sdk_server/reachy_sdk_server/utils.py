@@ -30,6 +30,25 @@ def get_uid_from_name(name: str, node: rclpy.node.Node) -> int:
     return int(future.result().values[0])
 
 
+def get_component_full_state(component_name: str, node: rclpy.node.Node) -> dict:
+    c = node.create_client(GetDynamicState, f"/get_dynamic_state")
+
+    while not c.wait_for_service(timeout_sec=1.0):
+        node.get_logger().info(
+            f"Service '{c.srv_name}' not available, waiting again..."
+        )
+
+    req = GetDynamicState.Request()
+    req.name = component_name
+    req.interfaces = []
+
+    future = c.call_async(req)
+    rclpy.spin_until_future_complete(node, future)
+    node.destroy_client(c)
+
+    return dict(zip(future.result().interfaces, future.result().values))
+
+
 def axis_from_str(name: str) -> orbita2d_pb2.Axis:
     if name == "roll":
         return orbita2d_pb2.Axis.ROLL

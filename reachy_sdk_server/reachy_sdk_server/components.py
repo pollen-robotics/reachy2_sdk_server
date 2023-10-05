@@ -4,7 +4,7 @@ from reachy_sdk_api_v2.component_pb2 import ComponentId
 import rclpy
 from typing import List, Optional
 
-from .utils import get_uid_from_name
+from .utils import get_component_full_state
 
 
 # Should have at least "name", "id" and "type" keys.
@@ -37,22 +37,19 @@ class ComponentsHolder:
     def add_component(
         self,
         name: str,
-        id: Optional[int] = None,
-        type: Optional[str] = None,
-        extra: dict = {},
-        state: dict = {},
         node_delegate: Optional[rclpy.node.Node] = None,
     ) -> None:
-        if id is None:
-            id = get_uid_from_name(name, node_delegate)
+        state = get_component_full_state(name, node_delegate)
 
-        if type is None:
-            type = guess_component_type(name, self.config)
+        id = int(state.pop("uid"))
 
-        if extra == {}:
-            extra = add_extra_if_any(name, self.config)
-
-        c = Component(name, id, type, extra, state)
+        c = Component(
+            name=name,
+            id=id,
+            type=guess_component_type(name, self.config),
+            extra=add_extra_if_any(name, self.config),
+            state=state,
+        )
 
         self.components.append(c)
         self.by_name[c.name] = c

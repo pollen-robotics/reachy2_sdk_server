@@ -7,7 +7,7 @@ from threading import Event
 from reachy_sdk_api_v2.component_pb2 import ComponentId
 
 from .utils import parse_reachy_config
-from .components import Component, ComponentsHolder
+from .components import ComponentsHolder
 
 
 class AbstractBridgeNode(Node):
@@ -28,14 +28,30 @@ class AbstractBridgeNode(Node):
             callback=self.update_state,
             qos_profile=10,
         )
+        self.create_subscription(
+            msg_type=DynamicJointState,
+            topic="/dynamic_joint_commands",
+            callback=self.update_command,
+            qos_profile=10,
+        )
 
         self.wait_for_setup()
 
     def wait_for_setup(self) -> None:
+        # Wait for a first /dynamic_joint_state message to get a list of all joints
         while not self.got_first_state.is_set():
             rclpy.spin_once(self)
 
-        self.setup_joint_state(self._first_state)
+        # call service to get all value for each joint
+        for name in self.joint_names:
+            self.components.add_component(name, node_delegate=self)
+
+        self.logger.info(
+            f"Joint state setup (nb_joints={len(self.components.components)})."
+        )
+        for c in self.components.components:
+            self.logger.info(f"\t - {c}")
+
         self.joint_state_ready.set()
 
     # Orbita2D
@@ -45,7 +61,7 @@ class AbstractBridgeNode(Node):
     # State updates
     def update_state(self, msg: DynamicJointState) -> None:
         if not self.got_first_state.is_set():
-            self._first_state = msg
+            self.joint_names = msg.joint_names
             self.got_first_state.set()
             return
 
@@ -56,17 +72,11 @@ class AbstractBridgeNode(Node):
             state = dict(zip(kv.interface_names, kv.values))
             self.components.get_by_name(name).update_state(state)
 
-    def setup_joint_state(self, msg: DynamicJointState) -> None:
+    # Command updates
+    def update_command(self, msg: DynamicJointState) -> None:
         for name, kv in zip(msg.joint_names, msg.interface_values):
-            state = dict(zip(kv.interface_names, kv.values))
-            self.logger.info(f"Adding component '{name}' with state '{state}'.")
-            self.components.add_component(name, state=state, node_delegate=self)
-
-        self.logger.info(
-            f"Joint state setup (nb_joints={len(self.components.components)})."
-        )
-        for c in self.components.components:
-            self.logger.info(f" - {c}")
+            cmd = dict(zip(kv.interface_names, kv.values))
+            self.components.get_by_name(name).update_command(cmd)
 
     # Misc utils
     def get_component(self, component_id: ComponentId) -> dict:
