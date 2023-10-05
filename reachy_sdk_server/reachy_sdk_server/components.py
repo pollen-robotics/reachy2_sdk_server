@@ -24,6 +24,12 @@ class Component:
     def update_state(self, new_state) -> None:
         self.state.update(new_state)
 
+    def update_command(self, new_cmd) -> None:
+        if "position" in new_cmd:
+            new_cmd["target_position"] = new_cmd.pop("position")
+
+        self.state.update(new_cmd)
+
 
 class ComponentsHolder:
     def __init__(self, config: dict) -> None:
