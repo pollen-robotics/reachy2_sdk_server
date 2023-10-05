@@ -1,7 +1,10 @@
+from typing import Tuple
 from control_msgs.msg import DynamicJointState
 import rclpy
 from rclpy.node import Node
 from threading import Event
+
+from reachy_sdk_api_v2.component_pb2 import ComponentId
 
 from .utils import parse_reachy_config
 from .components import Component, ComponentsHolder
@@ -65,5 +68,6 @@ class AbstractBridgeNode(Node):
         for c in self.components.components:
             self.logger.info(f" - {c}")
 
-    def get_state_for_component(self, component_name: str):
-        return None
+    # Misc utils
+    def get_component(self, component_id: ComponentId) -> dict:
+        return self.components.get_by_component_id(component_id)

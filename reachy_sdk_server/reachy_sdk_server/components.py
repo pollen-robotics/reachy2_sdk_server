@@ -1,4 +1,6 @@
 from collections import defaultdict
+
+from reachy_sdk_api_v2.component_pb2 import ComponentId
 import rclpy
 from typing import List, Optional
 
@@ -59,24 +61,13 @@ class ComponentsHolder:
 
         return c
 
-    # @classmethod
-    # def from_config(cls, config: dict, node_delegate: rclpy.node.Node):
-    #     components = []
-
-    #     for part in config["reachy"].values():
-    #         for actuator in part.values():
-    #             actuator["id"] = get_uid_from_name(actuator["name"], node_delegate)
-
-    #             c = Component.auto_fill(
-    #                 name=actuator["name"],
-    #                 type=actuator["actuator"],
-    #                 extra=actuator,
-    #                 node_delegate=node_delegate,
-    #             )
-
-    #             components.append(c)
-
-    #     return cls(components)
+    def get_by_component_id(self, component_id: ComponentId) -> Component:
+        if component_id.id:
+            return self.get_by_id(component_id.id)
+        elif component_id.name:
+            return self.get_by_name(component_id.name)
+        else:
+            raise ValueError(f"Invalid component_id: {component_id}")
 
     def get_by_type(self, component_type: str) -> List[Component]:
         return self.by_type[component_type]
