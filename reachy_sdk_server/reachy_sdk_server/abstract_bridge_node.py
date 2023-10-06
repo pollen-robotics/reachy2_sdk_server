@@ -1,8 +1,8 @@
-from typing import Tuple
 from control_msgs.msg import DynamicJointState
 import rclpy
 from rclpy.node import Node
-from threading import Event
+from sensor_msgs.msg import JointState
+from threading import Event, Lock
 
 from reachy_sdk_api_v2.component_pb2 import ComponentId
 
@@ -28,14 +28,22 @@ class AbstractBridgeNode(Node):
             callback=self.update_state,
             qos_profile=10,
         )
-        self.create_subscription(
+
+        self.command_pub_lock = Lock()
+        self.joint_command_pub = self.create_publisher(
             msg_type=DynamicJointState,
             topic="/dynamic_joint_commands",
-            callback=self.update_command,
             qos_profile=10,
         )
 
         self.wait_for_setup()
+
+        self.create_subscription(
+            msg_type=JointState,
+            topic="/joint_commands",
+            callback=self.update_command,
+            qos_profile=10,
+        )
 
     def wait_for_setup(self) -> None:
         # Wait for a first /dynamic_joint_state message to get a list of all joints
@@ -73,10 +81,15 @@ class AbstractBridgeNode(Node):
             self.components.get_by_name(name).update_state(state)
 
     # Command updates
-    def update_command(self, msg: DynamicJointState) -> None:
-        for name, kv in zip(msg.joint_names, msg.interface_values):
-            cmd = dict(zip(kv.interface_names, kv.values))
-            self.components.get_by_name(name).update_command(cmd)
+    def update_command(self, msg: JointState) -> None:
+        for name, target in zip(msg.name, msg.position):
+            self.components.get_by_name(name).update_command(
+                {"target_position": target}
+            )
+
+    def publish_command(self, msg: DynamicJointState) -> None:
+        with self.command_pub_lock:
+            self.joint_command_pub.publish(msg)
 
     # Misc utils
     def get_component(self, component_id: ComponentId) -> dict:

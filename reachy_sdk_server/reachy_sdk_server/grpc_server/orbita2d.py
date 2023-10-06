@@ -1,4 +1,5 @@
 from collections import namedtuple
+from control_msgs.msg import DynamicJointState, InterfaceValue
 from typing import Iterator, List
 import grpc
 from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains
@@ -77,12 +78,95 @@ class Orbita2dServicer:
     def StreamState(
         self, request: Orbita2DStreamStateRequest, context: grpc.ServicerContext
     ) -> Iterator[Orbita2DState]:
+        # self.bridge_node
         yield Orbita2DState()
 
     # Command
     def SendCommand(
         self, request: Orbita2DCommand, context: grpc.ServicerContext
     ) -> Empty:
+        self.logger.info(f"Received command: {request}")
+
+        if not request.HasField("id"):
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Missing 'id' field.")
+
+        orbita2d_components = self.get_orbita_components(request.id)
+
+        cmd = DynamicJointState()
+        cmd.joint_names = []
+
+        if request.HasField("compliant"):
+            cmd.joint_names.append(orbita2d_components.actuator.name)
+            cmd.interface_values.append(
+                InterfaceValue(
+                    interface_names=["torque"],
+                    values=[not request.compliant.value],
+                )
+            )
+
+        if request.HasField("goal_position"):
+            cmd.joint_names.extend(
+                [
+                    orbita2d_components.axis1.name,
+                    orbita2d_components.axis2.name,
+                ]
+            )
+            cmd.interface_values.extend(
+                [
+                    InterfaceValue(
+                        interface_names=["position"],
+                        values=[request.goal_position.axis_1],
+                    ),
+                    InterfaceValue(
+                        interface_names=["position"],
+                        values=[request.goal_position.axis_2],
+                    ),
+                ]
+            )
+
+        raw_commands = []
+
+        if request.HasField("speed_limit"):
+            raw_commands.extend(
+                [
+                    InterfaceValue(
+                        interface_names=["speed_limit"],
+                        values=[request.speed_limit.axis_1],
+                    ),
+                    InterfaceValue(
+                        interface_names=["speed_limit"],
+                        values=[request.speed_limit.axis_2],
+                    ),
+                ]
+            )
+
+        if request.HasField("torque_limit"):
+            raw_commands.extend(
+                [
+                    InterfaceValue(
+                        interface_names=["torque_limit"],
+                        values=[request.torque_limit.axis_1],
+                    ),
+                    InterfaceValue(
+                        interface_names=["torque_limit"],
+                        values=[request.torque_limit.axis_2],
+                    ),
+                ]
+            )
+
+        if raw_commands:
+            cmd.joint_names.extend(
+                [
+                    orbita2d_components.raw_motor_1.name,
+                    orbita2d_components.raw_motor_2.name,
+                ]
+            )
+            cmd.interface_values.extend(raw_commands)
+
+        if cmd.joint_names:
+            self.logger.debug(f"Publishing command: {cmd}")
+            self.bridge_node.publish_command(cmd)
+
         return Empty()
 
     def StreamCommand(
