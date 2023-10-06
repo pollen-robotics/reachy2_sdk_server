@@ -1,6 +1,8 @@
 import rclpy
+import time
 import yaml
 
+from google.protobuf.timestamp_pb2 import Timestamp
 from pollen_msgs.srv import GetDynamicState
 from reachy_sdk_api_v2 import orbita2d_pb2
 
@@ -58,3 +60,16 @@ def axis_from_str(name: str) -> orbita2d_pb2.Axis:
         return orbita2d_pb2.Axis.YAW
     else:
         raise ValueError(f"Unknown axis '{name}'.")
+
+
+def endless_get_stream(func, request, context, period):
+    while True:
+        yield func(request, context)
+        time.sleep(period)
+
+
+def get_current_timestamp(bridge_node: rclpy.node.Node) -> Timestamp:
+    t = Timestamp()
+    t.FromNanoseconds(bridge_node.get_clock().now().nanoseconds)
+
+    return t

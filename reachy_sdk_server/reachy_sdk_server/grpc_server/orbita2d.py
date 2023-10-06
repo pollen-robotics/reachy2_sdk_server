@@ -1,14 +1,14 @@
 from collections import namedtuple
 from control_msgs.msg import DynamicJointState, InterfaceValue
-from typing import Iterator, List
+from google.protobuf.timestamp_pb2 import Timestamp
 import grpc
 from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains
 import rclpy
+from typing import Iterator
 
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..components import Component
-from ..utils import axis_from_str
+from ..utils import axis_from_str, endless_get_stream, get_current_timestamp
 
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue
@@ -73,13 +73,18 @@ class Orbita2dServicer:
         orbita2d_components = self.get_orbita_components(request.id)
 
         state = extract_fields(orbita2d_components, request.fields)
+        state["timestamp"] = get_current_timestamp(self.bridge_node)
         return Orbita2DState(**state)
 
     def StreamState(
         self, request: Orbita2DStreamStateRequest, context: grpc.ServicerContext
     ) -> Iterator[Orbita2DState]:
-        # self.bridge_node
-        yield Orbita2DState()
+        return endless_get_stream(
+            self.GetState,
+            request.req,
+            context,
+            1 / request.freq,
+        )
 
     # Command
     def SendCommand(
@@ -172,6 +177,8 @@ class Orbita2dServicer:
     def StreamCommand(
         self, request_stream: Iterator[Orbita2DCommand], context: grpc.ServicerContext
     ) -> Empty:
+        for request in request_stream:
+            self.SendCommand(request, context)
         return Empty()
 
     # Doctor
