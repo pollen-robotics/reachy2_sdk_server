@@ -6,6 +6,7 @@ import threading
 from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
 from .orbita2d import Orbita2dServicer
+from .orbita3d import Orbita3dServicer
 
 
 class ReachyGRPCJointSDKServicer:
@@ -22,6 +23,7 @@ class ReachyGRPCJointSDKServicer:
         self.services = [
             ArmServicer(self.bridge_node, self.logger),
             Orbita2dServicer(self.bridge_node, self.logger),
+            Orbita3dServicer(self.bridge_node, self.logger),
         ]
 
         self.logger.info("Reachy GRPC Joint SDK Servicer initialized.")
