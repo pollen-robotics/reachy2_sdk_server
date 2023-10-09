@@ -1,6 +1,5 @@
 from collections import namedtuple
 from control_msgs.msg import DynamicJointState, InterfaceValue
-from google.protobuf.timestamp_pb2 import Timestamp
 import grpc
 from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains
 import rclpy
@@ -8,7 +7,12 @@ from typing import Iterator
 
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..utils import axis_from_str, endless_get_stream, get_current_timestamp
+from ..utils import (
+    axis_from_str,
+    endless_get_stream,
+    extract_fields,
+    get_current_timestamp,
+)
 
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue
@@ -29,7 +33,7 @@ from reachy_sdk_api_v2.orbita2d_pb2_grpc import add_Orbita2DServiceServicer_to_s
 
 
 Orbita2DComponents = namedtuple(
-    "Orbita2dComponents", ["actuator", "axis1", "axis2", "raw_motor_1", "raw_motor_2"]
+    "Orbita2DComponents", ["actuator", "axis1", "axis2", "raw_motor_1", "raw_motor_2"]
 )
 
 
@@ -49,7 +53,7 @@ class Orbita2dServicer:
     def GetAllOrbita2D(
         self, request: Empty, context: grpc.ServicerContext
     ) -> ListOfOrbita2DInfo:
-        orbita2d = self.bridge_node.get_all_orbita2ds()
+        orbita2d = self.bridge_node.components.get_by_type("orbita2d")
 
         infos = ListOfOrbita2DInfo(
             info=[
@@ -70,9 +74,11 @@ class Orbita2dServicer:
     def GetState(
         self, request: Orbita2DStateRequest, context: grpc.ServicerContext
     ) -> Orbita2DState:
-        orbita2d_components = self.get_orbita_components(request.id)
+        orbita2d_components = self.get_orbita2d_components(request.id)
 
-        state = extract_fields(orbita2d_components, request.fields)
+        state = extract_fields(
+            Orbita2DField, request.fields, conversion_table, orbita2d_components
+        )
         state["timestamp"] = get_current_timestamp(self.bridge_node)
         return Orbita2DState(**state)
 
@@ -95,7 +101,7 @@ class Orbita2dServicer:
         if not request.HasField("id"):
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Missing 'id' field.")
 
-        orbita2d_components = self.get_orbita_components(request.id)
+        orbita2d_components = self.get_orbita2d_components(request.id)
 
         cmd = DynamicJointState()
         cmd.joint_names = []
@@ -194,7 +200,7 @@ class Orbita2dServicer:
         return Empty()
 
     # Setup utils
-    def get_orbita_components(self, component_id: ComponentId) -> Orbita2DComponents:
+    def get_orbita2d_components(self, component_id: ComponentId) -> Orbita2DComponents:
         if not hasattr(self, "_lazy_components"):
             self._lazy_components = {}
 
@@ -224,34 +230,6 @@ class Orbita2dServicer:
             )
 
         return self._lazy_components[component_id.id]
-
-
-def cleanup_fields(fields):
-    if Orbita2DField.NONE in fields:
-        cleanup_fields = []
-    elif Orbita2DField.ALL in fields:
-        cleanup_fields = list(Orbita2DField.keys())
-        cleanup_fields.remove("ALL")
-        cleanup_fields.remove("NONE")
-    else:
-        cleanup_fields = [
-            Orbita2DField.DESCRIPTOR.values_by_number[field].name for field in fields
-        ]
-
-    cleanup_fields = [f.lower() for f in cleanup_fields]
-
-    return cleanup_fields
-
-
-def extract_fields(o: Orbita2DComponents, fields) -> dict:
-    grpc_state = {}
-
-    for f in cleanup_fields(fields):
-        if f not in conversion_table:
-            continue
-        grpc_state[f] = conversion_table[f](o)
-
-    return grpc_state
 
 
 conversion_table = {
