@@ -12,7 +12,7 @@ from reachy_sdk_api_v2.head_pb2 import (
     HeadPosition,
     SpeedLimit,
     SpeedLimitRequest,
-    JointsLimits,
+    JointLimits,
     Temperatures,
     HeadTemperatures,
 )
