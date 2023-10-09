@@ -23,11 +23,11 @@ from .utils import endless_get_stream
 class DynamixelMotorServicer(DynamixelMotorServiceServicer):
     def __init__(self) -> None:
         self.antennas: Dict[str, FakeDynamixelMotor] = {}
-        self.add_dynamixel_motor("dynamixel_motor_l_antenna")
-        self.add_dynamixel_motor("dynamixel_motor_r_antenna")
+        self.add_dynamixel_motor(32, "dynamixel_motor_l_antenna")
+        self.add_dynamixel_motor(31, "dynamixel_motor_r_antenna")
 
-    def add_dynamixel_motor(self, id: str) -> None:
-        self.antennas[id] = FakeDynamixelMotor(id)
+    def add_dynamixel_motor(self, id: int, name: str) -> None:
+        self.antennas[name] = FakeDynamixelMotor(id, name)
 
     def check_component_id(self, id: str, context: ServicerContext = None) -> bool:
         if id not in self.antennas.keys():
@@ -119,8 +119,9 @@ class DynamixelMotorServicer(DynamixelMotorServiceServicer):
         return Empty()
 
 class FakeDynamixelMotor:
-    def __init__(self, id: str) -> None:
+    def __init__(self, id: int, name: str) -> None:
         self.id = id
+        self.name = name
         self.present_position = 10.0
         self.present_speed = 20.0
         self.present_load = 30.0
