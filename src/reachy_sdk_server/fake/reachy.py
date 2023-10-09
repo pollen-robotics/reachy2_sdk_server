@@ -112,6 +112,7 @@ class ReachyServicer(ReachyServiceServicer):
             r_arm_state=ArmState(
                 name=self.right_arm.name,
                 id=0,
+                activated=True,
                 shoulder_state=Orbita2DState(
                     id=self.right_arm.shoulder.id,
                     name=self.right_arm.shoulder.name,
@@ -263,6 +264,7 @@ class ReachyServicer(ReachyServiceServicer):
             head_state=HeadState(
                 name=self.head.name,
                 id=2,
+                activated=True,
                 neck_state=Orbita3DState(
                     id=self.head.neck.id,
                     name=self.head.neck.name,
