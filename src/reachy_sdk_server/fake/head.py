@@ -12,8 +12,6 @@ from reachy_sdk_api_v2.head_pb2 import (
     HeadPosition,
     SpeedLimit,
     SpeedLimitRequest,
-    JointLimits,
-    Temperatures,
     HeadTemperatures,
 )
 from reachy_sdk_api_v2.head_pb2_grpc import HeadServiceServicer

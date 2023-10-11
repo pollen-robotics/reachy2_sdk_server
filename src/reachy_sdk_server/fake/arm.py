@@ -17,8 +17,6 @@ from reachy_sdk_api_v2.arm_pb2 import (
     ArmIKSolution,
     SpeedLimit,
     SpeedLimitRequest,
-    JointLimits,
-    Temperatures,
     ArmTemperatures,
 )
 from reachy_sdk_api_v2.arm_pb2_grpc import ArmServiceServicer
