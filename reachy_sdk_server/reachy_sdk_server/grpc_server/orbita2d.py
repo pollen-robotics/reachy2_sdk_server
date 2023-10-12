@@ -19,6 +19,7 @@ from google.protobuf.wrappers_pb2 import BoolValue
 
 from reachy_sdk_api_v2.orbita2d_pb2 import (
     PID2D,
+    Pose2D,
     Float2D,
     ListOfOrbita2DInfo,
     Orbita2DCommand,
@@ -28,6 +29,7 @@ from reachy_sdk_api_v2.orbita2d_pb2 import (
     Orbita2DStateRequest,
     Orbita2DStatus,
     Orbita2DStreamStateRequest,
+    Vector2D,
 )
 from reachy_sdk_api_v2.orbita2d_pb2_grpc import add_Orbita2DServiceServicer_to_server
 
@@ -235,36 +237,35 @@ class Orbita2dServicer:
 conversion_table = {
     "name": lambda o: o.actuator.name,
     "id": lambda o: o.actuator.id,
-    "present_position": lambda o: Float2D(
+    "present_position": lambda o: Pose2D(
         axis_1=o.axis1.state["position"], axis_2=o.axis2.state["position"]
     ),
-    "present_speed": lambda o: Float2D(
-        axis_1=o.axis1.state["velocity"], axis_2=o.axis2.state["velocity"]
+    "present_speed": lambda o: Vector2D(
+        x=o.axis1.state["velocity"], y=o.axis2.state["velocity"]
     ),
-    "present_load": lambda o: Float2D(
-        axis_1=o.axis1.state["effort"], axis_2=o.axis2.state["effort"]
+    "present_load": lambda o: Vector2D(
+        x=o.axis1.state["effort"], y=o.axis2.state["effort"]
     ),
-    "temperature": lambda o: Float2D(axis_1=37.5, axis_2=37.5),
     "compliant": lambda o: BoolValue(value=not o.actuator.state["torque"]),
-    "goal_position": lambda o: Float2D(
+    "goal_position": lambda o: Pose2D(
         axis_1=o.axis1.state["target_position"],
         axis_2=o.axis2.state["target_position"],
     ),
     "speed_limit": lambda o: Float2D(
-        axis_1=o.raw_motor_1.state["speed_limit"],
-        axis_2=o.raw_motor_2.state["speed_limit"],
+        motor_1=o.raw_motor_1.state["speed_limit"],
+        motor_2=o.raw_motor_2.state["speed_limit"],
     ),
     "torque_limit": lambda o: Float2D(
-        axis_1=o.raw_motor_1.state["torque_limit"],
-        axis_2=o.raw_motor_2.state["torque_limit"],
+        motor_1=o.raw_motor_1.state["torque_limit"],
+        motor_2=o.raw_motor_2.state["torque_limit"],
     ),
     "pid": lambda o: PID2D(
-        gains_axis_1=PIDGains(
+        motor_1=PIDGains(
             p=o.raw_motor_1.state["p_gain"],
             i=o.raw_motor_1.state["i_gain"],
             d=o.raw_motor_1.state["d_gain"],
         ),
-        gains_axis_2=PIDGains(
+        motor_2=PIDGains(
             p=o.raw_motor_2.state["p_gain"],
             i=o.raw_motor_2.state["i_gain"],
             d=o.raw_motor_2.state["d_gain"],
