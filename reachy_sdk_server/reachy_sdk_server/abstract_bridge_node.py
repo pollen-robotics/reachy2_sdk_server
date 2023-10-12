@@ -6,8 +6,9 @@ from threading import Event, Lock
 
 from reachy_sdk_api_v2.component_pb2 import ComponentId
 
-from .utils import parse_reachy_config
 from .components import ComponentsHolder
+from .parts import PartsHolder
+from .utils import parse_reachy_config
 
 
 class AbstractBridgeNode(Node):
@@ -37,6 +38,8 @@ class AbstractBridgeNode(Node):
         )
 
         self.wait_for_setup()
+        # Now that we have components, setup parts
+        self.parts = PartsHolder(self.logger, self.config, self.components)
 
         self.create_subscription(
             msg_type=JointState,

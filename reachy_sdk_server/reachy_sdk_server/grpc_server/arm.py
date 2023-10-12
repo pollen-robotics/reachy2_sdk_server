@@ -7,6 +7,7 @@ from reachy_sdk_api_v2.arm_pb2 import (
     Arm,
     ArmCartesianGoal,
     ArmDescription,
+    ArmFKRequest,
     ArmFKSolution,
     ArmIKRequest,
     ArmIKSolution,
@@ -26,6 +27,8 @@ from reachy_sdk_api_v2.kinematics_pb2 import Matrix4x4
 
 
 from ..abstract_bridge_node import AbstractBridgeNode
+from .orbita2d import Orbita2dServicer
+from .orbita3d import Orbita3dServicer
 
 
 class ArmServicer:
@@ -42,17 +45,31 @@ class ArmServicer:
         add_ArmServiceServicer_to_server(self, server)
 
     def GetAllArms(self, request: Empty, context: grpc.ServicerContext) -> ListOfArm:
+        arms = self.bridge_node.parts.get_by_type("arm")
+
         return ListOfArm(
-            [
+            arm=[
                 Arm(
-                    part_id=PartId(name="", id=""),
-                    info=PartInfo(
-                        serial_number="",
-                        versoin_hard="",
-                        version_soft="",
+                    part_id=PartId(name=arm.name, id=arm.id),
+                    description=ArmDescription(
+                        shoulder=Orbita2dServicer.get_info(
+                            self.bridge_node.components.get_by_name(
+                                arm.components[0].name
+                            )
+                        ),
+                        elbow=Orbita2dServicer.get_info(
+                            self.bridge_node.components.get_by_name(
+                                arm.components[1].name
+                            )
+                        ),
+                        wrist=Orbita3dServicer.get_info(
+                            self.bridge_node.components.get_by_name(
+                                arm.components[2].name
+                            )
+                        ),
                     ),
-                    description=ArmDescription(),
                 )
+                for arm in arms
             ]
         )
 
@@ -108,7 +125,7 @@ class ArmServicer:
 
     # Kinematics
     def ComputeArmFK(
-        self, request: ArmPosition, context: grpc.ServicerContext
+        self, request: ArmFKRequest, context: grpc.ServicerContext
     ) -> ArmFKSolution:
         return ArmFKSolution()
 

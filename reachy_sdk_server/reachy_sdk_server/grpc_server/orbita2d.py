@@ -1,7 +1,6 @@
 from collections import namedtuple
 from control_msgs.msg import DynamicJointState, InterfaceValue
 import grpc
-from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains
 import rclpy
 from typing import Iterator
 
@@ -17,6 +16,7 @@ from ..utils import (
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue
 
+from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains
 from reachy_sdk_api_v2.orbita2d_pb2 import (
     PID2D,
     Pose2D,
@@ -32,6 +32,9 @@ from reachy_sdk_api_v2.orbita2d_pb2 import (
     Vector2D,
 )
 from reachy_sdk_api_v2.orbita2d_pb2_grpc import add_Orbita2DServiceServicer_to_server
+
+
+from ..components import Component
 
 
 Orbita2DComponents = namedtuple(
@@ -52,25 +55,26 @@ class Orbita2dServicer:
         self.logger.info("Registering 'Orbita2dServiceServicer' to server.")
         add_Orbita2DServiceServicer_to_server(self, server)
 
+    @classmethod
+    def get_info(cls, orbita2d: Component) -> Orbita2DInfo:
+        return Orbita2DInfo(
+            id=ComponentId(
+                id=orbita2d.id,
+                name=orbita2d.name,
+            ),
+            axis_1=axis_from_str(orbita2d.extra["axis1"]),
+            axis_2=axis_from_str(orbita2d.extra["axis2"]),
+        )
+
     def GetAllOrbita2D(
         self, request: Empty, context: grpc.ServicerContext
     ) -> ListOfOrbita2DInfo:
-        orbita2d = self.bridge_node.components.get_by_type("orbita2d")
-
-        infos = ListOfOrbita2DInfo(
+        return ListOfOrbita2DInfo(
             info=[
-                Orbita2DInfo(
-                    id=ComponentId(
-                        id=o.id,
-                        name=o.name,
-                    ),
-                    axis_1=axis_from_str(o.extra["axis1"]),
-                    axis_2=axis_from_str(o.extra["axis2"]),
-                )
-                for o in orbita2d
+                self.get_info(o)
+                for o in self.bridge_node.components.get_by_type("orbita2d")
             ]
         )
-        return infos
 
     # State
     def GetState(
