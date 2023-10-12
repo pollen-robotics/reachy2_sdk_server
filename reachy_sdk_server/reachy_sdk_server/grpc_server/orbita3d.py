@@ -7,7 +7,8 @@ from typing import Iterator
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue
 
-from reachy_sdk_api_v2.component_pb2 import ComponentId
+from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains
+from reachy_sdk_api_v2.kinematics_pb2 import ExtEulerAngles, Rotation3D
 from reachy_sdk_api_v2.orbita3d_pb2 import (
     PID3D,
     Float3D,
@@ -19,6 +20,7 @@ from reachy_sdk_api_v2.orbita3d_pb2 import (
     Orbita3DStateRequest,
     Orbita3DStatus,
     Orbita3DStreamStateRequest,
+    Vector3D,
 )
 from reachy_sdk_api_v2.orbita3d_pb2_grpc import add_Orbita3DServiceServicer_to_server
 
@@ -27,6 +29,7 @@ from ..utils import (
     endless_get_stream,
     extract_fields,
     get_current_timestamp,
+    rotation3d_as_extrinsinc_euler_angles,
 )
 
 
@@ -110,7 +113,32 @@ class Orbita3dServicer:
                 )
             )
         if request.HasField("goal_position"):
-            pass
+            roll, pitch, yaw = rotation3d_as_extrinsinc_euler_angles(
+                request.goal_position
+            )
+            cmd.joint_names.extend(
+                [
+                    orbita3d_components.roll.name,
+                    orbita3d_components.pitch.name,
+                    orbita3d_components.yaw.name,
+                ]
+            )
+            cmd.interface_values.extend(
+                [
+                    InterfaceValue(
+                        interface_names=["position"],
+                        values=[roll],
+                    ),
+                    InterfaceValue(
+                        interface_names=["position"],
+                        values=[pitch],
+                    ),
+                    InterfaceValue(
+                        interface_names=["position"],
+                        values=[yaw],
+                    ),
+                ]
+            )
 
         raw_commands = []
 
@@ -119,15 +147,15 @@ class Orbita3dServicer:
                 [
                     InterfaceValue(
                         interface_names=["speed_limit"],
-                        values=[request.speed_limit.axis_1],
+                        values=[request.speed_limit.motor_1],
                     ),
                     InterfaceValue(
                         interface_names=["speed_limit"],
-                        values=[request.speed_limit.axis_2],
+                        values=[request.speed_limit.motor_2],
                     ),
                     InterfaceValue(
                         interface_names=["speed_limit"],
-                        values=[request.speed_limit.axis_3],
+                        values=[request.speed_limit.motor_3],
                     ),
                 ]
             )
@@ -136,15 +164,15 @@ class Orbita3dServicer:
                 [
                     InterfaceValue(
                         interface_names=["torque_limit"],
-                        values=[request.torque_limit.axis_1],
+                        values=[request.torque_limit.motor_1],
                     ),
                     InterfaceValue(
                         interface_names=["torque_limit"],
-                        values=[request.torque_limit.axis_2],
+                        values=[request.torque_limit.motor_2],
                     ),
                     InterfaceValue(
                         interface_names=["torque_limit"],
-                        values=[request.torque_limit.axis_3],
+                        values=[request.torque_limit.motor_3],
                     ),
                 ]
             )
@@ -160,7 +188,7 @@ class Orbita3dServicer:
             cmd.interface_values.extend(raw_commands)
 
         if cmd.joint_names:
-            self.logger.debug(f"Publishing command: {cmd}")
+            self.logger.info(f"Publishing command: {cmd}")
             self.bridge_node.publish_command(cmd)
 
         return Empty()
@@ -220,40 +248,56 @@ class Orbita3dServicer:
 conversion_table = {
     "name": lambda o: o.actuator.name,
     "id": lambda o: o.actuator.id,
-    "present_position": lambda o: Float3D(
-        roll=o.roll.state["position"],
-        pitch=o.pitch.state["position"],
-        yaw=o.yaw.state["position"],
+    "present_position": lambda o: Rotation3D(
+        rpy=ExtEulerAngles(
+            roll=o.roll.state["position"],
+            pitch=o.pitch.state["position"],
+            yaw=o.yaw.state["position"],
+        ),
     ),
-    "present_velocity": lambda o: Float3D(
-        roll=o.roll.state["velocity"],
-        pitch=o.pitch.state["velocity"],
-        yaw=o.yaw.state["velocity"],
+    "present_velocity": lambda o: Vector3D(
+        x=o.roll.state["velocity"],
+        y=o.pitch.state["velocity"],
+        z=o.yaw.state["velocity"],
     ),
-    "present_load": lambda o: Float3D(
-        roll=o.roll.state["effort"],
-        pitch=o.pitch.state["effort"],
-        yaw=o.yaw.state["effort"],
+    "present_load": lambda o: Vector3D(
+        x=o.roll.state["effort"],
+        y=o.pitch.state["effort"],
+        z=o.yaw.state["effort"],
     ),
     "compliant": lambda o: BoolValue(value=not o.actuator.state["torque"]),
-    "goal_posiiton": lambda o: Float3D(
-        roll=o.roll.state["target_position"],
-        pitch=o.pitch.state["target_position"],
-        yaw=o.yaw.state["target_position"],
+    "goal_position": lambda o: Rotation3D(
+        rpy=ExtEulerAngles(
+            roll=o.roll.state["target_position"],
+            pitch=o.pitch.state["target_position"],
+            yaw=o.yaw.state["target_position"],
+        ),
     ),
     "speed_limit": lambda o: Float3D(
-        roll=o.raw_motor_1.state["speed_limit"],
-        pitch=o.raw_motor_2.state["speed_limit"],
-        yaw=o.raw_motor_3.state["speed_limit"],
+        motor_1=o.raw_motor_1.state["speed_limit"],
+        motor_2=o.raw_motor_2.state["speed_limit"],
+        motor_3=o.raw_motor_3.state["speed_limit"],
     ),
     "torque_limit": lambda o: Float3D(
-        roll=o.raw_motor_1.state["torque_limit"],
-        pitch=o.raw_motor_2.state["torque_limit"],
-        yaw=o.raw_motor_3.state["torque_limit"],
+        motor_1=o.raw_motor_1.state["torque_limit"],
+        motor_2=o.raw_motor_2.state["torque_limit"],
+        motor_3=o.raw_motor_3.state["torque_limit"],
     ),
     "pid": lambda o: PID3D(
-        roll=o.roll.state["pid"],
-        pitch=o.pitch.state["pid"],
-        yaw=o.yaw.state["pid"],
+        motor_1=PIDGains(
+            p=o.raw_motor_1.state["p_gain"],
+            i=o.raw_motor_1.state["i_gain"],
+            d=o.raw_motor_1.state["d_gain"],
+        ),
+        motor_2=PIDGains(
+            p=o.raw_motor_2.state["p_gain"],
+            i=o.raw_motor_2.state["i_gain"],
+            d=o.raw_motor_2.state["d_gain"],
+        ),
+        motor_3=PIDGains(
+            p=o.raw_motor_3.state["p_gain"],
+            i=o.raw_motor_3.state["i_gain"],
+            d=o.raw_motor_3.state["d_gain"],
+        ),
     ),
 }
