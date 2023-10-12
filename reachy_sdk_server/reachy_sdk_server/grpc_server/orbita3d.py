@@ -25,12 +25,12 @@ from reachy_sdk_api_v2.orbita3d_pb2 import (
 from reachy_sdk_api_v2.orbita3d_pb2_grpc import add_Orbita3DServiceServicer_to_server
 
 from ..abstract_bridge_node import AbstractBridgeNode
+from ..conversion import rotation3d_as_extrinsinc_euler_angles
 from ..components import Component
 from ..utils import (
     endless_get_stream,
     extract_fields,
     get_current_timestamp,
-    rotation3d_as_extrinsinc_euler_angles,
 )
 
 

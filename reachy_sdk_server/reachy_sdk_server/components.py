@@ -30,6 +30,21 @@ class Component:
 
         self.state.update(new_cmd)
 
+    def get_all_joints(self) -> List[str]:
+        if self.type == "orbita2d":
+            return [
+                f"{self.name}_{self.extra['axis1']}",
+                f"{self.name}_{self.extra['axis2']}",
+            ]
+        elif self.type == "orbita3d":
+            return [
+                f"{self.name}_{self.extra['axis1']}",
+                f"{self.name}_{self.extra['axis2']}",
+                f"{self.name}_{self.extra['axis3']}",
+            ]
+        else:
+            raise ValueError(f"Unknown component type '{self.type}'.")
+
 
 class ComponentsHolder:
     def __init__(self, config: dict) -> None:
