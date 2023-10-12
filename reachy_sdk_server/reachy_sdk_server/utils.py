@@ -1,10 +1,14 @@
+from typing import Tuple
 import rclpy
 import time
 import yaml
 
 from google.protobuf.timestamp_pb2 import Timestamp
+import numpy as np
 from pollen_msgs.srv import GetDynamicState
 from reachy_sdk_api_v2 import orbita2d_pb2
+from reachy_sdk_api_v2.kinematics_pb2 import Rotation3D
+from scipy.spatial.transform import Rotation
 
 
 def parse_reachy_config(reachy_config_path: str) -> dict:
@@ -73,3 +77,50 @@ def get_current_timestamp(bridge_node: rclpy.node.Node) -> Timestamp:
     t.FromNanoseconds(bridge_node.get_clock().now().nanoseconds)
 
     return t
+
+
+def cleanup_fields(FieldEnum, fields):
+    if FieldEnum.NONE in fields:
+        cleanup_fields = []
+    elif FieldEnum.ALL in fields:
+        cleanup_fields = list(FieldEnum.keys())
+        cleanup_fields.remove("ALL")
+        cleanup_fields.remove("NONE")
+    else:
+        cleanup_fields = [
+            FieldEnum.DESCRIPTOR.values_by_number[field].name for field in fields
+        ]
+
+    cleanup_fields = [f.lower() for f in cleanup_fields]
+
+    return cleanup_fields
+
+
+def extract_fields(FieldEnum, fields, conversion_table, component) -> dict:
+    grpc_state = {}
+
+    for f in cleanup_fields(FieldEnum, fields):
+        if f not in conversion_table:
+            continue
+        grpc_state[f] = conversion_table[f](component)
+
+    return grpc_state
+
+
+def rotation3d_as_extrinsinc_euler_angles(
+    rot: Rotation3D,
+) -> Tuple[float, float, float]:
+    if rot.HasField("q"):
+        return Rotation.from_quat([rot.q.x, rot.q.y, rot.q.z, rot.q.w]).as_euler(
+            "xyz",
+            degrees=False,
+        )
+    elif rot.HasField("rpy"):
+        return rot.rpy.roll, rot.rpy.pitch, rot.rpy.yaw
+    elif rot.HasField("matrix"):
+        return Rotation.from_matrix(np.array(rot.matrix.data).reshape((3, 3))).as_euler(
+            "xyz",
+            degrees=False,
+        )
+    else:
+        raise ValueError("Unknown rotation type.")

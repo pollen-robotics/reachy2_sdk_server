@@ -62,10 +62,6 @@ class AbstractBridgeNode(Node):
 
         self.joint_state_ready.set()
 
-    # Orbita2D
-    def get_all_orbita2ds(self):
-        return self.components.get_by_type("orbita2d")
-
     # State updates
     def update_state(self, msg: DynamicJointState) -> None:
         if not self.got_first_state.is_set():
