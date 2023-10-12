@@ -31,6 +31,9 @@ from reachy_sdk_api_v2.kinematics_pb2 import Matrix4x4
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import (
+    arm_position_to_joint_state,
+    joint_state_to_arm_position,
+    matrix_to_pose,
     pose_to_matrix,
     rotation3d_as_extrinsinc_euler_angles,
 )
@@ -177,30 +180,9 @@ class ArmServicer:
     ) -> ArmFKSolution:
         arm = self.bridge_node.parts.get_by_part_id(request.id)
 
-        shoulder_pos = request.position.shoulder_position
-        elbow_pos = request.position.elbow_position
-        wrist_pos = rotation3d_as_extrinsinc_euler_angles(
-            request.position.wrist_position
-        )
-
-        joint_name = []
-        for c in arm.components:
-            joint_name.extend(c.get_all_joints())
-
-        joint_pos = [
-            shoulder_pos.axis_1,
-            shoulder_pos.axis_2,
-            elbow_pos.axis_1,
-            elbow_pos.axis_2,
-            wrist_pos[0],
-            wrist_pos[1],
-            wrist_pos[2],
-        ]
-
         client = self.get_service(request.id, forward=True)
         req = GetForwardKinematics.Request()
-        req.joint_position.name = joint_name
-        req.joint_position.position = joint_pos
+        req.joint_position = arm_position_to_joint_state(request.position, arm)
 
         resp = client.call(req)
 
@@ -214,7 +196,24 @@ class ArmServicer:
     def ComputeArmIK(
         self, request: ArmIKRequest, context: grpc.ServicerContext
     ) -> ArmIKSolution:
-        return ArmIKSolution()
+        arm = self.bridge_node.parts.get_by_part_id(request.id)
+
+        client = self.get_service(request.id, forward=False)
+        req = GetInverseKinematics.Request()
+        req.pose = matrix_to_pose(request.target.pose.data)
+        req.q0 = arm_position_to_joint_state(request.q0, arm)
+
+        resp = client.call(req)
+
+        sol = ArmIKSolution()
+        sol.success = resp.success
+
+        if resp.success:
+            sol.arm_position.CopyFrom(
+                joint_state_to_arm_position(resp.joint_position, arm)
+            )
+
+        return sol
 
     def get_service(self, part_id: PartId, forward: bool):
         part = self.bridge_node.parts.get_by_part_id(part_id)
