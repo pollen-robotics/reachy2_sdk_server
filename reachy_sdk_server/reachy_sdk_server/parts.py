@@ -3,6 +3,8 @@ from typing import List
 
 from .components import ComponentsHolder
 
+from reachy_sdk_api_v2.part_pb2 import PartId
+
 
 Part = namedtuple("Part", ["name", "id", "type", "components"])
 
@@ -45,6 +47,20 @@ class PartsHolder:
 
                 self.logger.info(f"\t - {p}")
         self.logger.info(f"Parts created (nb_parts={len(self.parts)}).\n")
+
+    def get_by_part_id(self, part_id: PartId) -> Part:
+        if part_id.id:
+            return self.get_by_id(part_id.id)
+        elif part_id.name:
+            return self.get_by_name(part_id.name)
+        else:
+            raise ValueError(f"Invalid part_id: {part_id}")
+
+    def get_by_name(self, part_name: str) -> Part:
+        return self.by_name[part_name]
+
+    def get_by_id(self, part_id: int) -> Part:
+        return self.by_id[part_id]
 
     def get_by_type(self, part_type: str) -> List[Part]:
         return [p for p in self.parts.values() if p.type == part_type]

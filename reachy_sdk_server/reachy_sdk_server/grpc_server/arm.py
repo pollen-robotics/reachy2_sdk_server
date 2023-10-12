@@ -1,6 +1,9 @@
 import grpc
 import rclpy
 
+from control_msgs.msg import DynamicJointState, InterfaceValue
+
+
 from google.protobuf.empty_pb2 import Empty
 
 from reachy_sdk_api_v2.arm_pb2 import (
@@ -100,17 +103,37 @@ class ArmServicer:
         return ArmPosition()
 
     # Compliances
+    def set_stiffness(self, request: PartId, torque: bool) -> None:
+        part = self.bridge_node.parts.get_by_part_id(request)
+
+        cmd = DynamicJointState()
+        cmd.joint_names = []
+
+        for c in part.components:
+            cmd.joint_names.append(c.name)
+            cmd.interface_values.append(
+                InterfaceValue(
+                    interface_names=["torque"],
+                    values=[torque],
+                )
+            )
+
+        self.logger.info(f"Publishing command: {cmd}")
+        self.bridge_node.publish_command(cmd)
+
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
+        self.set_stiffness(request, torque=True)
         return Empty()
 
     def TurnOff(self, request: PartId, context: grpc.ServicerContext) -> Empty:
+        self.set_stiffness(request, torque=False)
         return Empty()
 
     # Temperatures
     def GetTemperatures(
         self, request: PartId, context: grpc.ServicerContext
     ) -> ArmTemperatures:
-        return 0.0
+        return ArmTemperatures()
 
     # Position and Speed limit
     def GetJointsLimits(
