@@ -190,13 +190,13 @@ class FakeOrbita2D:
                 axis_2.goal_position = gp.axis_2
         if request.HasField('speed_limit'):
             sl = request.speed_limit
-            if sl.axis_1 is not None:
-                axis_1.speed_limit = sl.axis_1
-            if sl.axis_2 is not None:
-                axis_2.speed_limit = sl.axis_2
+            if sl.motor_1 is not None:
+                axis_1.speed_limit = sl.motor_1
+            if sl.motor_2 is not None:
+                axis_2.speed_limit = sl.motor_2
         if request.HasField('torque_limit'):
             tl = request.torque_limit
-            if tl.axis_1 is not None:
-                axis_1.torque_limit = tl.axis_1
-            if tl.axis_2 is not None:
-                axis_2.torque_limit = tl.axis_2
+            if tl.motor_1 is not None:
+                axis_1.torque_limit = tl.motor_1
+            if tl.motor_2 is not None:
+                axis_2.torque_limit = tl.motor_2
