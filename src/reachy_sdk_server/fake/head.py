@@ -6,16 +6,8 @@ from google.protobuf.empty_pb2 import Empty
 from google.protobuf.timestamp_pb2 import Timestamp
 from grpc import ServicerContext
 from reachy_sdk_api_v2.head_pb2 import (
-    HeadField,
-    HeadState,
     Head,
     ListOfHead,
-    HeadPosition,
-    SpeedLimit,
-    SpeedLimitRequest,
-    JointLimits,
-    Temperatures,
-    HeadTemperatures,
 )
 from reachy_sdk_api_v2.head_pb2_grpc import HeadServiceServicer
 from reachy_sdk_api_v2.part_pb2 import PartInfo, PartId
