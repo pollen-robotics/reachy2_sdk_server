@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Dict, Iterator, List
 import uuid
 
@@ -160,10 +161,10 @@ class FakeArm:
             orbita2ds: List[Dict[str, FakeOrbita2D]],
             orbita3ds: List[Dict[str, FakeOrbita3D]]) -> None:
         config = read_config_file(
-            f'/home/demo/dev/reachy_sdk_server/src/reachy_sdk_server/config/{self.side}_arm.yaml'
+            f'{Path.cwd()}/config/{self.side}_arm.yaml'
         )[f'{self.side}_arm']
         for sub_part in config:
             if config[sub_part]['actuator'] == 'orbita2d':
-                setattr(self, sub_part, orbita2ds[f'orbita2d_{config[sub_part]["name"]}'])
+                setattr(self, sub_part, orbita2ds[int(config[sub_part]["id"])])
             elif config[sub_part]['actuator'] == 'orbita3d':
-                setattr(self, sub_part, orbita3ds[f'orbita3d_{config[sub_part]["name"]}'])
+                setattr(self, sub_part, orbita3ds[int(config[sub_part]["id"])])

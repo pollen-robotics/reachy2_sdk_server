@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Dict, Iterator, List
 import uuid
 
@@ -139,10 +140,10 @@ class FakeHead:
             orbita3ds: List[Dict[str, FakeOrbita3D]],
             dynamixelmotors: List[Dict[str, FakeDynamixelMotor]]) -> None:
         config = read_config_file(
-            '/home/demo/dev/reachy_sdk_server/src/reachy_sdk_server/config/head.yaml'
+            f'{Path.cwd()}/config/head.yaml'
         )['head']
         for sub_part in config:
             if config[sub_part]['actuator'] == 'dynamixel_motor':
                 setattr(self, sub_part, dynamixelmotors[f'dynamixel_motor_{config[sub_part]["name"]}'])
             elif config[sub_part]['actuator'] == 'orbita3d':
-                setattr(self, sub_part, orbita3ds[f'orbita3d_{config[sub_part]["name"]}'])
+                setattr(self, sub_part, orbita3ds[config[sub_part]["id"]])

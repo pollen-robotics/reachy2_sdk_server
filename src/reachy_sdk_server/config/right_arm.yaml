@@ -1,15 +1,18 @@
 right_arm:
   shoulder:
+    id: 10
     name: r_shoulder
     actuator: orbita2d
     axis1: pitch
     axis2: roll
   elbow:
+    id: 11
     name: r_elbow
     actuator: orbita2d
     axis1: yaw
     axis2: pitch
   wrist:
+    id: 12
     name: r_wrist
     actuator: orbita3d
     axis1: roll

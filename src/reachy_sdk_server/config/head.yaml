@@ -1,5 +1,6 @@
 head:
   neck:
+    id: 30
     name: neck
     actuator: orbita3d
     axis1: roll

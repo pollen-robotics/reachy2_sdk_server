@@ -9,6 +9,7 @@ from reachy_sdk_api_v2.orbita2d_pb2 import (
     Float2D,
     ListOfOrbita2DInfo,
     Orbita2DCommand,
+    Orbita2DsCommand,
     Orbita2DField,
     Orbita2DInfo,
     Orbita2DState,
@@ -25,19 +26,19 @@ from .utils import endless_get_stream
 
 class Orbita2DServicer(Orbita2DServiceServicer):
     def __init__(self) -> None:
-        self.orbitas: Dict[str, FakeOrbita2D] = {}
+        self.orbitas: Dict[int, FakeOrbita2D] = {}
         self.add_orbita2d(10, "orbita2d_r_shoulder", "pitch",  "roll")
         self.add_orbita2d(11, "orbita2d_r_elbow", "yaw",  "pitch")
         self.add_orbita2d(20, "orbita2d_l_shoulder", "pitch",  "roll")
         self.add_orbita2d(21, "orbita2d_l_elbow", "yaw",  "pitch")
 
     def add_orbita2d(self, id: int, name: str, axis1_type: str, axis2_type: str) -> None:
-        self.orbitas[name] = FakeOrbita2D(id, name, axis1_type, axis2_type)
+        self.orbitas[id] = FakeOrbita2D(id, name, axis1_type, axis2_type)
 
-    def check_component_id(self, name: str, context: ServicerContext = None) -> bool:
-        if name not in self.orbitas.keys():
+    def check_component_id(self, id: int, context: ServicerContext = None) -> bool:
+        if id not in self.orbitas.keys():
             if context:
-                context.abort(404, f"{name} not found")
+                context.abort(404, f"{id} not found")
             return False
         return True
 
@@ -57,10 +58,10 @@ class Orbita2DServicer(Orbita2DServiceServicer):
     def GetState(
         self, request: Orbita2DStateRequest, context: ServicerContext
     ) -> Orbita2DState:
-        self.check_component_id(request.id.name, context)
+        self.check_component_id(request.id.id, context)
 
         kwargs = {}
-        orbita = self.orbitas[request.id.name]
+        orbita = self.orbitas[request.id.id]
 
         timestamp = Timestamp()
         timestamp.GetCurrentTime()
@@ -100,14 +101,15 @@ class Orbita2DServicer(Orbita2DServiceServicer):
             self.GetState, request.req, context, period=1 / request.freq
         )
 
-    def SendCommand(self, request: Orbita2DCommand, context: ServicerContext) -> Empty:
-        self.check_component_id(request.id.id, context)
-        orbita = self.orbitas[request.id.id]
-        orbita.handle_command(request)
+    def SendCommand(self, request: Orbita2DsCommand, context: ServicerContext) -> Empty:
+        for cmd in request.cmd:
+            self.check_component_id(cmd.id.id, context)
+            orbita = self.orbitas[cmd.id.id]
+            orbita.handle_command(cmd)
         return Empty()
 
     def StreamCommand(
-        self, request_iterator: Iterator[Orbita2DCommand], context: ServicerContext
+        self, request_iterator: Iterator[Orbita2DsCommand], context: ServicerContext
     ) -> Empty:
         for request in request_iterator:
             self.SendCommand(request, context)
@@ -188,13 +190,13 @@ class FakeOrbita2D:
                 axis_2.goal_position = gp.axis_2
         if request.HasField('speed_limit'):
             sl = request.speed_limit
-            if sl.axis_1 is not None:
-                axis_1.speed_limit = sl.axis_1
-            if sl.axis_2 is not None:
-                axis_2.speed_limit = sl.axis_2
+            if sl.motor_1 is not None:
+                axis_1.speed_limit = sl.motor_1
+            if sl.motor_2 is not None:
+                axis_2.speed_limit = sl.motor_2
         if request.HasField('torque_limit'):
             tl = request.torque_limit
-            if tl.axis_1 is not None:
-                axis_1.torque_limit = tl.axis_1
-            if tl.axis_2 is not None:
-                axis_2.torque_limit = tl.axis_2
+            if tl.motor_1 is not None:
+                axis_1.torque_limit = tl.motor_1
+            if tl.motor_2 is not None:
+                axis_2.torque_limit = tl.motor_2
