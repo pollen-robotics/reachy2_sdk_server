@@ -111,12 +111,16 @@ class ReachyServicer(ReachyServiceServicer):
 
             # ),
             r_arm_state=ArmState(
-                name=self.right_arm.name,
-                id=0,
+                id=PartId(
+                    name=self.right_arm.name,
+                    id=0
+                ),
                 activated=True,
                 shoulder_state=Orbita2DState(
-                    id=self.right_arm.shoulder.id,
-                    name=self.right_arm.shoulder.name,
+                    id=ComponentId(
+                        id=self.right_arm.shoulder.id,
+                        name=self.right_arm.shoulder.name
+                    ),
                     temperature=Float2D(
                         motor_1=self._temp,
                         motor_2=0.6
@@ -160,8 +164,10 @@ class ReachyServicer(ReachyServiceServicer):
                     ),
                 ),
                 elbow_state=Orbita2DState(
-                    id=self.right_arm.elbow.id,
-                    name=self.right_arm.elbow.name,
+                    id=ComponentId(
+                        id=self.right_arm.elbow.id,
+                        name=self.right_arm.elbow.name
+                    ),
                     temperature=Float2D(
                         motor_1=self._temp,
                         motor_2=0.6
@@ -205,8 +211,10 @@ class ReachyServicer(ReachyServiceServicer):
                     ),
                 ),
                 wrist_state=Orbita3DState(
-                    id=self.right_arm.wrist.id,
-                    name=self.right_arm.wrist.name,
+                    id=ComponentId(
+                        id=self.right_arm.wrist.id,
+                        name=self.right_arm.wrist.name
+                    ),
                     temperature=Float3D(
                         motor_1=self._temp,
                         motor_2=0.6,
@@ -267,12 +275,16 @@ class ReachyServicer(ReachyServiceServicer):
                 ),
             ),
             head_state=HeadState(
-                name=self.head.name,
-                id=2,
+                id=PartId(
+                    name=self.head.name,
+                    id=2
+                ),
                 activated=True,
                 neck_state=Orbita3DState(
-                    id=self.head.neck.id,
-                    name=self.head.neck.name,
+                    id=ComponentId(
+                        id=self.head.neck.id,
+                        name=self.head.neck.name
+                    ),
                     temperature=Float3D(
                         motor_1=self._temp,
                         motor_2=0.6,
@@ -332,8 +344,10 @@ class ReachyServicer(ReachyServiceServicer):
                     ),
                 ),
                 l_antenna_state=DynamixelMotorState(
-                    id=self.head.l_antenna.id,
-                    name=self.head.l_antenna.name,
+                    id=ComponentId(
+                        id=self.head.l_antenna.id,
+                        name=self.head.l_antenna.name,
+                    ),
                     temperature=FloatValue(value=80.0),
                     present_position=FloatValue(value=-50.0),
                     present_speed=FloatValue(value=2.0),
@@ -349,8 +363,10 @@ class ReachyServicer(ReachyServiceServicer):
                         ),
                 ),
                 r_antenna_state=DynamixelMotorState(
-                    id=self.head.r_antenna.id,
-                    name=self.head.r_antenna.name,
+                    id=ComponentId(
+                        id=self.head.r_antenna.id,
+                        name=self.head.r_antenna.name,
+                    ),
                     temperature=FloatValue(value=854.0),
                     present_position=FloatValue(value=-820.0),
                     present_speed=FloatValue(value=24.0),
@@ -389,3 +405,4 @@ class ReachyServicer(ReachyServiceServicer):
 
             yield reachy_state
             last_pub = time.time()
+
