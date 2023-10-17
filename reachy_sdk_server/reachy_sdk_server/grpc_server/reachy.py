@@ -35,7 +35,7 @@ class ReachyServicer:
 
     def GetReachy(self, request: Empty, context: grpc.ServicerContext) -> Reachy:
         params = {
-            "id": ReachyId(name="reachy"),
+            "id": ReachyId(id=1, name="reachy"),
         }
 
         for p in self.bridge_node.parts:
