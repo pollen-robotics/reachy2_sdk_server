@@ -5,7 +5,6 @@ import rclpy
 from google.protobuf.empty_pb2 import Empty
 
 from reachy_sdk_api_v2.reachy_pb2 import (
-    ListOfReachy,
     Reachy,
     ReachyId,
     ReachyState,
@@ -33,11 +32,6 @@ class ReachyServicer:
     def register_to_server(self, server: grpc.Server):
         self.logger.info("Registering 'ArmServiceServicer' to server.")
         add_ReachyServiceServicer_to_server(self, server)
-
-    def GetListOfReachy(
-        self, request: Empty, context: grpc.ServicerContext
-    ) -> ListOfReachy:
-        return ListOfReachy(reachy=[self.GetReachy(request, context)])
 
     def GetReachy(self, request: Empty, context: grpc.ServicerContext) -> Reachy:
         parts = self.bridge_node.parts
