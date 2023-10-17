@@ -22,14 +22,14 @@ from .utils import endless_get_stream
 
 class DynamixelMotorServicer(DynamixelMotorServiceServicer):
     def __init__(self) -> None:
-        self.antennas: Dict[str, FakeDynamixelMotor] = {}
-        self.add_dynamixel_motor(32, "dynamixel_motor_l_antenna")
-        self.add_dynamixel_motor(31, "dynamixel_motor_r_antenna")
+        self.antennas: Dict[int, FakeDynamixelMotor] = {}
+        self.add_dynamixel_motor(31, "dynamixel_motor_l_antenna")
+        self.add_dynamixel_motor(32, "dynamixel_motor_r_antenna")
 
     def add_dynamixel_motor(self, id: int, name: str) -> None:
-        self.antennas[name] = FakeDynamixelMotor(id, name)
+        self.antennas[id] = FakeDynamixelMotor(id, name)
 
-    def check_component_id(self, id: str, context: ServicerContext = None) -> bool:
+    def check_component_id(self, id: int, context: ServicerContext = None) -> bool:
         if id not in self.antennas.keys():
             if context:
                 context.abort(404, f"{id} not found")
@@ -40,7 +40,7 @@ class DynamixelMotorServicer(DynamixelMotorServiceServicer):
         self, request: Empty, context: ServicerContext
     ) -> ListOfDynamixelMotorInfo:
         return ListOfDynamixelMotorInfo(
-            info=[
+            parallel_gripper_info=[
                 DynamixelMotorInfo(
                     id=ComponentId(id=antenna.id),
                     serial_number=antenna.serial_number,
