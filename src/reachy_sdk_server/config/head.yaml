@@ -7,8 +7,10 @@ head:
     axis2: pitch
     axis3: yaw
   l_antenna:
+    id: 31
     name: l_antenna
     actuator: dynamixel_motor
   r_antenna:
+    id: 32
     name: r_antenna
     actuator: dynamixel_motor
