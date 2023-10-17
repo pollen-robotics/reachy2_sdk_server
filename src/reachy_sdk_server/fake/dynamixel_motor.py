@@ -12,6 +12,7 @@ from reachy_sdk_api_v2.dynamixel_motor_pb2 import (
     DynamixelMotorState,
     DynamixelMotorStateRequest,
     DynamixelMotorStreamStateRequest,
+    DynamixelMotorsCommand,
 )
 
 from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains
@@ -93,14 +94,16 @@ class DynamixelMotorServicer(DynamixelMotorServiceServicer):
             self.GetState, request.req, context, period=1 / request.freq
         )
 
-    def SendCommand(self, request: DynamixelMotorCommand, context: ServicerContext) -> Empty:
-        self.check_component_id(request.id.id, context)
-        antenna = self.antennas[request.id.id]
-        antenna.handle_command(request)
+    def SendCommand(self, request: DynamixelMotorsCommand, context: ServicerContext) -> Empty:
+        for cmd in request.cmd:
+            print(cmd)
+            self.check_component_id(cmd.id.id, context)
+            antenna = self.antennas[cmd.id.id]
+            antenna.handle_command(cmd)
         return Empty()
 
     def StreamCommand(
-        self, request_iterator: Iterator[DynamixelMotorCommand], context: ServicerContext
+        self, request_iterator: Iterator[DynamixelMotorsCommand], context: ServicerContext
     ) -> Empty:
         for request in request_iterator:
             self.SendCommand(request, context)
