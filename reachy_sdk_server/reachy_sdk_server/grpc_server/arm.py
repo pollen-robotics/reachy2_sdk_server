@@ -35,7 +35,6 @@ from ..conversion import (
     joint_state_to_arm_position,
     matrix_to_pose,
     pose_to_matrix,
-    rotation3d_as_extrinsinc_euler_angles,
 )
 from .orbita2d import (
     ComponentId,
