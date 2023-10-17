@@ -39,11 +39,13 @@ from ..conversion import (
 )
 from .orbita2d import (
     ComponentId,
+    Orbita2DCommand,
     Orbita2DField,
     Orbita2dServicer,
     Orbita2DStateRequest,
 )
 from .orbita3d import (
+    Orbita3DCommand,
     Orbita3DField,
     Orbita3DStateRequest,
     Orbita3dServicer,
@@ -127,6 +129,31 @@ class ArmServicer:
     def GoToJointPosition(
         self, request: ArmJointGoal, context: grpc.ServicerContext
     ) -> Empty:
+        arm = self.bridge_node.parts.get_by_part_id(request.id)
+
+        # TODO: Use Orbita2DsCommand
+        self.orbita2d_servicer.SendCommand(
+            Orbita2DCommand(
+                id=ComponentId(id=arm.components[0].id),
+                goal_position=request.position.shoulder_position,
+            ),
+            context,
+        )
+        self.orbita2d_servicer.SendCommand(
+            Orbita2DCommand(
+                id=ComponentId(id=arm.components[1].id),
+                goal_position=request.position.elbow_position,
+            ),
+            context,
+        )
+        self.orbita3d_servicer.SendCommand(
+            Orbita3DCommand(
+                id=ComponentId(id=arm.components[2].id),
+                goal_position=request.position.wrist_position,
+            ),
+            context,
+        )
+
         return Empty()
 
     def GetCartesianPosition(
