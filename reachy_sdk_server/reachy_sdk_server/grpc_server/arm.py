@@ -51,6 +51,7 @@ from .orbita3d import (
     Orbita3DStateRequest,
     Orbita3dServicer,
 )
+from ..parts import Part
 
 
 class ArmServicer:
