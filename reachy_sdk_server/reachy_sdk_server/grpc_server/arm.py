@@ -105,32 +105,24 @@ class ArmServicer:
         self.logger.info("Registering 'ArmServiceServicer' to server.")
         add_ArmServiceServicer_to_server(self, server)
 
-    def GetAllArms(self, request: Empty, context: grpc.ServicerContext) -> ListOfArm:
-        return ListOfArm(
-            arm=[
-                Arm(
-                    part_id=PartId(name=arm.name, id=arm.id),
-                    description=ArmDescription(
-                        shoulder=Orbita2dServicer.get_info(
-                            self.bridge_node.components.get_by_name(
-                                arm.components[0].name
-                            )
-                        ),
-                        elbow=Orbita2dServicer.get_info(
-                            self.bridge_node.components.get_by_name(
-                                arm.components[1].name
-                            )
-                        ),
-                        wrist=Orbita3dServicer.get_info(
-                            self.bridge_node.components.get_by_name(
-                                arm.components[2].name
-                            )
-                        ),
-                    ),
-                )
-                for arm in self.arms
-            ]
+    def get_arm(self, arm: Part, context: grpc.ServicerContext) -> Arm:
+        return Arm(
+            part_id=PartId(name=arm.name, id=arm.id),
+            description=ArmDescription(
+                shoulder=Orbita2dServicer.get_info(
+                    self.bridge_node.components.get_by_name(arm.components[0].name)
+                ),
+                elbow=Orbita2dServicer.get_info(
+                    self.bridge_node.components.get_by_name(arm.components[1].name)
+                ),
+                wrist=Orbita3dServicer.get_info(
+                    self.bridge_node.components.get_by_name(arm.components[2].name)
+                ),
+            ),
         )
+
+    def GetAllArms(self, request: Empty, context: grpc.ServicerContext) -> ListOfArm:
+        return ListOfArm(arm=[self.get_arm(arm, context) for arm in self.arms])
 
     # Position and GoTo
     def GoToCartesianPosition(
