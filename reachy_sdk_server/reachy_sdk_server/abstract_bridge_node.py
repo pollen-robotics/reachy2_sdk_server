@@ -1,10 +1,14 @@
 from control_msgs.msg import DynamicJointState
+from geometry_msgs.msg import Pose, PoseStamped
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
 from threading import Event, Lock
 
+from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
+
 from reachy_sdk_api_v2.component_pb2 import ComponentId
+from reachy_sdk_api_v2.part_pb2 import PartId
 
 from .components import ComponentsHolder
 from .parts import PartsHolder
@@ -46,6 +50,9 @@ class AbstractBridgeNode(Node):
 
         # Now that we have components, setup parts
         self.parts = PartsHolder(self.logger, self.config, self.components)
+
+        # Register to services for kinematics
+        self.setup_kinematics()
 
         self.create_subscription(
             msg_type=JointState,
@@ -93,3 +100,46 @@ class AbstractBridgeNode(Node):
     # Misc utils
     def get_component(self, component_id: ComponentId) -> dict:
         return self.components.get_by_component_id(component_id)
+
+    # Kinematics
+    def setup_kinematics(self):
+        # Register to forward/inverse kinematics ROS services
+        # And to /{side}_arm/target_pose
+        self.forward_kinematics_clients = {}
+        self.inverse_kinematics_clients = {}
+        self.target_pose_pubs = {}
+
+        for part in self.parts:
+            c = self.create_client(
+                srv_type=GetForwardKinematics,
+                srv_name=f"/{part.name}/forward_kinematics",
+            )
+            self.logger.info(f"Subscribing for service '{c.srv_name}'...")
+            c.wait_for_service()
+            self.forward_kinematics_clients[part.id] = c
+
+            c = self.create_client(
+                srv_type=GetInverseKinematics,
+                srv_name=f"/{part.name}/inverse_kinematics",
+            )
+            self.logger.info(f"Subscribing for service '{c.srv_name}'...")
+            c.wait_for_service()
+            self.inverse_kinematics_clients[part.id] = c
+
+            self.target_pose_pubs[part.id] = self.create_publisher(
+                msg_type=PoseStamped,
+                topic=f"/{part.name}/target_pose",
+                qos_profile=10,
+            )
+            self.logger.info(
+                f"Publisher to topic '{self.target_pose_pubs[part.id].topic_name}' ready."
+            )
+
+    def publish_target_pose(self, id: PartId, pose: Pose) -> None:
+        id = self.parts.get_by_part_id(id).id
+
+        msg = PoseStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.pose = pose
+
+        self.target_pose_pubs[id].publish(msg)

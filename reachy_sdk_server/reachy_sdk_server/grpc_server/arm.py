@@ -70,38 +70,6 @@ class ArmServicer:
 
         self.arms = self.bridge_node.parts.get_by_type("arm")
 
-        # Register to forward/inverse kinematics ROS services
-        # And to /{side}_arm/target_pose
-        self.forward_kinematics_clients = {}
-        self.inverse_kinematics_clients = {}
-        self.target_pose_pubs = {}
-
-        for arm in self.arms:
-            c = self.bridge_node.create_client(
-                srv_type=GetForwardKinematics,
-                srv_name=f"/{arm.name}/forward_kinematics",
-            )
-            self.logger.info(f"Subscribing for service '{c.srv_name}'...")
-            c.wait_for_service()
-            self.forward_kinematics_clients[arm.id] = c
-
-            c = self.bridge_node.create_client(
-                srv_type=GetInverseKinematics,
-                srv_name=f"/{arm.name}/inverse_kinematics",
-            )
-            self.logger.info(f"Subscribing for service '{c.srv_name}'...")
-            c.wait_for_service()
-            self.inverse_kinematics_clients[arm.id] = c
-
-            self.target_pose_pubs[arm.id] = self.bridge_node.create_publisher(
-                msg_type=PoseStamped,
-                topic=f"/{arm.name}/target_pose",
-                qos_profile=10,
-            )
-            self.logger.info(
-                f"Publisher to topic '{self.target_pose_pubs[arm.id].topic_name}' ready."
-            )
-
     def register_to_server(self, server: grpc.Server):
         self.logger.info("Registering 'ArmServiceServicer' to server.")
         add_ArmServiceServicer_to_server(self, server)
@@ -129,19 +97,14 @@ class ArmServicer:
     def GoToCartesianPosition(
         self, request: ArmCartesianGoal, context: grpc.ServicerContext
     ) -> Empty:
-        arm = self.bridge_node.parts.get_by_part_id(request.id)
-
-        self.target_pose_pubs[arm.id].publish(
-            PoseStamped(
-                pose=pose_from_pos_and_ori(
-                    request.target_position, request.target_orientation
-                ),
-            )
-        )
-
         # TODO:
         # We do not take the duration or tolerance into account
         # We will develop a more advanced controller to handles this
+
+        self.bridge_node.publish_target_pose(
+            request.id,
+            pose_from_pos_and_ori(request.target_position, request.target_orientation),
+        )
 
         return Empty()
 
