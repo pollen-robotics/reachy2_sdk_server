@@ -1,6 +1,7 @@
 import numpy as np
 from geometry_msgs.msg import Pose
 from reachy_sdk_api_v2.arm_pb2 import ArmPosition
+from reachy_sdk_api_v2.head_pb2 import HeadPosition
 from reachy_sdk_api_v2.kinematics_pb2 import (
     ExtEulerAngles,
     Point,
@@ -106,6 +107,42 @@ def arm_position_to_joint_state(position: ArmPosition, arm: Part) -> JointState:
     return js
 
 
+def head_position_to_joint_state(position: HeadPosition, head: Part) -> JointState:
+    js = JointState()
+
+    for c in head.components:
+        js.name.extend(c.get_all_joints())
+
+    neck_pos = rotation3d_as_extrinsinc_euler_angles(position.neck_position)
+
+    js.position = [
+        neck_pos[0],
+        neck_pos[1],
+        neck_pos[2],
+        position.l_antenna_position,
+        position.r_antenna_position,
+    ]
+
+    return js
+
+
+def neck_position_to_joint_state(position: HeadPosition, head: Part) -> JointState:
+    js = JointState()
+
+    for c in head.components:
+        js.name.extend(c.get_all_joints())
+
+    neck_pos = rotation3d_as_extrinsinc_euler_angles(position.neck_position)
+
+    js.position = [
+        neck_pos[0],
+        neck_pos[1],
+        neck_pos[2],
+    ]
+
+    return js
+
+
 def joint_state_to_arm_position(js: JointState, arm: Part) -> ArmPosition:
     arm_name = []
     for c in arm.components:
@@ -145,3 +182,12 @@ def pose_from_pos_and_ori(pos: Point, ori: Rotation3D) -> Pose:
     p.orientation.w = q[3]
 
     return p
+
+
+def extract_quaternion_from_pose(pose: Pose) -> Tuple[float, float, float, float]:
+    return (
+        pose.orientation.x,
+        pose.orientation.y,
+        pose.orientation.z,
+        pose.orientation.w,
+    )

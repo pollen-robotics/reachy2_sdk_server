@@ -5,6 +5,7 @@ import threading
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
+from .head import HeadServicer
 from .orbita2d import Orbita2dServicer
 from .orbita3d import Orbita3dServicer
 from .reachy import ReachyServicer
@@ -29,10 +30,12 @@ class ReachyGRPCJointSDKServicer:
             orbita2d_servicer,
             orbita3d_servicer,
         )
+        head_servicer = HeadServicer(self.bridge_node, self.logger, orbita3d_servicer)
         reachy_servicer = ReachyServicer(self.bridge_node, self.logger, arm_servicer)
 
         self.services = [
             arm_servicer,
+            head_servicer,
             orbita2d_servicer,
             orbita3d_servicer,
             reachy_servicer,
