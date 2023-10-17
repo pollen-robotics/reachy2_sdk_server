@@ -38,6 +38,12 @@ class AbstractBridgeNode(Node):
         )
 
         self.wait_for_setup()
+        self.logger.info(
+            f"Joint state setup (nb_joints={len(self.components.components)})."
+        )
+        for c in self.components.components:
+            self.logger.info(f"\t - {c}")
+
         # Now that we have components, setup parts
         self.parts = PartsHolder(self.logger, self.config, self.components)
 
@@ -56,12 +62,6 @@ class AbstractBridgeNode(Node):
         # call service to get all value for each joint
         for name in self.joint_names:
             self.components.add_component(name, node_delegate=self)
-
-        self.logger.info(
-            f"Joint state setup (nb_joints={len(self.components.components)})."
-        )
-        for c in self.components.components:
-            self.logger.info(f"\t - {c}")
 
         self.joint_state_ready.set()
 
