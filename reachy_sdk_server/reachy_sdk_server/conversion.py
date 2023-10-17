@@ -52,24 +52,7 @@ def extrinsic_euler_angles_as_rotation3d(
 
 def pose_to_matrix(
     pose: Pose,
-) -> Tuple[
-    float,
-    float,
-    float,
-    float,
-    float,
-    float,
-    float,
-    float,
-    float,
-    float,
-    float,
-    float,
-    float,
-    float,
-    float,
-    float,
-]:
+):
     M = np.eye(4)
 
     M[0, 3] = pose.position.x
@@ -79,29 +62,10 @@ def pose_to_matrix(
     q = pose.orientation
     M[:3, :3] = Rotation.from_quat([q.x, q.y, q.z, q.w]).as_matrix()
 
-    return M.flatten()
+    return M
 
 
-def matrix_to_pose(
-    M: Tuple[
-        float,
-        float,
-        float,
-        float,
-        float,
-        float,
-        float,
-        float,
-        float,
-        float,
-        float,
-        float,
-        float,
-        float,
-        float,
-        float,
-    ],
-) -> Pose:
+def matrix_to_pose(M) -> Pose:
     pose = Pose()
 
     M = np.array(M).reshape((4, 4))

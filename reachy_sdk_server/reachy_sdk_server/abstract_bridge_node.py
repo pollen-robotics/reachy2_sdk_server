@@ -1,9 +1,11 @@
 from control_msgs.msg import DynamicJointState
 from geometry_msgs.msg import Pose, PoseStamped
+import numpy as np
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
 from threading import Event, Lock
+from typing import Optional, Tuple
 
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
 
@@ -11,6 +13,7 @@ from reachy_sdk_api_v2.component_pb2 import ComponentId
 from reachy_sdk_api_v2.part_pb2 import PartId
 
 from .components import ComponentsHolder
+from .conversion import matrix_to_pose, pose_to_matrix
 from .parts import PartsHolder
 from .utils import parse_reachy_config
 
@@ -134,6 +137,33 @@ class AbstractBridgeNode(Node):
             self.logger.info(
                 f"Publisher to topic '{self.target_pose_pubs[part.id].topic_name}' ready."
             )
+
+    def compute_forward(
+        self, id: PartId, joint_position: JointState
+    ) -> Tuple[bool, np.array]:
+        id = self.parts.get_by_part_id(id).id
+
+        req = GetForwardKinematics.Request()
+        req.joint_position = joint_position
+
+        resp = self.forward_kinematics_clients[id].call(req)
+
+        if resp.success:
+            return True, pose_to_matrix(resp.pose)
+        else:
+            return False, None
+
+    def compute_inverse(
+        self, id: PartId, target: np.array, q0: JointState
+    ) -> Tuple[bool, JointState]:
+        id = self.parts.get_by_part_id(id).id
+
+        req = GetInverseKinematics.Request()
+        req.pose = matrix_to_pose(target)
+        req.q0 = q0
+
+        resp = self.inverse_kinematics_clients[id].call(req)
+        return resp.success, resp.joint_position
 
     def publish_target_pose(self, id: PartId, pose: Pose) -> None:
         id = self.parts.get_by_part_id(id).id
