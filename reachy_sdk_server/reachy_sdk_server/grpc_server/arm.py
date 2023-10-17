@@ -37,8 +37,17 @@ from ..conversion import (
     pose_to_matrix,
     rotation3d_as_extrinsinc_euler_angles,
 )
-from .orbita2d import Orbita2dServicer
-from .orbita3d import Orbita3dServicer
+from .orbita2d import (
+    ComponentId,
+    Orbita2DField,
+    Orbita2dServicer,
+    Orbita2DStateRequest,
+)
+from .orbita3d import (
+    Orbita3DField,
+    Orbita3DStateRequest,
+    Orbita3dServicer,
+)
 
 
 class ArmServicer:
@@ -46,9 +55,14 @@ class ArmServicer:
         self,
         bridge_node: AbstractBridgeNode,
         logger: rclpy.impl.rcutils_logger.RcutilsLogger,
+        orbita2d_servicer: Orbita2dServicer,
+        orbita3d_servicer: Orbita3dServicer,
     ) -> None:
         self.bridge_node = bridge_node
         self.logger = logger
+
+        self.orbita2d_servicer = orbita2d_servicer
+        self.orbita3d_servicer = orbita3d_servicer
 
         self.arms = self.bridge_node.parts.get_by_type("arm")
 
@@ -118,12 +132,44 @@ class ArmServicer:
     def GetCartesianPosition(
         self, request: PartId, context: grpc.ServicerContext
     ) -> Matrix4x4:
-        return Matrix4x4()
+        request = ArmFKRequest(
+            id=request,
+            position=self.GetJointPosition(request, context),
+        )
+
+        sol = self.ComputeArmFK(request, context)
+        assert sol.success
+
+        return sol.end_effector.pose
 
     def GetJointPosition(
         self, request: PartId, context: grpc.ServicerContext
     ) -> ArmPosition:
-        return ArmPosition()
+        arm = self.bridge_node.parts.get_by_part_id(request)
+
+        return ArmPosition(
+            shoulder_position=self.orbita2d_servicer.GetState(
+                Orbita2DStateRequest(
+                    fields=[Orbita2DField.PRESENT_POSITION],
+                    id=ComponentId(id=arm.components[0].id),
+                ),
+                context,
+            ).present_position,
+            elbow_position=self.orbita2d_servicer.GetState(
+                Orbita2DStateRequest(
+                    fields=[Orbita2DField.PRESENT_POSITION],
+                    id=ComponentId(id=arm.components[1].id),
+                ),
+                context,
+            ).present_position,
+            wrist_position=self.orbita3d_servicer.GetState(
+                Orbita3DStateRequest(
+                    fields=[Orbita3DField.PRESENT_POSITION],
+                    id=ComponentId(id=arm.components[2].id),
+                ),
+                context,
+            ).present_position,
+        )
 
     def GetJointGoalPosition(
         self, request: PartId, context: grpc.ServicerContext
