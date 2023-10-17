@@ -48,6 +48,9 @@ class PartsHolder:
                 self.logger.info(f"\t - {p}")
         self.logger.info(f"Parts created (nb_parts={len(self.parts)}).\n")
 
+    def __iter__(self):
+        return iter(self.parts.values())
+
     def get_by_part_id(self, part_id: PartId) -> Part:
         if part_id.id:
             return self.get_by_id(part_id.id)
