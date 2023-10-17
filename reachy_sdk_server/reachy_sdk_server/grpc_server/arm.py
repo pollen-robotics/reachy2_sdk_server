@@ -147,8 +147,7 @@ class ArmServicer:
         )
 
         # TODO:
-        # Publish dans /{side}_arm/target_pose
-        # We do not take the duration into account
+        # We do not take the duration or tolerance into account
         # We will develop a more advanced controller to handles this
 
         return Empty()
