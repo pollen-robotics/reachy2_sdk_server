@@ -13,8 +13,10 @@ from reachy_sdk_api_v2.reachy_pb2 import (
 )
 from reachy_sdk_api_v2.reachy_pb2_grpc import add_ReachyServiceServicer_to_server
 
+
 from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
+from ..utils import get_current_timestamp
 
 
 class ReachyServicer:
@@ -59,7 +61,21 @@ class ReachyServicer:
     def GetReachyState(
         self, request: ReachyId, context: grpc.ServicerContext
     ) -> ReachyState:
-        pass
+        params = {
+            "timestamp": get_current_timestamp(self.bridge_node),
+            "id": request,
+        }
+
+        # TODO: add whrn we have arm.GetState
+        # for arm_side in ("r", "l"):
+        #     name = f"{arm_side}_arm"
+
+        #     try:
+        #         params[name] = self.arm_servicer.GetState()
+        #     except KeyError:
+        #         pass
+
+        return ReachyState(**params)
 
     def StreamReachyState(
         self, request: ReachyStreamStateRequest, context: grpc.ServicerContext
