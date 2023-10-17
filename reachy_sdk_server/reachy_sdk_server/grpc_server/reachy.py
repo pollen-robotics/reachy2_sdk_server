@@ -52,14 +52,9 @@ class ReachyServicer:
             "id": request,
         }
 
-        # TODO: add whrn we have arm.GetState
-        # for arm_side in ("r", "l"):
-        #     name = f"{arm_side}_arm"
-
-        #     try:
-        #         params[name] = self.arm_servicer.GetState()
-        #     except KeyError:
-        #         pass
+        for p in self.bridge_node.parts:
+            if p.type == "arm":
+                params[f"{p.name}_state"] = self.arm_servicer.GetState(p, context)
 
         return ReachyState(**params)
 
