@@ -157,6 +157,10 @@ class ArmServicer:
     ) -> Empty:
         arm = self.bridge_node.parts.get_by_part_id(request.id)
 
+        # TODO:
+        # We do not take the duration into account
+        # We will develop a more advanced controller to handles this
+
         # TODO: Use Orbita2DsCommand
         self.orbita2d_servicer.SendCommand(
             Orbita2DCommand(
