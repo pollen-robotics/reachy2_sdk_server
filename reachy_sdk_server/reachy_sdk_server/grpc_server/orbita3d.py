@@ -43,6 +43,7 @@ Orbita3DComponents = namedtuple(
 class Orbita3dServicer:
     default_fields = [
         Orbita3DField.PRESENT_POSITION,
+        Orbita3DField.GOAL_POSITION,
     ]
 
     def __init__(

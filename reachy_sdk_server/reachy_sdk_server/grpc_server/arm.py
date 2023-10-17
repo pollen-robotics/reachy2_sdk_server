@@ -185,59 +185,21 @@ class ArmServicer:
     def GetJointPosition(
         self, request: PartId, context: grpc.ServicerContext
     ) -> ArmPosition:
-        arm = self.bridge_node.parts.get_by_part_id(request)
-
+        state = self.GetState(request, context)
         return ArmPosition(
-            shoulder_position=self.orbita2d_servicer.GetState(
-                Orbita2DStateRequest(
-                    fields=[Orbita2DField.PRESENT_POSITION],
-                    id=ComponentId(id=arm.components[0].id),
-                ),
-                context,
-            ).present_position,
-            elbow_position=self.orbita2d_servicer.GetState(
-                Orbita2DStateRequest(
-                    fields=[Orbita2DField.PRESENT_POSITION],
-                    id=ComponentId(id=arm.components[1].id),
-                ),
-                context,
-            ).present_position,
-            wrist_position=self.orbita3d_servicer.GetState(
-                Orbita3DStateRequest(
-                    fields=[Orbita3DField.PRESENT_POSITION],
-                    id=ComponentId(id=arm.components[2].id),
-                ),
-                context,
-            ).present_position,
+            shoulder_position=state.shoulder_state.present_position,
+            elbow_position=state.elbow_state.present_position,
+            wrist_position=state.wrist_state.present_position,
         )
 
     def GetJointGoalPosition(
         self, request: PartId, context: grpc.ServicerContext
     ) -> ArmPosition:
-        arm = self.bridge_node.parts.get_by_part_id(request)
-
+        state = self.GetState(request, context)
         return ArmPosition(
-            shoulder_position=self.orbita2d_servicer.GetState(
-                Orbita2DStateRequest(
-                    fields=[Orbita2DField.GOAL_POSITION],
-                    id=ComponentId(id=arm.components[0].id),
-                ),
-                context,
-            ).goal_position,
-            elbow_position=self.orbita2d_servicer.GetState(
-                Orbita2DStateRequest(
-                    fields=[Orbita2DField.GOAL_POSITION],
-                    id=ComponentId(id=arm.components[1].id),
-                ),
-                context,
-            ).goal_position,
-            wrist_position=self.orbita3d_servicer.GetState(
-                Orbita3DStateRequest(
-                    fields=[Orbita3DField.GOAL_POSITION],
-                    id=ComponentId(id=arm.components[2].id),
-                ),
-                context,
-            ).goal_position,
+            shoulder_position=state.shoulder_state.goal_position,
+            elbow_position=state.elbow_state.goal_position,
+            wrist_position=state.wrist_state.goal_position,
         )
 
     # Compliances
