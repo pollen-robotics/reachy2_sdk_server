@@ -16,7 +16,7 @@ from reachy_sdk_api_v2.reachy_pb2_grpc import add_ReachyServiceServicer_to_serve
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
-from ..utils import get_current_timestamp
+from ..utils import endless_get_stream, get_current_timestamp
 
 
 class ReachyServicer:
@@ -80,4 +80,6 @@ class ReachyServicer:
     def StreamReachyState(
         self, request: ReachyStreamStateRequest, context: grpc.ServicerContext
     ) -> Iterator[ReachyState]:
-        pass
+        return endless_get_stream(
+            self.GetReachyState, request.id, context, 1 / request.publish_frequency
+        )
