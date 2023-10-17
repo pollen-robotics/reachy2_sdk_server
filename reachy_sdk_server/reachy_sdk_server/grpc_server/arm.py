@@ -15,6 +15,7 @@ from reachy_sdk_api_v2.arm_pb2 import (
     ArmIKSolution,
     ArmJointGoal,
     ArmPosition,
+    ArmState,
     ArmStatus,
     ArmTemperatures,
     ArmLimits,
@@ -48,6 +49,7 @@ from .orbita3d import (
     Orbita3dServicer,
 )
 from ..parts import Part
+from ..utils import get_current_timestamp
 
 
 class ArmServicer:
@@ -88,6 +90,35 @@ class ArmServicer:
 
     def GetAllArms(self, request: Empty, context: grpc.ServicerContext) -> ListOfArm:
         return ListOfArm(arm=[self.get_arm(arm, context) for arm in self.arms])
+
+    def GetState(self, request: PartId, context: grpc.ServicerContext) -> ArmState:
+        arm = self.bridge_node.parts.get_by_part_id(request)
+
+        return ArmState(
+            timestamp=get_current_timestamp(self.bridge_node),
+            id=request,
+            shoulder_state=self.orbita2d_servicer.GetState(
+                Orbita2DStateRequest(
+                    fields=self.orbita2d_servicer.default_fields,
+                    id=ComponentId(id=arm.components[0].id),
+                ),
+                context,
+            ),
+            elbow_state=self.orbita2d_servicer.GetState(
+                Orbita2DStateRequest(
+                    fields=self.orbita2d_servicer.default_fields,
+                    id=ComponentId(id=arm.components[1].id),
+                ),
+                context,
+            ),
+            wrist_state=self.orbita3d_servicer.GetState(
+                Orbita3DStateRequest(
+                    fields=self.orbita3d_servicer.default_fields,
+                    id=ComponentId(id=arm.components[2].id),
+                ),
+                context,
+            ),
+        )
 
     # Position and GoTo
     def GoToCartesianPosition(

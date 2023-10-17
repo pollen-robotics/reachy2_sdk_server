@@ -41,6 +41,10 @@ Orbita3DComponents = namedtuple(
 
 
 class Orbita3dServicer:
+    default_fields = [
+        Orbita3DField.PRESENT_POSITION,
+    ]
+
     def __init__(
         self,
         bridge_node: AbstractBridgeNode,

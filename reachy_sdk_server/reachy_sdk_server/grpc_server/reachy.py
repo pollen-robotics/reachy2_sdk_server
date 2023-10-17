@@ -4,6 +4,7 @@ import rclpy
 
 from google.protobuf.empty_pb2 import Empty
 
+from reachy_sdk_api_v2.part_pb2 import PartId
 from reachy_sdk_api_v2.reachy_pb2 import (
     Reachy,
     ReachyId,
@@ -54,7 +55,9 @@ class ReachyServicer:
 
         for p in self.bridge_node.parts:
             if p.type == "arm":
-                params[f"{p.name}_state"] = self.arm_servicer.GetState(p, context)
+                params[f"{p.name}_state"] = self.arm_servicer.GetState(
+                    PartId(id=p.id), context
+                )
 
         return ReachyState(**params)
 
