@@ -174,7 +174,31 @@ class ArmServicer:
     def GetJointGoalPosition(
         self, request: PartId, context: grpc.ServicerContext
     ) -> ArmPosition:
-        return ArmPosition()
+        arm = self.bridge_node.parts.get_by_part_id(request)
+
+        return ArmPosition(
+            shoulder_position=self.orbita2d_servicer.GetState(
+                Orbita2DStateRequest(
+                    fields=[Orbita2DField.GOAL_POSITION],
+                    id=ComponentId(id=arm.components[0].id),
+                ),
+                context,
+            ).goal_position,
+            elbow_position=self.orbita2d_servicer.GetState(
+                Orbita2DStateRequest(
+                    fields=[Orbita2DField.GOAL_POSITION],
+                    id=ComponentId(id=arm.components[1].id),
+                ),
+                context,
+            ).goal_position,
+            wrist_position=self.orbita3d_servicer.GetState(
+                Orbita3DStateRequest(
+                    fields=[Orbita3DField.GOAL_POSITION],
+                    id=ComponentId(id=arm.components[2].id),
+                ),
+                context,
+            ).goal_position,
+        )
 
     # Compliances
     def set_stiffness(self, request: PartId, torque: bool) -> None:
