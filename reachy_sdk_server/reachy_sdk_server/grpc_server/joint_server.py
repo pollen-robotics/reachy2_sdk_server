@@ -18,7 +18,6 @@ class ReachyGRPCJointSDKServicer:
         executor = rclpy.executors.MultiThreadedExecutor()
         executor.add_node(self.bridge_node)
         threading.Thread(target=executor.spin).start()
-        # threading.Thread(target=lambda: rclpy.spin(self.bridge_node)).start()
 
         self.logger = self.bridge_node.get_logger()
 
