@@ -2,6 +2,7 @@ import grpc
 import rclpy
 
 from control_msgs.msg import DynamicJointState, InterfaceValue
+from geometry_msgs.msg import PoseStamped
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
 
 from google.protobuf.empty_pb2 import Empty
@@ -34,6 +35,7 @@ from ..conversion import (
     arm_position_to_joint_state,
     joint_state_to_arm_position,
     matrix_to_pose,
+    pose_from_pos_and_ori,
     pose_to_matrix,
 )
 from .orbita2d import (
@@ -68,8 +70,10 @@ class ArmServicer:
         self.arms = self.bridge_node.parts.get_by_type("arm")
 
         # Register to forward/inverse kinematics ROS services
+        # And to /{side}_arm/target_pose
         self.forward_kinematics_clients = {}
         self.inverse_kinematics_clients = {}
+        self.target_pose_pubs = {}
 
         for arm in self.arms:
             c = self.bridge_node.create_client(
@@ -87,6 +91,15 @@ class ArmServicer:
             self.logger.info(f"Subscribing for service '{c.srv_name}'...")
             c.wait_for_service()
             self.inverse_kinematics_clients[arm.id] = c
+
+            self.target_pose_pubs[arm.id] = self.bridge_node.create_publisher(
+                msg_type=PoseStamped,
+                topic=f"/{arm.name}/target_pose",
+                qos_profile=10,
+            )
+            self.logger.info(
+                f"Publisher to topic '{self.target_pose_pubs[arm.id].topic_name}' ready."
+            )
 
     def register_to_server(self, server: grpc.Server):
         self.logger.info("Registering 'ArmServiceServicer' to server.")
@@ -123,6 +136,21 @@ class ArmServicer:
     def GoToCartesianPosition(
         self, request: ArmCartesianGoal, context: grpc.ServicerContext
     ) -> Empty:
+        arm = self.bridge_node.parts.get_by_part_id(request.id)
+
+        self.target_pose_pubs[arm.id].publish(
+            PoseStamped(
+                pose=pose_from_pos_and_ori(
+                    request.target_position, request.target_orientation
+                ),
+            )
+        )
+
+        # TODO:
+        # Publish dans /{side}_arm/target_pose
+        # We do not take the duration into account
+        # We will develop a more advanced controller to handles this
+
         return Empty()
 
     def GoToJointPosition(

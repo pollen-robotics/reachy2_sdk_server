@@ -1,7 +1,11 @@
 import numpy as np
 from geometry_msgs.msg import Pose
 from reachy_sdk_api_v2.arm_pb2 import ArmPosition
-from reachy_sdk_api_v2.kinematics_pb2 import ExtEulerAngles, Rotation3D
+from reachy_sdk_api_v2.kinematics_pb2 import (
+    ExtEulerAngles,
+    Point,
+    Rotation3D,
+)
 from reachy_sdk_api_v2.orbita2d_pb2 import Pose2D
 from scipy.spatial.transform import Rotation
 from sensor_msgs.msg import JointState
@@ -13,18 +17,21 @@ from .parts import Part
 def rotation3d_as_extrinsinc_euler_angles(
     rot: Rotation3D,
 ) -> Tuple[float, float, float]:
+    q = rotation3d_as_quat(rot)
+    return Rotation.from_quat(q).as_euler("xyz")
+
+
+def rotation3d_as_quat(
+    rot: Rotation3D,
+) -> Tuple[float, float, float, float]:
     if rot.HasField("q"):
-        return Rotation.from_quat([rot.q.x, rot.q.y, rot.q.z, rot.q.w]).as_euler(
-            "xyz",
-            degrees=False,
-        )
+        return rot.q.x, rot.q.y, rot.q.z, rot.q.w
     elif rot.HasField("rpy"):
-        return rot.rpy.roll, rot.rpy.pitch, rot.rpy.yaw
+        return Rotation.from_euler(
+            "xyz", [rot.rpy.roll, rot.rpy.pitch, rot.rpy.yaw], degrees=False
+        ).as_quat()
     elif rot.HasField("matrix"):
-        return Rotation.from_matrix(np.array(rot.matrix.data).reshape((3, 3))).as_euler(
-            "xyz",
-            degrees=False,
-        )
+        return Rotation.from_matrix(np.array(rot.matrix.data).reshape((3, 3))).as_quat()
     else:
         raise ValueError("Unknown rotation type.")
 
@@ -158,3 +165,19 @@ def joint_state_to_arm_position(js: JointState, arm: Part) -> ArmPosition:
             yaw=js.position[6],
         ),
     )
+
+
+def pose_from_pos_and_ori(pos: Point, ori: Rotation3D) -> Pose:
+    p = Pose()
+
+    p.position.x = pos.x
+    p.position.y = pos.y
+    p.position.z = pos.z
+
+    q = rotation3d_as_quat(ori)
+    p.orientation.x = q[0]
+    p.orientation.y = q[1]
+    p.orientation.z = q[2]
+    p.orientation.w = q[3]
+
+    return p
