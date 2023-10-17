@@ -61,7 +61,8 @@ class DynamixelMotorServicer(DynamixelMotorServiceServicer):
 
         for field in request.fields:
             if field in (DynamixelMotorField.NAME, DynamixelMotorField.ALL):
-                kwargs['name'] = antenna.id
+                # kwargs['name'] = antenna.id
+                pass
             if field in (DynamixelMotorField.PRESENT_POSITION, DynamixelMotorField.ALL):
                 kwargs['present_position'] = FloatValue(value=antenna.present_position)
             if field in (DynamixelMotorField.PRESENT_SPEED, DynamixelMotorField.ALL):
@@ -96,7 +97,6 @@ class DynamixelMotorServicer(DynamixelMotorServiceServicer):
 
     def SendCommand(self, request: DynamixelMotorsCommand, context: ServicerContext) -> Empty:
         for cmd in request.cmd:
-            print(cmd)
             self.check_component_id(cmd.id.id, context)
             antenna = self.antennas[cmd.id.id]
             antenna.handle_command(cmd)
