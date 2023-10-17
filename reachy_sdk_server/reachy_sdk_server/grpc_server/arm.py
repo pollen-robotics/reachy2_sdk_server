@@ -2,8 +2,6 @@ import grpc
 import rclpy
 
 from control_msgs.msg import DynamicJointState, InterfaceValue
-from geometry_msgs.msg import PoseStamped
-from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
 
 from google.protobuf.empty_pb2 import Empty
 
@@ -26,7 +24,7 @@ from reachy_sdk_api_v2.arm_pb2 import (
 from reachy_sdk_api_v2.arm_pb2_grpc import (
     add_ArmServiceServicer_to_server,
 )
-from reachy_sdk_api_v2.part_pb2 import PartId, PartInfo
+from reachy_sdk_api_v2.part_pb2 import PartId
 from reachy_sdk_api_v2.kinematics_pb2 import Matrix4x4
 
 
@@ -34,7 +32,6 @@ from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import (
     arm_position_to_joint_state,
     joint_state_to_arm_position,
-    matrix_to_pose,
     pose_from_pos_and_ori,
 )
 from .orbita2d import (
