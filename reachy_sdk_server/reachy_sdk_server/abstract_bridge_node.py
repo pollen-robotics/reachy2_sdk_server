@@ -5,7 +5,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
 from threading import Event, Lock
-from typing import Optional, Tuple
+from typing import Tuple
 
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
 
@@ -112,6 +112,8 @@ class AbstractBridgeNode(Node):
         self.inverse_kinematics_clients = {}
         self.target_pose_pubs = {}
 
+        self.command_target_pub_lock = Lock()
+
         for part in self.parts:
             c = self.create_client(
                 srv_type=GetForwardKinematics,
@@ -172,4 +174,5 @@ class AbstractBridgeNode(Node):
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.pose = pose
 
-        self.target_pose_pubs[id].publish(msg)
+        with self.command_target_pub_lock:
+            self.target_pose_pubs[id].publish(msg)

@@ -38,13 +38,11 @@ from ..conversion import (
 from .orbita2d import (
     ComponentId,
     Orbita2DCommand,
-    Orbita2DField,
     Orbita2dServicer,
     Orbita2DStateRequest,
 )
 from .orbita3d import (
     Orbita3DCommand,
-    Orbita3DField,
     Orbita3DStateRequest,
     Orbita3dServicer,
 )
@@ -204,6 +202,7 @@ class ArmServicer:
 
     # Compliances
     def set_stiffness(self, request: PartId, torque: bool) -> None:
+        # TODO: re-write using self.orbita2d_servicer.SendCommand?
         part = self.bridge_node.parts.get_by_part_id(request)
 
         cmd = DynamicJointState()
