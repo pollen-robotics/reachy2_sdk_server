@@ -34,21 +34,13 @@ class ReachyServicer:
         add_ReachyServiceServicer_to_server(self, server)
 
     def GetReachy(self, request: Empty, context: grpc.ServicerContext) -> Reachy:
-        parts = self.bridge_node.parts
-
         params = {
             "id": ReachyId(name="reachy"),
         }
 
-        for arm_side in ("r", "l"):
-            name = f"{arm_side}_arm"
-
-            try:
-                params[name] = self.arm_servicer.get_arm(
-                    parts.get_by_name(name), context
-                )
-            except KeyError:
-                pass
+        for p in self.bridge_node.parts:
+            if p.type == "arm":
+                params[p.name] = self.arm_servicer.get_arm(p, context)
 
         return Reachy(**params)
 
