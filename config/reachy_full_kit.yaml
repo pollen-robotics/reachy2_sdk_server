@@ -1,5 +1,5 @@
 reachy:
-  right_arm:
+  r_arm:
     shoulder:
       name: r_shoulder
       actuator: orbita2d

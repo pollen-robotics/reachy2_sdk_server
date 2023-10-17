@@ -7,6 +7,7 @@ from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
 from .orbita2d import Orbita2dServicer
 from .orbita3d import Orbita3dServicer
+from .reachy import ReachyServicer
 
 
 class ReachyGRPCJointSDKServicer:
@@ -20,10 +21,22 @@ class ReachyGRPCJointSDKServicer:
         # threading.Thread(target=lambda: rclpy.spin(self.bridge_node)).start()
 
         self.logger = self.bridge_node.get_logger()
+
+        orbita2d_servicer = Orbita2dServicer(self.bridge_node, self.logger)
+        orbita3d_servicer = Orbita3dServicer(self.bridge_node, self.logger)
+        arm_servicer = ArmServicer(
+            self.bridge_node,
+            self.logger,
+            orbita2d_servicer,
+            orbita3d_servicer,
+        )
+        reachy_servicer = ReachyServicer(self.bridge_node, self.logger, arm_servicer)
+
         self.services = [
-            ArmServicer(self.bridge_node, self.logger),
-            Orbita2dServicer(self.bridge_node, self.logger),
-            Orbita3dServicer(self.bridge_node, self.logger),
+            arm_servicer,
+            orbita2d_servicer,
+            orbita3d_servicer,
+            reachy_servicer,
         ]
 
         self.logger.info("Reachy GRPC Joint SDK Servicer initialized.")

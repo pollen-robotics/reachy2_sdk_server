@@ -25,11 +25,12 @@ from reachy_sdk_api_v2.orbita3d_pb2 import (
 from reachy_sdk_api_v2.orbita3d_pb2_grpc import add_Orbita3DServiceServicer_to_server
 
 from ..abstract_bridge_node import AbstractBridgeNode
+from ..conversion import rotation3d_as_extrinsinc_euler_angles
+from ..components import Component
 from ..utils import (
     endless_get_stream,
     extract_fields,
     get_current_timestamp,
-    rotation3d_as_extrinsinc_euler_angles,
 )
 
 
@@ -52,23 +53,24 @@ class Orbita3dServicer:
         self.logger.info("Registering 'Orbita3dServiceServicer' to server.")
         add_Orbita3DServiceServicer_to_server(self, server)
 
+    @classmethod
+    def get_info(cls, orbita3d: Component) -> Orbita3DInfo:
+        return Orbita3DInfo(
+            id=ComponentId(
+                id=orbita3d.id,
+                name=orbita3d.name,
+            ),
+        )
+
     def GetAllOrbita3D(
         self, request: Empty, context: grpc.ServicerContext
     ) -> ListOfOrbita3DInfo:
-        orbita3d = self.bridge_node.components.get_by_type("orbita3d")
-
-        infos = ListOfOrbita3DInfo(
+        return ListOfOrbita3DInfo(
             info=[
-                Orbita3DInfo(
-                    id=ComponentId(
-                        id=o.id,
-                        name=o.name,
-                    ),
-                )
-                for o in orbita3d
+                self.get_info(o)
+                for o in self.bridge_node.components.get_by_type("orbita3d")
             ]
         )
-        return infos
 
     def GetState(
         self, request: Orbita3DStateRequest, context: grpc.ServicerContext
