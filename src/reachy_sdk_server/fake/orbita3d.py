@@ -170,14 +170,13 @@ class FakeOrbita3D:
         if request.HasField('compliant'):
             self.compliant = request.compliant.value
         if request.HasField('goal_position'):
-            # TODO: handle properly
-            gp = request.goal_position.q
-            if gp.x is not None:
-                self.roll.goal_position = gp.x
-            if gp.y is not None:
-                self.pitch.goal_position = gp.y
-            if gp.z is not None:
-                self.yaw.goal_position = gp.z
+            gp = request.goal_position.rpy
+            if gp.roll is not None:
+                self.roll.goal_position = gp.roll
+            if gp.pitch is not None:
+                self.pitch.goal_position = gp.pitch
+            if gp.yaw is not None:
+                self.yaw.goal_position = gp.yaw
         if request.HasField('speed_limit'):
             sl = request.speed_limit
             if sl.motor_1 is not None:
