@@ -150,7 +150,7 @@ class ArmServicer:
     def GoToJointPosition(
         self, request: ArmJointGoal, context: grpc.ServicerContext
     ) -> Empty:
-        arm = self.get_arm_part_by_part_id(request, context)
+        arm = self.get_arm_part_by_part_id(request.id, context)
 
         # TODO:
         # We do not take the duration into account
@@ -263,7 +263,7 @@ class ArmServicer:
     def ComputeArmFK(
         self, request: ArmFKRequest, context: grpc.ServicerContext
     ) -> ArmFKSolution:
-        arm = self.get_arm_part_by_part_id(request, context)
+        arm = self.get_arm_part_by_part_id(request.id, context)
         success, pose = self.bridge_node.compute_forward(
             request.id, arm_position_to_joint_state(request.position, arm)
         )
@@ -279,7 +279,7 @@ class ArmServicer:
     def ComputeArmIK(
         self, request: ArmIKRequest, context: grpc.ServicerContext
     ) -> ArmIKSolution:
-        arm = self.get_arm_part_by_part_id(request, context)
+        arm = self.get_arm_part_by_part_id(request.id, context)
 
         success, joint_position = self.bridge_node.compute_inverse(
             request.id,
