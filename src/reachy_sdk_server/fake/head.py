@@ -1,23 +1,27 @@
 from pathlib import Path
-from typing import Dict, Iterator, List
+from typing import Dict, List
 import uuid
 
 from google.protobuf.empty_pb2 import Empty
-from google.protobuf.timestamp_pb2 import Timestamp
 from grpc import ServicerContext
 from reachy_sdk_api_v2.head_pb2 import (
     Head,
     ListOfHead,
+    NeckFKRequest,
+    NeckFKSolution,
+    NeckOrientation,
+    NeckIKRequest,
+    NeckIKSolution,
 )
 from reachy_sdk_api_v2.head_pb2_grpc import HeadServiceServicer
 from reachy_sdk_api_v2.part_pb2 import PartInfo, PartId
 from reachy_sdk_api_v2.kinematics_pb2 import Quaternion
-from reachy_sdk_api_v2.orbita3d_pb2 import (
-    Orbita3DInfo,
+
+from reachy_sdk_api_v2.kinematics_pb2 import (
+    Rotation3D,
+    ExtEulerAngles,
 )
-from reachy_sdk_api_v2.dynamixel_motor_pb2 import (
-    DynamixelMotorInfo,
-)
+
 from .dynamixel_motor import FakeDynamixelMotor
 from .orbita3d import FakeOrbita3D
 from .utils import read_config_file
@@ -43,11 +47,19 @@ class HeadServicer(HeadServiceServicer):
                 ) for head in self.heads.values()]
         )
 
-    def ComputeNeckFK(self, request, context):
-        return super().ComputeHeadFK(request, context)
+    def ComputeNeckFK(self, request: NeckFKRequest, context) -> NeckFKSolution:
+        res = NeckFKSolution(
+            success=True,
+            orientation=NeckOrientation(q=Quaternion(w=1, x=0, y=0, z=0))
+        )
+        return res
 
-    def ComputeNeckIK(self, request, context):
-        return super().ComputeHeadIK(request, context)
+    def ComputeNeckIK(self, request: NeckIKRequest, context) -> NeckIKSolution:
+        res = NeckIKSolution(
+            success=True,
+            position=Rotation3D(rpy=ExtEulerAngles(roll=1, pitch=2, yaw=3))
+        )
+        return res
 
     def GoToOrientation(self, request, context):
         return super().GoToOrientation(request, context)
