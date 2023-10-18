@@ -45,7 +45,6 @@ class ReachyServicer(ReachyServiceServicer):
     def __init__(self, right_arm, head) -> None:
         self.right_arm = right_arm
         self.head = head
-        self._temp = 0.01
 
     def GetReachy(self, request: Empty, context) -> Reachy:
         return Reachy(
@@ -120,7 +119,6 @@ class ReachyServicer(ReachyServiceServicer):
 
     def GetReachyState(self, id: ReachyId, context: grpc.ServicerContext) -> ReachyState:
         """Get the requested joints id."""
-        self._temp += 0.01
         return ReachyState(
             # l_arm_state=ArmState(
             #     name=self.left_arm.name
@@ -364,14 +362,14 @@ class ReachyServicer(ReachyServiceServicer):
                         id=self.head.l_antenna.id,
                         name=self.head.l_antenna.name,
                     ),
-                    temperature=self.head.l_antenna.pid.temperature,
-                    present_position=self.head.l_antenna.pid.present_position,
-                    present_speed=self.head.l_antenna.pid.present_speed,
-                    present_load=self.head.l_antenna.pid.present_load,
+                    temperature=FloatValue(value=self.head.l_antenna.temperature),
+                    present_position=FloatValue(value=self.head.l_antenna.present_position),
+                    present_speed=FloatValue(value=self.head.l_antenna.present_speed),
+                    present_load=FloatValue(value=self.head.l_antenna.present_load),
                     compliant=BoolValue(value=self.head.l_antenna.compliant),
-                    goal_position=self.head.l_antenna.pid.goal_position,
-                    speed_limit=self.head.l_antenna.pid.speed_limit,
-                    torque_limit=self.head.l_antenna.pid.torque_limit,
+                    goal_position=FloatValue(value=self.head.l_antenna.goal_position),
+                    speed_limit=FloatValue(value=self.head.l_antenna.speed_limit),
+                    torque_limit=FloatValue(value=self.head.l_antenna.torque_limit),
                     pid=PIDGains(
                             p=self.head.l_antenna.pid.p,
                             i=self.head.l_antenna.pid.i,
@@ -383,14 +381,14 @@ class ReachyServicer(ReachyServiceServicer):
                         id=self.head.r_antenna.id,
                         name=self.head.r_antenna.name,
                     ),
-                    temperature=self.head.r_antenna.pid.temperature,
-                    present_position=self.head.r_antenna.pid.present_position,
-                    present_speed=self.head.r_antenna.pid.present_speed,
-                    present_load=self.head.r_antenna.pid.present_load,
+                    temperature=FloatValue(value=self.head.r_antenna.temperature),
+                    present_position=FloatValue(value=self.head.r_antenna.present_position),
+                    present_speed=FloatValue(value=self.head.r_antenna.present_speed),
+                    present_load=FloatValue(value=self.head.r_antenna.present_load),
                     compliant=BoolValue(value=self.head.r_antenna.compliant),
-                    goal_position=self.head.r_antenna.pid.goal_position,
-                    speed_limit=self.head.r_antenna.pid.speed_limit,
-                    torque_limit=self.head.r_antenna.pid.torque_limit,
+                    goal_position=FloatValue(value=self.head.r_antenna.goal_position),
+                    speed_limit=FloatValue(value=self.head.r_antenna.speed_limit),
+                    torque_limit=FloatValue(value=self.head.r_antenna.torque_limit),
                     pid=PIDGains(
                             p=self.head.r_antenna.pid.p,
                             i=self.head.r_antenna.pid.i,
