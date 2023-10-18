@@ -1,34 +1,44 @@
-from google.protobuf.empty_pb2 import Empty
-from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
-
-import grpc
-
-from typing import Iterator
-
-from reachy_sdk_api_v2.arm_pb2 import Arm, ArmDescription, ArmState
-from reachy_sdk_api_v2.head_pb2 import Head, HeadDescription, HeadState
-from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains
-from reachy_sdk_api_v2.orbita2d_pb2 import Orbita2DInfo, Axis
-from reachy_sdk_api_v2.orbita3d_pb2 import Orbita3DInfo
-from reachy_sdk_api_v2.dynamixel_motor_pb2 import DynamixelMotorInfo, DynamixelMotorState
-from reachy_sdk_api_v2.part_pb2 import PartId, PartInfo
-from reachy_sdk_api_v2.reachy_pb2_grpc import ReachyServiceServicer
-from reachy_sdk_api_v2.reachy_pb2 import Reachy, ReachyId, ReachyState
-from reachy_sdk_api_v2.orbita3d_pb2 import Orbita3DState, Float3D, PID3D
-from reachy_sdk_api_v2.component_pb2 import PIDGains
-from typing import Iterator
 import grpc
 import time
 
+from typing import Iterator
+
 from google.protobuf.empty_pb2 import Empty
-from google.protobuf.wrappers_pb2 import BoolValue
+from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
+
+from reachy_sdk_api_v2.reachy_pb2_grpc import ReachyServiceServicer
+from reachy_sdk_api_v2.reachy_pb2 import (
+    Reachy,
+    ReachyId,
+    ReachyState,
+    ReachyStreamStateRequest,
+)
+
+from reachy_sdk_api_v2.part_pb2 import PartId
+from reachy_sdk_api_v2.arm_pb2 import Arm, ArmDescription, ArmState
+from reachy_sdk_api_v2.head_pb2 import Head, HeadDescription, HeadState
 
 from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains
-from reachy_sdk_api_v2.orbita2d_pb2 import Orbita2DInfo, Axis, Orbita2DState, Float2D, PID2D, Pose2D, Vector2D
-from reachy_sdk_api_v2.orbita3d_pb2 import Orbita3DInfo, Orbita3DState, Float3D, PID3D, Vector3D
-from reachy_sdk_api_v2.part_pb2 import PartId, PartInfo
+from reachy_sdk_api_v2.orbita2d_pb2 import (
+    Orbita2D,
+    Axis,
+    Orbita2DState,
+    Float2D,
+    PID2D,
+    Pose2D,
+    Vector2D
+)
+from reachy_sdk_api_v2.orbita3d_pb2 import (
+    Orbita3D,
+    Orbita3DState,
+    Float3D,
+    PID3D,
+    Vector3D,
+)
+from reachy_sdk_api_v2.dynamixel_motor_pb2 import DynamixelMotor, DynamixelMotorState
+
 from reachy_sdk_api_v2.kinematics_pb2 import Rotation3D, ExtEulerAngles
-from reachy_sdk_api_v2.reachy_pb2 import ReachyStreamStateRequest, ReachyState
+
 
 class ReachyServicer(ReachyServiceServicer):
     def __init__(self, right_arm, head) -> None:
@@ -44,7 +54,7 @@ class ReachyServicer(ReachyServiceServicer):
                     name=self.right_arm.name,
                 ),
                 description=ArmDescription(
-                    shoulder=Orbita2DInfo(
+                    shoulder=Orbita2D(
                         id=ComponentId(
                             id=self.right_arm.shoulder.id,
                             name=self.right_arm.shoulder.name,
@@ -53,7 +63,7 @@ class ReachyServicer(ReachyServiceServicer):
                         axis_1=getattr(Axis, self.right_arm.shoulder._axis1_type.upper()),
                         axis_2=getattr(Axis, self.right_arm.shoulder._axis2_type.upper()),
                     ),
-                    elbow=Orbita2DInfo(
+                    elbow=Orbita2D(
                         id=ComponentId(
                             id=self.right_arm.elbow.id,
                             name=self.right_arm.elbow.name,
@@ -62,7 +72,7 @@ class ReachyServicer(ReachyServiceServicer):
                         axis_1=getattr(Axis, self.right_arm.elbow._axis1_type.upper()),
                         axis_2=getattr(Axis, self.right_arm.elbow._axis2_type.upper()),
                     ),
-                    wrist=Orbita3DInfo(
+                    wrist=Orbita3D(
                         id=ComponentId(
                             id=self.right_arm.wrist.id,
                             name=self.right_arm.wrist.name,
@@ -77,21 +87,21 @@ class ReachyServicer(ReachyServiceServicer):
                     name=self.head.name,
                 ),
                 description=HeadDescription(
-                    neck=Orbita3DInfo(
+                    neck=Orbita3D(
                         id=ComponentId(
                             id=self.head.neck.id,
                             name=self.head.neck.name,
                             ),
                         serial_number=self.head.neck.serial_number,
                     ),
-                    l_antenna=DynamixelMotorInfo(
+                    l_antenna=DynamixelMotor(
                         id=ComponentId(
                             id=self.head.l_antenna.id,
                             name=self.head.l_antenna.name,
                             ),
                         serial_number=self.head.l_antenna.serial_number,
                     ),
-                    r_antenna=DynamixelMotorInfo(
+                    r_antenna=DynamixelMotor(
                         id=ComponentId(
                             id=self.head.r_antenna.id,
                             name=self.head.r_antenna.name,

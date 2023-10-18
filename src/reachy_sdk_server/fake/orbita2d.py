@@ -7,11 +7,11 @@ from grpc import ServicerContext
 from reachy_sdk_api_v2.orbita2d_pb2 import (
     Axis,
     Float2D,
-    ListOfOrbita2DInfo,
+    ListOfOrbita2D,
     Orbita2DCommand,
     Orbita2DsCommand,
     Orbita2DField,
-    Orbita2DInfo,
+    Orbita2D,
     Orbita2DState,
     Orbita2DStateRequest,
     Orbita2DStreamStateRequest,
@@ -44,10 +44,10 @@ class Orbita2DServicer(Orbita2DServiceServicer):
 
     def GetAllOrbita2D(
         self, request: Empty, context: ServicerContext
-    ) -> ListOfOrbita2DInfo:
-        return ListOfOrbita2DInfo(
+    ) -> ListOfOrbita2D:
+        return ListOfOrbita2D(
             info=[
-                Orbita2DInfo(
+                Orbita2D(
                     id=ComponentId(id=orbita.id),
                     serial_number=orbita.serial_number,
                     axis_1=getattr(Axis, orbita._axis1_type.upper()),

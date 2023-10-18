@@ -6,11 +6,11 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from grpc import ServicerContext
 from reachy_sdk_api_v2.orbita3d_pb2 import (
     Float3D,
-    ListOfOrbita3DInfo,
+    ListOfOrbita3D,
     Orbita3DCommand,
     Orbita3DsCommand,
     Orbita3DField,
-    Orbita3DInfo,
+    Orbita3D,
     Orbita3DState,
     Orbita3DStateRequest,
     Orbita3DStreamStateRequest,
@@ -42,10 +42,10 @@ class Orbita3DServicer(Orbita3DServiceServicer):
 
     def GetAllOrbita3D(
         self, request: Empty, context: ServicerContext
-    ) -> ListOfOrbita3DInfo:
-        return ListOfOrbita3DInfo(
+    ) -> ListOfOrbita3D:
+        return ListOfOrbita3D(
             info=[
-                Orbita3DInfo(
+                Orbita3D(
                     id=ComponentId(id=orbita.id),
                     serial_number=orbita.serial_number,
                 ) for orbita in self.orbitas.values()]
