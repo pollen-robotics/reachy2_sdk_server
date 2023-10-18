@@ -38,11 +38,13 @@ from ..conversion import (
 from .orbita2d import (
     ComponentId,
     Orbita2DCommand,
+    Orbita2DsCommand,
     Orbita2dServicer,
     Orbita2DStateRequest,
 )
 from .orbita3d import (
     Orbita3DCommand,
+    Orbita3DsCommand,
     Orbita3DStateRequest,
     Orbita3dServicer,
 )
@@ -88,8 +90,10 @@ class ArmServicer:
 
     def GetAllArms(self, request: Empty, context: grpc.ServicerContext) -> ListOfArm:
         return ListOfArm(arm=[self.get_arm(arm, context) for arm in self.arms])
-    
-    def get_arm_part_by_part_id(self, part_id: PartId, context: grpc.ServicerContext) -> Part:
+
+    def get_arm_part_by_part_id(
+        self, part_id: PartId, context: grpc.ServicerContext
+    ) -> Part:
         part = self.bridge_node.parts.get_by_part_id(part_id)
 
         if part is None:
@@ -158,23 +162,28 @@ class ArmServicer:
 
         # TODO: Use Orbita2DsCommand
         self.orbita2d_servicer.SendCommand(
-            Orbita2DCommand(
-                id=ComponentId(id=arm.components[0].id),
-                goal_position=request.position.shoulder_position,
-            ),
-            context,
-        )
-        self.orbita2d_servicer.SendCommand(
-            Orbita2DCommand(
-                id=ComponentId(id=arm.components[1].id),
-                goal_position=request.position.elbow_position,
+            Orbita2DsCommand(
+                cmd=[
+                    Orbita2DCommand(
+                        id=ComponentId(id=arm.components[0].id),
+                        goal_position=request.position.shoulder_position,
+                    ),
+                    Orbita2DCommand(
+                        id=ComponentId(id=arm.components[1].id),
+                        goal_position=request.position.elbow_position,
+                    ),
+                ]
             ),
             context,
         )
         self.orbita3d_servicer.SendCommand(
-            Orbita3DCommand(
-                id=ComponentId(id=arm.components[2].id),
-                goal_position=request.position.wrist_position,
+            Orbita3DsCommand(
+                cmd=[
+                    Orbita3DCommand(
+                        id=ComponentId(id=arm.components[2].id),
+                        goal_position=request.position.wrist_position,
+                    ),
+                ]
             ),
             context,
         )
@@ -215,7 +224,9 @@ class ArmServicer:
         )
 
     # Compliances
-    def set_stiffness(self, request: PartId, torque: bool, context: grpc.ServicerContext) -> None:
+    def set_stiffness(
+        self, request: PartId, torque: bool, context: grpc.ServicerContext
+    ) -> None:
         # TODO: re-write using self.orbita2d_servicer.SendCommand?
         part = self.get_arm_part_by_part_id(request, context)
 
