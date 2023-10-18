@@ -12,12 +12,7 @@ from reachy_sdk_api_v2.head_pb2 import (
 from reachy_sdk_api_v2.head_pb2_grpc import HeadServiceServicer
 from reachy_sdk_api_v2.part_pb2 import PartInfo, PartId
 from reachy_sdk_api_v2.kinematics_pb2 import Quaternion
-from reachy_sdk_api_v2.orbita3d_pb2 import (
-    Orbita3DInfo,
-)
-from reachy_sdk_api_v2.dynamixel_motor_pb2 import (
-    DynamixelMotorInfo,
-)
+
 from .dynamixel_motor import FakeDynamixelMotor
 from .orbita3d import FakeOrbita3D
 from .utils import read_config_file
