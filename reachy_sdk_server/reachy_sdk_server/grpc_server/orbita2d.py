@@ -22,6 +22,7 @@ from reachy_sdk_api_v2.orbita2d_pb2 import (
     Pose2D,
     Float2D,
     ListOfOrbita2D,
+    Orbita2DCommand,
     Orbita2DsCommand,
     Orbita2DField,
     Orbita2D,
@@ -115,7 +116,6 @@ class Orbita2dServicer:
                 context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Missing 'id' field.")
 
             orbita2d_components = self.get_orbita2d_components(req_cmd.id)
-            self.logger.info(f"orbita2d_components: {req_cmd.id} {orbita2d_components.actuator.name}")
 
             if req_cmd.HasField("compliant"):
                 cmd.joint_names.append(orbita2d_components.actuator.name)
@@ -186,7 +186,7 @@ class Orbita2dServicer:
                 cmd.interface_values.extend(raw_commands)
 
         if cmd.joint_names:
-            self.logger.info(f"Publishing command: {cmd}")
+            self.logger.debug(f"Publishing command: {cmd}")
             self.bridge_node.publish_command(cmd)
 
         return Empty()
@@ -241,9 +241,6 @@ class Orbita2dServicer:
                 orbita2d_raw_motor_1,
                 orbita2d_raw_motor_2,
             )
-
-        self.logger.error(f"self._lazy_components: {self._lazy_components.keys()}")
-        self.logger.error(f"id: {id}")
 
         return self._lazy_components[id]
 
