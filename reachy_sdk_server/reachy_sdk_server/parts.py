@@ -1,5 +1,5 @@
 from collections import defaultdict, namedtuple
-from typing import List
+from typing import List, Optional
 
 from .components import ComponentsHolder
 
@@ -22,6 +22,7 @@ class PartsHolder:
         self.by_id = {}
         self.by_type = defaultdict(list)
 
+        # We start at 1 to avoid having a part_id of 0
         part_id = 1
 
         for part in ("r_arm", "l_arm", "head"):
@@ -51,19 +52,19 @@ class PartsHolder:
     def __iter__(self):
         return iter(self.parts.values())
 
-    def get_by_part_id(self, part_id: PartId) -> Part:
+    def get_by_part_id(self, part_id: PartId) -> Optional[Part]:
         if part_id.id:
             return self.get_by_id(part_id.id)
         elif part_id.name:
             return self.get_by_name(part_id.name)
-        else:
-            raise ValueError(f"Invalid part_id: {part_id}")
 
-    def get_by_name(self, part_name: str) -> Part:
-        return self.by_name[part_name]
+    def get_by_name(self, part_name: str) -> Optional[Part]:
+        if part_name in self.by_name:
+            return self.by_name[part_name]
 
-    def get_by_id(self, part_id: int) -> Part:
-        return self.by_id[part_id]
+    def get_by_id(self, part_id: int) -> Optional[Part]:
+        if part_id in self.by_id:
+            return self.by_id[part_id]
 
     def get_by_type(self, part_type: str) -> List[Part]:
         return [p for p in self.parts.values() if p.type == part_type]
