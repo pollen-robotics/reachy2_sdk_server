@@ -14,6 +14,7 @@ from reachy_sdk_api_v2.head_pb2 import (
     Head,
     HeadDescription,
     HeadLookAtGoal,
+    HeadPosition,
     HeadStatus,
     HeadTemperatures,
     HeadState,
@@ -41,6 +42,7 @@ from ..conversion import (
     neck_rotation_to_joint_state,
     pose_matrix_from_quaternion,
     neck_rotation_to_joint_state,
+    rotation3d_as_quat,
 )
 from .orbita3d import (
     Orbita3dServicer,
@@ -121,7 +123,7 @@ class HeadServicer:
     ) -> NeckFKSolution:
         head = self.bridge_node.parts.get_by_part_id(request.id)
         success, pose = self.bridge_node.compute_forward(
-            request.id, neck_rotation_to_joint_state(request.position, head)
+            request.id, neck_rotation_to_joint_state(request.position.neck_position, head)
         )
 
         sol = NeckFKSolution()
@@ -168,9 +170,20 @@ class HeadServicer:
     def GetOrientation(
         self, request: PartId, context: grpc.ServicerContext
     ) -> Quaternion:
-        # TODO: 
-        # val direct ou FK ?
-        pass
+        rot = self.GetState(request, context).neck_state.present_position
+
+        fk_req = NeckFKRequest(
+            id=request,
+            position=HeadPosition(
+                neck_position=rot,
+            )
+        )
+        resp = self.ComputeNeckFK(fk_req, context)
+
+        if not resp.success:
+            context.abort(grpc.StatusCode.INTERNAL, "Could not compute FK.")
+
+        return resp.orientation.q
 
     def LookAt(self, request: HeadLookAtGoal, context: grpc.ServicerContext) -> Empty:
         # TODO: 
@@ -232,8 +245,22 @@ class HeadServicer:
     def GetJointGoalPosition(
         self, request: PartId, context: grpc.ServicerContext
     ) -> Rotation3D:
-        # TODO: 
-        pass
+        rot = self.GetState(request, context).neck_state.goal_position
+
+        fk_req = NeckFKRequest(
+            id=request,
+            position=HeadPosition(
+                neck_position=rot,
+            )
+        )
+        resp = self.ComputeNeckFK(fk_req, context)
+
+        if not resp.success:
+            context.abort(grpc.StatusCode.INTERNAL, "Could not compute FK.")
+
+        return Rotation3D(
+            q=resp.orientation.q,
+        )
 
     def SetSpeedLimit(
         self, request: SpeedLimitRequest, context: grpc.ServicerContext
