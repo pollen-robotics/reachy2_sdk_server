@@ -14,6 +14,7 @@ from reachy_sdk_api_v2.orbita3d_pb2 import (
     Float3D,
     ListOfOrbita3D,
     Orbita3DCommand,
+    Orbita3DsCommand,
     Orbita3DField,
     Orbita3D,
     Orbita3DState,
@@ -99,100 +100,103 @@ class Orbita3dServicer:
         )
 
     def SendCommand(
-        self, request: Orbita3DCommand, context: grpc.ServicerContext
+        self, request: Orbita3DsCommand, context: grpc.ServicerContext
     ) -> Empty:
         self.logger.info(f"Received command: {request}")
-
-        if not request.HasField("id"):
-            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Missing 'id' field.")
-
-        orbita3d_components = self.get_orbita3d_components(request.id)
 
         cmd = DynamicJointState()
         cmd.joint_names = []
 
-        if request.HasField("compliant"):
-            cmd.joint_names.append(orbita3d_components.actuator.name)
-            cmd.interface_values.append(
-                InterfaceValue(
-                    interface_names=["torque"],
-                    values=[not request.compliant.value],
+        for cmd_req in request.cmd:
+            if not cmd_req.HasField("id"):
+                context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Missing 'id' field.")
+
+            orbita3d_components = self.get_orbita3d_components(cmd_req.id)
+
+
+
+            if cmd_req.HasField("compliant"):
+                cmd.joint_names.append(orbita3d_components.actuator.name)
+                cmd.interface_values.append(
+                    InterfaceValue(
+                        interface_names=["torque"],
+                        values=[not cmd_req.compliant.value],
+                    )
                 )
-            )
-        if request.HasField("goal_position"):
-            roll, pitch, yaw = rotation3d_as_extrinsinc_euler_angles(
-                request.goal_position
-            )
-            cmd.joint_names.extend(
-                [
-                    orbita3d_components.roll.name,
-                    orbita3d_components.pitch.name,
-                    orbita3d_components.yaw.name,
-                ]
-            )
-            cmd.interface_values.extend(
-                [
-                    InterfaceValue(
-                        interface_names=["position"],
-                        values=[roll],
-                    ),
-                    InterfaceValue(
-                        interface_names=["position"],
-                        values=[pitch],
-                    ),
-                    InterfaceValue(
-                        interface_names=["position"],
-                        values=[yaw],
-                    ),
-                ]
-            )
+            if cmd_req.HasField("goal_position"):
+                roll, pitch, yaw = rotation3d_as_extrinsinc_euler_angles(
+                    cmd_req.goal_position
+                )
+                cmd.joint_names.extend(
+                    [
+                        orbita3d_components.roll.name,
+                        orbita3d_components.pitch.name,
+                        orbita3d_components.yaw.name,
+                    ]
+                )
+                cmd.interface_values.extend(
+                    [
+                        InterfaceValue(
+                            interface_names=["position"],
+                            values=[roll],
+                        ),
+                        InterfaceValue(
+                            interface_names=["position"],
+                            values=[pitch],
+                        ),
+                        InterfaceValue(
+                            interface_names=["position"],
+                            values=[yaw],
+                        ),
+                    ]
+                )
 
-        raw_commands = []
+            raw_commands = []
 
-        if request.HasField("speed_limit"):
-            raw_commands.extend(
-                [
-                    InterfaceValue(
-                        interface_names=["speed_limit"],
-                        values=[request.speed_limit.motor_1],
-                    ),
-                    InterfaceValue(
-                        interface_names=["speed_limit"],
-                        values=[request.speed_limit.motor_2],
-                    ),
-                    InterfaceValue(
-                        interface_names=["speed_limit"],
-                        values=[request.speed_limit.motor_3],
-                    ),
-                ]
-            )
-        if request.HasField("torque_limit"):
-            raw_commands.extend(
-                [
-                    InterfaceValue(
-                        interface_names=["torque_limit"],
-                        values=[request.torque_limit.motor_1],
-                    ),
-                    InterfaceValue(
-                        interface_names=["torque_limit"],
-                        values=[request.torque_limit.motor_2],
-                    ),
-                    InterfaceValue(
-                        interface_names=["torque_limit"],
-                        values=[request.torque_limit.motor_3],
-                    ),
-                ]
-            )
+            if cmd_req.HasField("speed_limit"):
+                raw_commands.extend(
+                    [
+                        InterfaceValue(
+                            interface_names=["speed_limit"],
+                            values=[cmd_req.speed_limit.motor_1],
+                        ),
+                        InterfaceValue(
+                            interface_names=["speed_limit"],
+                            values=[cmd_req.speed_limit.motor_2],
+                        ),
+                        InterfaceValue(
+                            interface_names=["speed_limit"],
+                            values=[cmd_req.speed_limit.motor_3],
+                        ),
+                    ]
+                )
+            if cmd_req.HasField("torque_limit"):
+                raw_commands.extend(
+                    [
+                        InterfaceValue(
+                            interface_names=["torque_limit"],
+                            values=[cmd_req.torque_limit.motor_1],
+                        ),
+                        InterfaceValue(
+                            interface_names=["torque_limit"],
+                            values=[cmd_req.torque_limit.motor_2],
+                        ),
+                        InterfaceValue(
+                            interface_names=["torque_limit"],
+                            values=[cmd_req.torque_limit.motor_3],
+                        ),
+                    ]
+                )
 
-        if raw_commands:
-            cmd.joint_names.extend(
-                [
-                    orbita3d_components.raw_motor_1.name,
-                    orbita3d_components.raw_motor_2.name,
-                    orbita3d_components.raw_motor_3.name,
-                ]
-            )
-            cmd.interface_values.extend(raw_commands)
+            if raw_commands:
+                cmd.joint_names.extend(
+                    [
+                        orbita3d_components.raw_motor_1.name,
+                        orbita3d_components.raw_motor_2.name,
+                        orbita3d_components.raw_motor_3.name,
+                    ]
+                )
+                cmd.interface_values.extend(raw_commands)
 
         if cmd.joint_names:
             self.logger.info(f"Publishing command: {cmd}")
@@ -223,8 +227,9 @@ class Orbita3dServicer:
             self._lazy_components = {}
 
         components = self.bridge_node.components
+        id = components.get_by_component_id(component_id).id
 
-        if component_id.id not in self._lazy_components:
+        if id not in self._lazy_components:
             orbita3d = components.get_by_component_id(component_id)
             orbita3d_roll = components.get_by_name(f"{orbita3d.name}_roll")
             orbita3d_pitch = components.get_by_name(f"{orbita3d.name}_pitch")
@@ -239,7 +244,7 @@ class Orbita3dServicer:
                 f"{orbita3d.name}_raw_motor_3"
             )
 
-            self._lazy_components[component_id.id] = Orbita3DComponents(
+            self._lazy_components[id] = Orbita3DComponents(
                 orbita3d,
                 orbita3d_roll,
                 orbita3d_pitch,
@@ -249,12 +254,11 @@ class Orbita3dServicer:
                 orbita3d_raw_motor_3,
             )
 
-        return self._lazy_components[component_id.id]
+        return self._lazy_components[id]
 
 
 conversion_table = {
-    "name": lambda o: o.actuator.name,
-    "id": lambda o: o.actuator.id,
+    "id": lambda o: ComponentId(id=o.actuator.id, name=o.actuator.name),
     "present_position": lambda o: Rotation3D(
         rpy=ExtEulerAngles(
             roll=o.roll.state["position"],
