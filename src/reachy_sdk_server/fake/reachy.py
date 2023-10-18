@@ -12,6 +12,7 @@ from reachy_sdk_api_v2.reachy_pb2 import (
     ReachyId,
     ReachyState,
     ReachyStreamStateRequest,
+    ReachyInfo,
 )
 
 from reachy_sdk_api_v2.part_pb2 import PartId
@@ -109,7 +110,12 @@ class ReachyServicer(ReachyServiceServicer):
                         serial_number=self.head.r_antenna.serial_number,
                     ),
                 )
-            )
+            ),
+            info=ReachyInfo(
+                serial_number="Coucou c'est moi",
+                version_hard="c'est hard",
+                version_soft="c'est soft"
+            ),
         )
 
     def GetReachyState(self, id: ReachyId, context: grpc.ServicerContext) -> ReachyState:
