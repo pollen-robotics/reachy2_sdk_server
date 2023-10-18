@@ -22,7 +22,7 @@ from reachy_sdk_api_v2.orbita2d_pb2 import (
     Pose2D,
     Float2D,
     ListOfOrbita2D,
-    Orbita2DCommand,
+    Orbita2DsCommand,
     Orbita2DField,
     Orbita2D,
     Orbita2DState,
@@ -75,7 +75,7 @@ class Orbita2dServicer:
         self, request: Empty, context: grpc.ServicerContext
     ) -> ListOfOrbita2D:
         return ListOfOrbita2D(
-            info=[
+            orbita2D=[
                 self.get_info(o)
                 for o in self.bridge_node.components.get_by_type("orbita2d")
             ]
@@ -105,94 +105,94 @@ class Orbita2dServicer:
 
     # Command
     def SendCommand(
-        self, request: Orbita2DCommand, context: grpc.ServicerContext
+        self, request: Orbita2DsCommand, context: grpc.ServicerContext
     ) -> Empty:
-        self.logger.info(f"Received command: {request}")
-
-        if not request.HasField("id"):
-            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Missing 'id' field.")
-
-        orbita2d_components = self.get_orbita2d_components(request.id)
-
         cmd = DynamicJointState()
         cmd.joint_names = []
 
-        if request.HasField("compliant"):
-            cmd.joint_names.append(orbita2d_components.actuator.name)
-            cmd.interface_values.append(
-                InterfaceValue(
-                    interface_names=["torque"],
-                    values=[not request.compliant.value],
+        for req_cmd in request.cmd:
+            if not req_cmd.HasField("id"):
+                context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Missing 'id' field.")
+
+            orbita2d_components = self.get_orbita2d_components(req_cmd.id)
+            self.logger.info(f"orbita2d_components: {req_cmd.id} {orbita2d_components.actuator.name}")
+
+            if req_cmd.HasField("compliant"):
+                cmd.joint_names.append(orbita2d_components.actuator.name)
+                cmd.interface_values.append(
+                    InterfaceValue(
+                        interface_names=["torque"],
+                        values=[not req_cmd.compliant.value],
+                    )
                 )
-            )
 
-        if request.HasField("goal_position"):
-            cmd.joint_names.extend(
-                [
-                    orbita2d_components.axis1.name,
-                    orbita2d_components.axis2.name,
-                ]
-            )
-            cmd.interface_values.extend(
-                [
-                    InterfaceValue(
-                        interface_names=["position"],
-                        values=[request.goal_position.axis_1],
-                    ),
-                    InterfaceValue(
-                        interface_names=["position"],
-                        values=[request.goal_position.axis_2],
-                    ),
-                ]
-            )
+            if req_cmd.HasField("goal_position"):
+                cmd.joint_names.extend(
+                    [
+                        orbita2d_components.axis1.name,
+                        orbita2d_components.axis2.name,
+                    ]
+                )
+                cmd.interface_values.extend(
+                    [
+                        InterfaceValue(
+                            interface_names=["position"],
+                            values=[req_cmd.goal_position.axis_1],
+                        ),
+                        InterfaceValue(
+                            interface_names=["position"],
+                            values=[req_cmd.goal_position.axis_2],
+                        ),
+                    ]
+                )
 
-        raw_commands = []
+            raw_commands = []
 
-        if request.HasField("speed_limit"):
-            raw_commands.extend(
-                [
-                    InterfaceValue(
-                        interface_names=["speed_limit"],
-                        values=[request.speed_limit.axis_1],
-                    ),
-                    InterfaceValue(
-                        interface_names=["speed_limit"],
-                        values=[request.speed_limit.axis_2],
-                    ),
-                ]
-            )
+            if req_cmd.HasField("speed_limit"):
+                raw_commands.extend(
+                    [
+                        InterfaceValue(
+                            interface_names=["speed_limit"],
+                            values=[req_cmd.speed_limit.axis_1],
+                        ),
+                        InterfaceValue(
+                            interface_names=["speed_limit"],
+                            values=[req_cmd.speed_limit.axis_2],
+                        ),
+                    ]
+                )
 
-        if request.HasField("torque_limit"):
-            raw_commands.extend(
-                [
-                    InterfaceValue(
-                        interface_names=["torque_limit"],
-                        values=[request.torque_limit.axis_1],
-                    ),
-                    InterfaceValue(
-                        interface_names=["torque_limit"],
-                        values=[request.torque_limit.axis_2],
-                    ),
-                ]
-            )
+            if req_cmd.HasField("torque_limit"):
+                raw_commands.extend(
+                    [
+                        InterfaceValue(
+                            interface_names=["torque_limit"],
+                            values=[req_cmd.torque_limit.axis_1],
+                        ),
+                        InterfaceValue(
+                            interface_names=["torque_limit"],
+                            values=[req_cmd.torque_limit.axis_2],
+                        ),
+                    ]
+                )
 
-        if raw_commands:
-            cmd.joint_names.extend(
-                [
-                    orbita2d_components.raw_motor_1.name,
-                    orbita2d_components.raw_motor_2.name,
-                ]
-            )
-            cmd.interface_values.extend(raw_commands)
+            if raw_commands:
+                cmd.joint_names.extend(
+                    [
+                        orbita2d_components.raw_motor_1.name,
+                        orbita2d_components.raw_motor_2.name,
+                    ]
+                )
+                cmd.interface_values.extend(raw_commands)
 
         if cmd.joint_names:
-            self.logger.debug(f"Publishing command: {cmd}")
+            self.logger.info(f"Publishing command: {cmd}")
             self.bridge_node.publish_command(cmd)
 
         return Empty()
 
     def StreamCommand(
-        self, request_stream: Iterator[Orbita2DCommand], context: grpc.ServicerContext
+        self, request_stream: Iterator[Orbita2DsCommand], context: grpc.ServicerContext
     ) -> Empty:
         for request in request_stream:
             self.SendCommand(request, context)
@@ -217,7 +217,9 @@ class Orbita2dServicer:
 
         components = self.bridge_node.components
 
-        if component_id.id not in self._lazy_components:
+        id = components.get_by_component_id(component_id).id
+
+        if id not in self._lazy_components:
             orbita2d = components.get_by_component_id(component_id)
             orbita2d_axis1 = components.get_by_name(
                 f"{orbita2d.name}_{orbita2d.extra['axis1']}"
@@ -232,7 +234,7 @@ class Orbita2dServicer:
                 f"{orbita2d.name}_raw_motor_2"
             )
 
-            self._lazy_components[component_id.id] = Orbita2DComponents(
+            self._lazy_components[id] = Orbita2DComponents(
                 orbita2d,
                 orbita2d_axis1,
                 orbita2d_axis2,
@@ -240,12 +242,14 @@ class Orbita2dServicer:
                 orbita2d_raw_motor_2,
             )
 
-        return self._lazy_components[component_id.id]
+        self.logger.error(f"self._lazy_components: {self._lazy_components.keys()}")
+        self.logger.error(f"id: {id}")
+
+        return self._lazy_components[id]
 
 
 conversion_table = {
-    "name": lambda o: o.actuator.name,
-    "id": lambda o: o.actuator.id,
+    "id": lambda o: ComponentId(id=o.actuator.id, name=o.actuator.name),
     "present_position": lambda o: Pose2D(
         axis_1=o.axis1.state["position"], axis_2=o.axis2.state["position"]
     ),
