@@ -54,7 +54,7 @@ class ReachyServicer(ReachyServiceServicer):
                     name=self.right_arm.name,
                 ),
                 description=ArmDescription(
-                    shoulder=Orbita2DInfo(
+                    shoulder=Orbita2D(
                         id=ComponentId(
                             id=self.right_arm.shoulder.id,
                             name=self.right_arm.shoulder.name,
@@ -63,7 +63,7 @@ class ReachyServicer(ReachyServiceServicer):
                         axis_1=getattr(Axis, self.right_arm.shoulder._axis1_type.upper()),
                         axis_2=getattr(Axis, self.right_arm.shoulder._axis2_type.upper()),
                     ),
-                    elbow=Orbita2DInfo(
+                    elbow=Orbita2D(
                         id=ComponentId(
                             id=self.right_arm.elbow.id,
                             name=self.right_arm.elbow.name,
@@ -72,7 +72,7 @@ class ReachyServicer(ReachyServiceServicer):
                         axis_1=getattr(Axis, self.right_arm.elbow._axis1_type.upper()),
                         axis_2=getattr(Axis, self.right_arm.elbow._axis2_type.upper()),
                     ),
-                    wrist=Orbita3DInfo(
+                    wrist=Orbita3D(
                         id=ComponentId(
                             id=self.right_arm.wrist.id,
                             name=self.right_arm.wrist.name,
@@ -87,21 +87,21 @@ class ReachyServicer(ReachyServiceServicer):
                     name=self.head.name,
                 ),
                 description=HeadDescription(
-                    neck=Orbita3DInfo(
+                    neck=Orbita3D(
                         id=ComponentId(
                             id=self.head.neck.id,
                             name=self.head.neck.name,
                             ),
                         serial_number=self.head.neck.serial_number,
                     ),
-                    l_antenna=DynamixelMotorInfo(
+                    l_antenna=DynamixelMotor(
                         id=ComponentId(
                             id=self.head.l_antenna.id,
                             name=self.head.l_antenna.name,
                             ),
                         serial_number=self.head.l_antenna.serial_number,
                     ),
-                    r_antenna=DynamixelMotorInfo(
+                    r_antenna=DynamixelMotor(
                         id=ComponentId(
                             id=self.head.r_antenna.id,
                             name=self.head.r_antenna.name,
