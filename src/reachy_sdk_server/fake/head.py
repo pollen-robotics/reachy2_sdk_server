@@ -67,11 +67,13 @@ class HeadServicer(HeadServiceServicer):
     def GetOrientation(self, request: PartId, context) -> Quaternion:
         self.check_component_id(request.name, context)
         head = self.heads[request.name]
-        return Quaternion(
-            x=0.0,
-            y=0.0,
-            z=0.0,
-            w=1.0,
+        return Rotation3D(
+            q=Quaternion(
+                x=0.0,
+                y=0.0,
+                z=0.0,
+                w=1.0,
+            )
         )
 
     def LookAt(self, request, context):
