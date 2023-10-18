@@ -30,13 +30,15 @@ class ReachyServicer:
         self.logger = logger
         self.arm_servicer = arm_servicer
 
+        self.reachy_id = ReachyId(id=1, name="reachy")
+
     def register_to_server(self, server: grpc.Server):
         self.logger.info("Registering 'ArmServiceServicer' to server.")
         add_ReachyServiceServicer_to_server(self, server)
 
     def GetReachy(self, request: Empty, context: grpc.ServicerContext) -> Reachy:
         params = {
-            "id": ReachyId(id=1, name="reachy"),
+            "id": self.reachy_id,
         }
 
         for p in self.bridge_node.parts:
@@ -48,9 +50,12 @@ class ReachyServicer:
     def GetReachyState(
         self, request: ReachyId, context: grpc.ServicerContext
     ) -> ReachyState:
+        if request.id != self.reachy_id.id and request.name != self.reachy_id.name:
+            context.abort(grpc.StatusCode.NOT_FOUND, "Reachy not found.")
+
         params = {
             "timestamp": get_current_timestamp(self.bridge_node),
-            "id": request,
+            "id": self.reachy_id,
         }
 
         for p in self.bridge_node.parts:
