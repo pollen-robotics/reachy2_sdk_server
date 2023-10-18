@@ -148,6 +148,6 @@ class FakeHead:
         )['head']
         for sub_part in config:
             if config[sub_part]['actuator'] == 'dynamixel_motor':
-                setattr(self, sub_part, dynamixelmotors[f'dynamixel_motor_{config[sub_part]["name"]}'])
+                setattr(self, sub_part, dynamixelmotors[config[sub_part]["id"]])
             elif config[sub_part]['actuator'] == 'orbita3d':
                 setattr(self, sub_part, orbita3ds[config[sub_part]["id"]])
