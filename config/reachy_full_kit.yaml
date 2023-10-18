@@ -16,3 +16,10 @@ reachy:
       axis1: roll
       axis2: pitch
       axis3: yaw
+  head:
+    neck:
+      name: neck
+      actuator: orbita3d
+      axis1: roll
+      axis2: pitch
+      axis3: yaw
