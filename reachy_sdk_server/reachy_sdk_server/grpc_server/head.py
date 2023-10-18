@@ -46,7 +46,6 @@ from ..conversion import (
     neck_rotation_to_joint_state,
     pose_matrix_from_quaternion,
     neck_rotation_to_joint_state,
-    rotation3d_as_extrinsinc_euler_angles,
     rotation3d_as_quat,
 )
 from .orbita3d import (
@@ -93,11 +92,25 @@ class HeadServicer:
             ),
         )
 
+    def get_head_part_from_part_id(self, part_id: PartId, context: grpc.ServicerContext) -> Part:
+        part = self.bridge_node.parts.get_by_part_id(part_id)
+
+        if part is None:
+            context.abort(grpc.StatusCode.NOT_FOUND, f"Part not found (id={part_id}).")
+
+        if part.type != "head":
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT,
+                f"Part '{part_id}' is not an head.",
+            )
+
+        return part
+
     def GetAllHeads(self, request: Empty, context: grpc.ServicerContext) -> ListOfHead:
         return ListOfHead(head=[self.get_head(head, context) for head in self.heads])
 
     def GetState(self, request: PartId, context: grpc.ServicerContext) -> HeadState:
-        head = self.bridge_node.parts.get_by_id(request.id)
+        head = self.get_head_part_from_part_id(request, context)
 
         return HeadState(
             timestamp=get_current_timestamp(self.bridge_node),
@@ -128,7 +141,7 @@ class HeadServicer:
     def ComputeNeckFK(
         self, request: NeckFKRequest, context: grpc.ServicerContext
     ) -> NeckFKSolution:
-        head = self.bridge_node.parts.get_by_part_id(request.id)
+        head = self.get_head_part_from_part_id(request.id, context)
         success, pose = self.bridge_node.compute_forward(
             request.id, neck_rotation_to_joint_state(request.position.neck_position, head)
         )
@@ -148,7 +161,7 @@ class HeadServicer:
     def ComputeNeckIK(
         self, request: NeckIKRequest, context: grpc.ServicerContext
     ) -> NeckIKSolution:
-        head = self.bridge_node.parts.get_by_part_id(request.id)
+        head = self.get_head_part_from_part_id(request.id, context)
 
         M = pose_matrix_from_quaternion(request.target.q)
 
@@ -174,7 +187,7 @@ class HeadServicer:
     def GoToOrientation(
         self, request: NeckGoal, context: grpc.ServicerContext
     ) -> Empty:
-        head = self.bridge_node.parts.get_by_part_id(request.id)
+        head = self.get_head_part_from_part_id(request.id, context)
 
         q = rotation3d_as_quat(request.rotation)
 
@@ -246,10 +259,10 @@ class HeadServicer:
         return Empty()
 
     # Compliances
-    def set_stiffness(self, request: PartId, torque: bool) -> None:
+    def set_stiffness(self, request: PartId, torque: bool, context: grpc.ServicerContext) -> None:
         # TODO: re-write using self.orbita3d_servicer.SendCommand?
         # TODO: check id
-        part = self.bridge_node.parts.get_by_part_id(request)
+        head = self.get_head_part_from_part_id(request, context)
 
         cmd = DynamicJointState()
         cmd.joint_names = []
@@ -267,11 +280,11 @@ class HeadServicer:
         self.bridge_node.publish_command(cmd)
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        self.set_stiffness(request, torque=True)
+        self.set_stiffness(request, torque=True, context=context)
         return Empty()
 
     def TurnOff(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        self.set_stiffness(request, torque=False)
+        self.set_stiffness(request, torque=False, context=context)
         return Empty()
 
     def GetJointsLimits(
