@@ -1,6 +1,7 @@
 import grpc
 import rclpy
 
+from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
 
 from reachy_sdk_api_v2.component_pb2 import (
@@ -156,67 +157,84 @@ class HeadServicer:
 
         return sol
 
-    # rpc GoToOrientation (NeckGoal) returns (google.protobuf.Empty);
     def GoToOrientation(
         self, request: NeckGoal, context: grpc.ServicerContext
     ) -> Empty:
+        # TODO: 
+        # IK + goto ?
+        # Juste goto ?
         pass
 
-    # rpc GetOrientation (reachy.part.PartId) returns (reachy.kinematics.Quaternion);
     def GetOrientation(
         self, request: PartId, context: grpc.ServicerContext
     ) -> Quaternion:
+        # TODO: 
+        # val direct ou FK ?
         pass
 
-    # rpc LookAt (HeadLookAtGoal) returns (google.protobuf.Empty);
     def LookAt(self, request: HeadLookAtGoal, context: grpc.ServicerContext) -> Empty:
+        # TODO: 
         pass
 
-    # rpc Audit (reachy.part.PartId) returns (HeadStatus);
     def Audit(self, request: PartId, context: grpc.ServicerContext) -> HeadStatus:
         pass
 
-    # rpc HeartBeat (reachy.part.PartId) returns (google.protobuf.Empty);
     def HeartBeat(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         pass
 
-    # rpc Restart (reachy.part.PartId) returns (google.protobuf.Empty);
     def Restart(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         pass
 
-    # rpc ResetDefaultValues(reachy.part.PartId) returns (google.protobuf.Empty);
     def ResetDefaultValues(
         self, request: PartId, context: grpc.ServicerContext
     ) -> Empty:
         pass
 
-    # rpc TurnOn (reachy.part.PartId) returns (google.protobuf.Empty);
+    # Compliances
+    def set_stiffness(self, request: PartId, torque: bool) -> None:
+        # TODO: re-write using self.orbita3d_servicer.SendCommand?
+        # TODO: check id
+        part = self.bridge_node.parts.get_by_part_id(request)
+
+        cmd = DynamicJointState()
+        cmd.joint_names = []
+
+        for c in part.components:
+            cmd.joint_names.append(c.name)
+            cmd.interface_values.append(
+                InterfaceValue(
+                    interface_names=["torque"],
+                    values=[torque],
+                )
+            )
+
+        self.logger.info(f"Publishing command: {cmd}")
+        self.bridge_node.publish_command(cmd)
+
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        pass
+        self.set_stiffness(request, torque=True)
+        return Empty()
 
-    # rpc TurnOff (reachy.part.PartId) returns (google.protobuf.Empty);
     def TurnOff(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        pass
+        self.set_stiffness(request, torque=False)
+        return Empty()
 
-    # rpc GetJointsLimits (reachy.part.PartId) returns (JointsLimits);
     def GetJointsLimits(
         self, request: PartId, context: grpc.ServicerContext
     ) -> JointsLimits:
         pass
 
-    # rpc GetTemperatures (reachy.part.PartId) returns (HeadTemperatures);
     def GetTemperatures(
         self, request: PartId, context: grpc.ServicerContext
     ) -> HeadTemperatures:
         pass
 
-    # rpc GetJointGoalPosition (reachy.part.PartId) returns (kinematics.Rotation3D);
     def GetJointGoalPosition(
         self, request: PartId, context: grpc.ServicerContext
     ) -> Rotation3D:
+        # TODO: 
         pass
 
-    # rpc SetSpeedLimit (SpeedLimitRequest) returns (google.protobuf.Empty);
     def SetSpeedLimit(
         self, request: SpeedLimitRequest, context: grpc.ServicerContext
     ) -> Empty:
