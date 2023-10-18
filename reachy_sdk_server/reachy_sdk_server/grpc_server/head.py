@@ -267,7 +267,7 @@ class HeadServicer:
         cmd = DynamicJointState()
         cmd.joint_names = []
 
-        for c in part.components:
+        for c in head.components:
             cmd.joint_names.append(c.name)
             cmd.interface_values.append(
                 InterfaceValue(
