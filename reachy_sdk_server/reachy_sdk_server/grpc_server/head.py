@@ -1,5 +1,7 @@
 import grpc
+import numpy as np
 import rclpy
+from typing import Tuple
 
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
@@ -218,22 +220,30 @@ class HeadServicer:
         return resp.orientation.q
 
     def LookAt(self, request: HeadLookAtGoal, context: grpc.ServicerContext) -> Empty:
-        # TODO: 
-        pass
+        q = _find_neck_quaternion_transform([1, 0, 0], [request.point.x, request.point.y, request.point.z])
+
+        return self.GoToOrientation(
+            NeckGoal(
+                id=request.id,
+                rotation=Rotation3D(q=Quaternion(x=q[0], y=q[1], z=q[2], w=q[3])),
+                duration=request.duration,
+            ),
+            context,
+        )
 
     def Audit(self, request: PartId, context: grpc.ServicerContext) -> HeadStatus:
-        pass
+        return HeadStatus()
 
     def HeartBeat(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        pass
+        return Empty()
 
     def Restart(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        pass
+        return Empty()
 
     def ResetDefaultValues(
         self, request: PartId, context: grpc.ServicerContext
     ) -> Empty:
-        pass
+        return Empty()
 
     # Compliances
     def set_stiffness(self, request: PartId, torque: bool) -> None:
@@ -267,12 +277,12 @@ class HeadServicer:
     def GetJointsLimits(
         self, request: PartId, context: grpc.ServicerContext
     ) -> JointsLimits:
-        pass
+        return JointsLimits()
 
     def GetTemperatures(
         self, request: PartId, context: grpc.ServicerContext
     ) -> HeadTemperatures:
-        pass
+        return HeadTemperatures()
 
     def GetJointGoalPosition(
         self, request: PartId, context: grpc.ServicerContext
@@ -297,4 +307,48 @@ class HeadServicer:
     def SetSpeedLimit(
         self, request: SpeedLimitRequest, context: grpc.ServicerContext
     ) -> Empty:
-        pass
+        return Empty()
+
+
+
+def _find_neck_quaternion_transform(
+        vect_origin: Tuple[float, float, float],
+        vect_target: Tuple[float, float, float],
+) -> Tuple[float, float, float, float]:
+    vo = _norm(vect_origin)
+
+    neck_in_torso = (vect_target[0] - 0.015, vect_target[1], vect_target[2] - 0.095)
+    head_in_torso = (neck_in_torso[0] - 0.02, neck_in_torso[1], neck_in_torso[2] - 0.06105)
+
+    vd = _norm(head_in_torso)
+
+    v = np.cross(vo, vd)
+    v = _norm(v)
+
+    alpha = np.arccos(np.dot(vo, vd))
+    if np.isnan(alpha) or alpha < 1e-6:
+        return (0, 0, 0, 1)
+    
+    q = _from_axis_angle(axis=v, angle=alpha)
+    return q
+
+
+def _norm(v):
+    v = np.array(v)
+    if np.any(v):
+        v = v / np.linalg.norm(v)
+    return v
+
+def _from_axis_angle(axis, angle):
+    mag_sq = np.dot(axis, axis)
+    if mag_sq == 0.0:
+        raise ValueError("Rotation axis must be non-zero")
+    
+    if (abs(1.0 - mag_sq) > 1e-12):
+        axis = axis / np.sqrt(mag_sq)
+
+    theta = angle / 2.0
+    r = np.cos(theta)
+    i = axis * np.sin(theta)
+
+    return np.array([i[0], i[1], i[2], r])
