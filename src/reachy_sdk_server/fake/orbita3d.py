@@ -6,10 +6,11 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from grpc import ServicerContext
 from reachy_sdk_api_v2.orbita3d_pb2 import (
     Float3D,
-    ListOfOrbita3DInfo,
+    ListOfOrbita3D,
     Orbita3DCommand,
+    Orbita3DsCommand,
     Orbita3DField,
-    Orbita3DInfo,
+    Orbita3D,
     Orbita3DState,
     Orbita3DStateRequest,
     Orbita3DStreamStateRequest,
@@ -24,27 +25,27 @@ from .utils import endless_get_stream
 
 class Orbita3DServicer(Orbita3DServiceServicer):
     def __init__(self) -> None:
-        self.orbitas: Dict[str, FakeOrbita3D] = {}
+        self.orbitas: Dict[int, FakeOrbita3D] = {}
         self.add_orbita3d(12, "orbita3d_r_wrist")
         self.add_orbita3d(13, "orbita3d_l_wrist")
         self.add_orbita3d(30, "orbita3d_neck")
 
     def add_orbita3d(self, id: int, name: str) -> None:
-        self.orbitas[name] = FakeOrbita3D(id, name)
+        self.orbitas[id] = FakeOrbita3D(id, name)
 
-    def check_component_id(self, name: str, context: ServicerContext = None) -> bool:
-        if name not in self.orbitas.keys():
+    def check_component_id(self, id: int, context: ServicerContext = None) -> bool:
+        if id not in self.orbitas.keys():
             if context:
-                context.abort(404, f"{name} not found")
+                context.abort(404, f"{id} not found")
             return False
         return True
 
     def GetAllOrbita3D(
         self, request: Empty, context: ServicerContext
-    ) -> ListOfOrbita3DInfo:
-        return ListOfOrbita3DInfo(
+    ) -> ListOfOrbita3D:
+        return ListOfOrbita3D(
             info=[
-                Orbita3DInfo(
+                Orbita3D(
                     id=ComponentId(id=orbita.id),
                     serial_number=orbita.serial_number,
                 ) for orbita in self.orbitas.values()]
@@ -96,14 +97,15 @@ class Orbita3DServicer(Orbita3DServiceServicer):
             self.GetState, request.req, context, period=1 / request.freq
         )
 
-    def SendCommand(self, request: Orbita3DCommand, context: ServicerContext) -> Empty:
-        self.check_component_id(request.id.id, context)
-        orbita = self.orbitas[request.id.id]
-        orbita.handle_command(request)
+    def SendCommand(self, request: Orbita3DsCommand, context: ServicerContext) -> Empty:
+        for cmd in request.cmd:
+            self.check_component_id(cmd.id.id, context)
+            orbita = self.orbitas[cmd.id.id]
+            orbita.handle_command(cmd)
         return Empty()
 
     def StreamCommand(
-        self, request_iterator: Iterator[Orbita3DCommand], context: ServicerContext
+        self, request_iterator: Iterator[Orbita3DsCommand], context: ServicerContext
     ) -> Empty:
         for request in request_iterator:
             self.SendCommand(request, context)
@@ -168,26 +170,27 @@ class FakeOrbita3D:
         if request.HasField('compliant'):
             self.compliant = request.compliant.value
         if request.HasField('goal_position'):
-            gp = request.goal_position
-            if gp.roll is not None:
-                self.roll.goal_position = gp.roll
-            if gp.pitch is not None:
-                self.pitch.goal_position = gp.pitch
-            if gp.yaw is not None:
-                self.yaw.goal_position = gp.yaw
+            # TODO: handle properly
+            gp = request.goal_position.q
+            if gp.x is not None:
+                self.roll.goal_position = gp.x
+            if gp.y is not None:
+                self.pitch.goal_position = gp.y
+            if gp.z is not None:
+                self.yaw.goal_position = gp.z
         if request.HasField('speed_limit'):
             sl = request.speed_limit
-            if sl.roll is not None:
-                self.roll.speed_limit = sl.roll
-            if sl.pitch is not None:
-                self.pitch.speed_limit = sl.pitch
-            if sl.yaw is not None:
-                self.yaw.speed_limit = sl.yaw
+            if sl.motor_1 is not None:
+                self.roll.speed_limit = sl.motor_1
+            if sl.motor_2 is not None:
+                self.pitch.speed_limit = sl.motor_2
+            if sl.motor_3 is not None:
+                self.yaw.speed_limit = sl.motor_3
         if request.HasField('torque_limit'):
             tl = request.torque_limit
-            if tl.roll is not None:
-                self.roll.torque_limit = tl.roll
-            if tl.pitch is not None:
-                self.pitch.torque_limit = tl.pitch
-            if tl.yaw is not None:
-                self.yaw.torque_limit = tl.yaw
+            if tl.motor_1 is not None:
+                self.roll.torque_limit = tl.motor_1
+            if tl.motor_2 is not None:
+                self.pitch.torque_limit = tl.motor_2
+            if tl.motor_3 is not None:
+                self.yaw.torque_limit = tl.motor_3

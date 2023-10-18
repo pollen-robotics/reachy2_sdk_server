@@ -1,18 +1,12 @@
-from typing import Dict, Iterator, List
+from pathlib import Path
+from typing import Dict, List
 import uuid
 
 from google.protobuf.empty_pb2 import Empty
-from google.protobuf.timestamp_pb2 import Timestamp
 from grpc import ServicerContext
 from reachy_sdk_api_v2.head_pb2 import (
-    HeadField,
-    HeadState,
     Head,
     ListOfHead,
-    HeadPosition,
-    SpeedLimit,
-    SpeedLimitRequest,
-    HeadTemperatures,
     NeckFKRequest,
     NeckFKSolution,
     NeckOrientation,
@@ -22,16 +16,12 @@ from reachy_sdk_api_v2.head_pb2 import (
 from reachy_sdk_api_v2.head_pb2_grpc import HeadServiceServicer
 from reachy_sdk_api_v2.part_pb2 import PartInfo, PartId
 from reachy_sdk_api_v2.kinematics_pb2 import Quaternion
-from reachy_sdk_api_v2.orbita3d_pb2 import (
-    Orbita3DInfo,
-)
+
 from reachy_sdk_api_v2.kinematics_pb2 import (
     Rotation3D,
     ExtEulerAngles,
 )
-from reachy_sdk_api_v2.dynamixel_motor_pb2 import (
-    DynamixelMotorInfo,
-)
+
 from .dynamixel_motor import FakeDynamixelMotor
 from .orbita3d import FakeOrbita3D
 from .utils import read_config_file
@@ -154,10 +144,10 @@ class FakeHead:
             orbita3ds: List[Dict[str, FakeOrbita3D]],
             dynamixelmotors: List[Dict[str, FakeDynamixelMotor]]) -> None:
         config = read_config_file(
-            '/home/demo/dev/reachy_sdk_server/src/reachy_sdk_server/config/head.yaml'
+            f'{Path.cwd()}/config/head.yaml'
         )['head']
         for sub_part in config:
             if config[sub_part]['actuator'] == 'dynamixel_motor':
                 setattr(self, sub_part, dynamixelmotors[f'dynamixel_motor_{config[sub_part]["name"]}'])
             elif config[sub_part]['actuator'] == 'orbita3d':
-                setattr(self, sub_part, orbita3ds[f'orbita3d_{config[sub_part]["name"]}'])
+                setattr(self, sub_part, orbita3ds[config[sub_part]["id"]])

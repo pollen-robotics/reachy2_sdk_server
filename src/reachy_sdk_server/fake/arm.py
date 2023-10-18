@@ -1,41 +1,32 @@
-from typing import Dict, Iterator, List
+from pathlib import Path
+from typing import Dict, List
 import uuid
 
 from google.protobuf.empty_pb2 import Empty
-from google.protobuf.timestamp_pb2 import Timestamp
 from grpc import ServicerContext
 from reachy_sdk_api_v2.arm_pb2 import (
-    ArmField,
-    ArmState,
     Arm,
     ListOfArm,
     ArmPosition,
-    ArmCartesianGoal,
     ArmJointGoal,
     ArmEndEffector,
-    ArmFKSolution,
     ArmIKSolution,
-    SpeedLimit,
-    SpeedLimitRequest,
-    ArmTemperatures,
     ArmIKRequest,
     ArmFKRequest,
     ArmFKSolution,
 )
 from reachy_sdk_api_v2.arm_pb2_grpc import ArmServiceServicer
 from reachy_sdk_api_v2.part_pb2 import PartInfo, PartId
+
 from reachy_sdk_api_v2.orbita2d_pb2 import (
-    Orbita2DInfo,
     Pose2D,
-)
-from reachy_sdk_api_v2.orbita3d_pb2 import (
-    Orbita3DInfo,
 )
 from reachy_sdk_api_v2.kinematics_pb2 import (
     Rotation3D,
     ExtEulerAngles,
     Matrix4x4,
 )
+
 from .orbita2d import FakeOrbita2D
 from .orbita3d import FakeOrbita3D
 from .utils import read_config_file
@@ -181,10 +172,10 @@ class FakeArm:
             orbita2ds: List[Dict[str, FakeOrbita2D]],
             orbita3ds: List[Dict[str, FakeOrbita3D]]) -> None:
         config = read_config_file(
-            f'/home/demo/dev/reachy_sdk_server/src/reachy_sdk_server/config/{self.side}_arm.yaml'
+            f'{Path.cwd()}/config/{self.side}_arm.yaml'
         )[f'{self.side}_arm']
         for sub_part in config:
             if config[sub_part]['actuator'] == 'orbita2d':
-                setattr(self, sub_part, orbita2ds[f'orbita2d_{config[sub_part]["name"]}'])
+                setattr(self, sub_part, orbita2ds[int(config[sub_part]["id"])])
             elif config[sub_part]['actuator'] == 'orbita3d':
-                setattr(self, sub_part, orbita3ds[f'orbita3d_{config[sub_part]["name"]}'])
+                setattr(self, sub_part, orbita3ds[int(config[sub_part]["id"])])
