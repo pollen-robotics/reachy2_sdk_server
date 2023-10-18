@@ -88,9 +88,23 @@ class ArmServicer:
 
     def GetAllArms(self, request: Empty, context: grpc.ServicerContext) -> ListOfArm:
         return ListOfArm(arm=[self.get_arm(arm, context) for arm in self.arms])
+    
+    def get_arm_part_by_part_id(self, part_id: PartId, context: grpc.ServicerContext) -> Part:
+        part = self.bridge_node.parts.get_by_part_id(part_id)
+
+        if part is None:
+            context.abort(grpc.StatusCode.NOT_FOUND, f"Part not found (id={part_id}).")
+
+        if part.type != "arm":
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT,
+                f"Part '{part_id}' is not an arm.",
+            )
+
+        return part
 
     def GetState(self, request: PartId, context: grpc.ServicerContext) -> ArmState:
-        arm = self.bridge_node.parts.get_by_part_id(request)
+        arm = self.get_arm_part_by_part_id(request, context)
 
         return ArmState(
             timestamp=get_current_timestamp(self.bridge_node),
@@ -136,7 +150,7 @@ class ArmServicer:
     def GoToJointPosition(
         self, request: ArmJointGoal, context: grpc.ServicerContext
     ) -> Empty:
-        arm = self.bridge_node.parts.get_by_part_id(request.id)
+        arm = self.get_arm_part_by_part_id(request, context)
 
         # TODO:
         # We do not take the duration into account
@@ -201,9 +215,9 @@ class ArmServicer:
         )
 
     # Compliances
-    def set_stiffness(self, request: PartId, torque: bool) -> None:
+    def set_stiffness(self, request: PartId, torque: bool, context: grpc.ServicerContext) -> None:
         # TODO: re-write using self.orbita2d_servicer.SendCommand?
-        part = self.bridge_node.parts.get_by_part_id(request)
+        part = self.get_arm_part_by_part_id(request, context)
 
         cmd = DynamicJointState()
         cmd.joint_names = []
@@ -221,11 +235,11 @@ class ArmServicer:
         self.bridge_node.publish_command(cmd)
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        self.set_stiffness(request, torque=True)
+        self.set_stiffness(request, torque=True, context=context)
         return Empty()
 
     def TurnOff(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        self.set_stiffness(request, torque=False)
+        self.set_stiffness(request, torque=False, context=context)
         return Empty()
 
     # Temperatures
@@ -249,7 +263,7 @@ class ArmServicer:
     def ComputeArmFK(
         self, request: ArmFKRequest, context: grpc.ServicerContext
     ) -> ArmFKSolution:
-        arm = self.bridge_node.parts.get_by_part_id(request.id)
+        arm = self.get_arm_part_by_part_id(request, context)
         success, pose = self.bridge_node.compute_forward(
             request.id, arm_position_to_joint_state(request.position, arm)
         )
@@ -265,7 +279,7 @@ class ArmServicer:
     def ComputeArmIK(
         self, request: ArmIKRequest, context: grpc.ServicerContext
     ) -> ArmIKSolution:
-        arm = self.bridge_node.parts.get_by_part_id(request.id)
+        arm = self.get_arm_part_by_part_id(request, context)
 
         success, joint_position = self.bridge_node.compute_inverse(
             request.id,
