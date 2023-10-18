@@ -12,10 +12,10 @@ from reachy_sdk_api_v2.kinematics_pb2 import ExtEulerAngles, Rotation3D
 from reachy_sdk_api_v2.orbita3d_pb2 import (
     PID3D,
     Float3D,
-    ListOfOrbita3DInfo,
+    ListOfOrbita3D,
     Orbita3DCommand,
     Orbita3DField,
-    Orbita3DInfo,
+    Orbita3D,
     Orbita3DState,
     Orbita3DStateRequest,
     Orbita3DStatus,
@@ -59,8 +59,8 @@ class Orbita3dServicer:
         add_Orbita3DServiceServicer_to_server(self, server)
 
     @classmethod
-    def get_info(cls, orbita3d: Component) -> Orbita3DInfo:
-        return Orbita3DInfo(
+    def get_info(cls, orbita3d: Component) -> Orbita3D:
+        return Orbita3D(
             id=ComponentId(
                 id=orbita3d.id,
                 name=orbita3d.name,
@@ -69,8 +69,8 @@ class Orbita3dServicer:
 
     def GetAllOrbita3D(
         self, request: Empty, context: grpc.ServicerContext
-    ) -> ListOfOrbita3DInfo:
-        return ListOfOrbita3DInfo(
+    ) -> ListOfOrbita3D:
+        return ListOfOrbita3D(
             info=[
                 self.get_info(o)
                 for o in self.bridge_node.components.get_by_type("orbita3d")

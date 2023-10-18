@@ -21,10 +21,10 @@ from reachy_sdk_api_v2.orbita2d_pb2 import (
     PID2D,
     Pose2D,
     Float2D,
-    ListOfOrbita2DInfo,
+    ListOfOrbita2D,
     Orbita2DCommand,
     Orbita2DField,
-    Orbita2DInfo,
+    Orbita2D,
     Orbita2DState,
     Orbita2DStateRequest,
     Orbita2DStatus,
@@ -61,8 +61,8 @@ class Orbita2dServicer:
         add_Orbita2DServiceServicer_to_server(self, server)
 
     @classmethod
-    def get_info(cls, orbita2d: Component) -> Orbita2DInfo:
-        return Orbita2DInfo(
+    def get_info(cls, orbita2d: Component) -> Orbita2D:
+        return Orbita2D(
             id=ComponentId(
                 id=orbita2d.id,
                 name=orbita2d.name,
@@ -73,8 +73,8 @@ class Orbita2dServicer:
 
     def GetAllOrbita2D(
         self, request: Empty, context: grpc.ServicerContext
-    ) -> ListOfOrbita2DInfo:
-        return ListOfOrbita2DInfo(
+    ) -> ListOfOrbita2D:
+        return ListOfOrbita2D(
             info=[
                 self.get_info(o)
                 for o in self.bridge_node.components.get_by_type("orbita2d")
