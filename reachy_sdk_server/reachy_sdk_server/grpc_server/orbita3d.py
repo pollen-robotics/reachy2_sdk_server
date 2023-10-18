@@ -81,7 +81,7 @@ class Orbita3dServicer:
     def GetState(
         self, request: Orbita3DStateRequest, context: grpc.ServicerContext
     ) -> Orbita3DState:
-        orbita2d_components = self.get_orbita3d_components(request.id)
+        orbita2d_components = self.get_orbita3d_components(request.id, context=context)
 
         state = extract_fields(
             Orbita3DField, request.fields, conversion_table, orbita2d_components
@@ -111,7 +111,7 @@ class Orbita3dServicer:
             if not cmd_req.HasField("id"):
                 context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Missing 'id' field.")
 
-            orbita3d_components = self.get_orbita3d_components(cmd_req.id)
+            orbita3d_components = self.get_orbita3d_components(cmd_req.id, context=context)
 
 
 
@@ -222,14 +222,26 @@ class Orbita3dServicer:
     def Restart(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
         return Empty()
 
-    def get_orbita3d_components(self, component_id: ComponentId) -> Orbita3DComponents:
+    def get_orbita3d_components(self, component_id: ComponentId, context: grpc.ServicerContext) -> Orbita3DComponents:
         if not hasattr(self, "_lazy_components"):
             self._lazy_components = {}
 
         components = self.bridge_node.components
-        id = components.get_by_component_id(component_id).id
 
-        if id not in self._lazy_components:
+        c = components.get_by_component_id(component_id)
+        if c is None:
+            context.abort(
+                grpc.StatusCode.NOT_FOUND,
+                f"Could not find component with id '{component_id}'.",
+            )
+
+        if c.type != "orbita3d":
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT,
+                f"Component '{component_id}' is not an orbita3d.",
+            )
+
+        if c.id not in self._lazy_components:
             orbita3d = components.get_by_component_id(component_id)
             orbita3d_roll = components.get_by_name(f"{orbita3d.name}_roll")
             orbita3d_pitch = components.get_by_name(f"{orbita3d.name}_pitch")
@@ -244,7 +256,7 @@ class Orbita3dServicer:
                 f"{orbita3d.name}_raw_motor_3"
             )
 
-            self._lazy_components[id] = Orbita3DComponents(
+            self._lazy_components[c.id] = Orbita3DComponents(
                 orbita3d,
                 orbita3d_roll,
                 orbita3d_pitch,
@@ -254,7 +266,7 @@ class Orbita3dServicer:
                 orbita3d_raw_motor_3,
             )
 
-        return self._lazy_components[id]
+        return self._lazy_components[c.id]
 
 
 conversion_table = {
