@@ -138,44 +138,44 @@ class ReachyServicer(ReachyServiceServicer):
                         name=self.right_arm.shoulder.name
                     ),
                     temperature=Float2D(
-                        motor_1=self._temp,
-                        motor_2=0.6
+                        motor_1=self.right_arm.shoulder.pitch.temperature,
+                        motor_2=self.right_arm.shoulder.roll.temperature
                     ),
                     present_position=Pose2D(
-                        axis_1=self._temp,
-                        axis_2=0.6
+                        axis_1=self.right_arm.shoulder.pitch.present_position,
+                        axis_2=self.right_arm.shoulder.roll.present_position
                     ),
                     present_speed=Vector2D(
-                        x=self._temp,
-                        y=0.6
+                        x=self.right_arm.shoulder.pitch.present_speed,
+                        y=self.right_arm.shoulder.roll.present_speed
                     ),
                     present_load=Vector2D(
-                        x=self._temp,
-                        y=0.6
+                        x=self.right_arm.shoulder.pitch.present_load,
+                        y=self.right_arm.shoulder.roll.present_load
                     ),
                     compliant=BoolValue(value=self.right_arm.shoulder.compliant),
                     goal_position=Pose2D(
-                        axis_1=self._temp,
-                        axis_2=0.6
+                        axis_1=self.right_arm.shoulder.pitch.goal_position,
+                        axis_2=self.right_arm.shoulder.roll.goal_position
                     ),
                     speed_limit=Float2D(
-                        motor_1=self._temp,
-                        motor_2=0.6
+                        motor_1=self.right_arm.shoulder.pitch.speed_limit,
+                        motor_2=self.right_arm.shoulder.roll.speed_limit
                     ),
                     torque_limit=Float2D(
-                        motor_1=self._temp,
-                        motor_2=0.6
+                        motor_1=self.right_arm.shoulder.pitch.torque_limit,
+                        motor_2=self.right_arm.shoulder.roll.torque_limit
                     ),
                     pid=PID2D(
                         motor_1=PIDGains(
-                            p=500,
-                            i=200,
-                            d=3,
+                            p=self.right_arm.shoulder.pitch.pid.p,
+                            i=self.right_arm.shoulder.pitch.pid.i,
+                            d=self.right_arm.shoulder.pitch.pid.d
                         ),
                         motor_2=PIDGains(
-                            p=400,
-                            i=700,
-                            d=4,
+                            p=self.right_arm.shoulder.roll.pid.p,
+                            i=self.right_arm.shoulder.roll.pid.i,
+                            d=self.right_arm.shoulder.roll.pid.d
                         )
                     ),
                 ),
@@ -185,44 +185,44 @@ class ReachyServicer(ReachyServiceServicer):
                         name=self.right_arm.elbow.name
                     ),
                     temperature=Float2D(
-                        motor_1=self._temp,
-                        motor_2=0.6
+                        motor_1=self.right_arm.elbow.yaw.temperature,
+                        motor_2=self.right_arm.elbow.pitch.temperature
                     ),
                     present_position=Pose2D(
-                        axis_1=self._temp,
-                        axis_2=0.6
+                        axis_1=self.right_arm.elbow.yaw.present_position,
+                        axis_2=self.right_arm.elbow.pitch.present_position
                     ),
                     present_speed=Vector2D(
-                        x=self._temp,
-                        y=0.6
+                        x=self.right_arm.elbow.yaw.present_speed,
+                        y=self.right_arm.elbow.pitch.present_speed
                     ),
                     present_load=Vector2D(
-                        x=self._temp,
-                        y=0.6
+                        x=self.right_arm.elbow.yaw.present_load,
+                        y=self.right_arm.elbow.pitch.present_load
                     ),
                     compliant=BoolValue(value=self.right_arm.elbow.compliant),
                     goal_position=Pose2D(
-                        axis_1=self._temp,
-                        axis_2=0.6
+                        axis_1=self.right_arm.elbow.yaw.goal_position,
+                        axis_2=self.right_arm.elbow.pitch.goal_position
                     ),
                     speed_limit=Float2D(
-                        motor_1=self._temp,
-                        motor_2=0.6
+                        motor_1=self.right_arm.elbow.yaw.speed_limit,
+                        motor_2=self.right_arm.elbow.pitch.speed_limit
                     ),
                     torque_limit=Float2D(
-                        motor_1=self._temp,
-                        motor_2=0.6
+                        motor_1=self.right_arm.elbow.yaw.torque_limit,
+                        motor_2=self.right_arm.elbow.pitch.torque_limit
                     ),
                     pid=PID2D(
                         motor_1=PIDGains(
-                            p=500,
-                            i=200,
-                            d=3,
+                            p=self.right_arm.elbow.yaw.pid.p,
+                            i=self.right_arm.elbow.yaw.pid.i,
+                            d=self.right_arm.elbow.yaw.pid.d,
                         ),
                         motor_2=PIDGains(
-                            p=400,
-                            i=700,
-                            d=4,
+                            p=self.right_arm.elbow.pitch.pid.p,
+                            i=self.right_arm.elbow.pitch.pid.i,
+                            d=self.right_arm.elbow.pitch.pid.d,
                         )
                     ),
                 ),
@@ -232,60 +232,60 @@ class ReachyServicer(ReachyServiceServicer):
                         name=self.right_arm.wrist.name
                     ),
                     temperature=Float3D(
-                        motor_1=self._temp,
-                        motor_2=0.6,
-                        motor_3=0.7,
+                        motor_1=self.right_arm.wrist.roll.temperature,
+                        motor_2=self.right_arm.wrist.pitch.temperature,
+                        motor_3=self.right_arm.wrist.yaw.temperature,
                     ),
                     present_position=Rotation3D(
                         rpy=ExtEulerAngles(
-                            roll=self._temp,
+                            roll=0.5,
                             pitch=0.6,
                             yaw=0.7,
                         )
                     ),
                     present_speed=Vector3D(
-                        x=self._temp,
-                        y=0.6,
-                        z=0.7,
+                        x=self.right_arm.wrist.roll.present_speed,
+                        y=self.right_arm.wrist.pitch.present_speed,
+                        z=self.right_arm.wrist.yaw.present_speed,
                     ),
                     present_load=Vector3D(
-                        x=self._temp,
-                        y=0.6,
-                        z=0.7,
+                        x=self.right_arm.wrist.roll.present_load,
+                        y=self.right_arm.wrist.pitch.present_load,
+                        z=self.right_arm.wrist.yaw.present_load,
                     ),
                     compliant=BoolValue(value=self.right_arm.wrist.compliant),
                     goal_position=Rotation3D(
                         rpy=ExtEulerAngles(
-                            roll=self._temp,
+                            roll=0.5,
                             pitch=0.6,
                             yaw=0.7,
                         )
                     ),
                     speed_limit=Float3D(
-                        motor_1=self._temp,
-                        motor_2=0.6,
-                        motor_3=0.7,
+                        motor_1=self.right_arm.wrist.roll.speed_limit,
+                        motor_2=self.right_arm.wrist.pitch.speed_limit,
+                        motor_3=self.right_arm.wrist.yaw.speed_limit,
                     ),
                     torque_limit=Float3D(
-                        motor_1=self._temp,
-                        motor_2=0.6,
-                        motor_3=0.7,
+                        motor_1=self.right_arm.wrist.roll.torque_limit,
+                        motor_2=self.right_arm.wrist.pitch.torque_limit,
+                        motor_3=self.right_arm.wrist.yaw.torque_limit,
                     ),
                     pid=PID3D(
                         motor_1=PIDGains(
-                            p=500,
-                            i=200,
-                            d=3,
+                            p=self.right_arm.wrist.roll.pid.p,
+                            i=self.right_arm.wrist.roll.pid.i,
+                            d=self.right_arm.wrist.roll.pid.d,
                         ),
                         motor_2=PIDGains(
-                            p=400,
-                            i=700,
-                            d=4,
+                            p=self.right_arm.wrist.pitch.pid.p,
+                            i=self.right_arm.wrist.pitch.pid.i,
+                            d=self.right_arm.wrist.pitch.pid.d,
                         ),
                         motor_3=PIDGains(
-                            p=200,
-                            i=100,
-                            d=1,
+                            p=self.right_arm.wrist.yaw.pid.p,
+                            i=self.right_arm.wrist.yaw.pid.i,
+                            d=self.right_arm.wrist.yaw.pid.d,
                         ),
                     ),
                 ),
@@ -302,60 +302,60 @@ class ReachyServicer(ReachyServiceServicer):
                         name=self.head.neck.name
                     ),
                     temperature=Float3D(
-                        motor_1=self._temp,
-                        motor_2=0.6,
-                        motor_3=0.7,
+                        motor_1=self.head.neck.roll.temperature,
+                        motor_2=self.head.neck.pitch.temperature,
+                        motor_3=self.head.neck.yaw.temperature,
                     ),
                     present_position=Rotation3D(
                         rpy=ExtEulerAngles(
-                            roll=self._temp,
+                            roll=0.5,
                             pitch=0.6,
                             yaw=0.7,
                         )
                     ),
                     present_speed=Vector3D(
-                        x=self._temp,
-                        y=0.6,
-                        z=0.7,
+                        x=self.head.neck.roll.present_speed,
+                        y=self.head.neck.pitch.present_speed,
+                        z=self.head.neck.yaw.present_speed,
                     ),
                     present_load=Vector3D(
-                        x=self._temp,
-                        y=0.6,
-                        z=0.7,
+                        x=self.head.neck.roll.present_load,
+                        y=self.head.neck.pitch.present_load,
+                        z=self.head.neck.yaw.present_load,
                     ),
                     compliant=BoolValue(value=self.head.neck.compliant),
                     goal_position=Rotation3D(
                         rpy=ExtEulerAngles(
-                            roll=self._temp,
+                            roll=0.5,
                             pitch=0.6,
                             yaw=0.7,
                         )
                     ),
                     speed_limit=Float3D(
-                        motor_1=self._temp,
-                        motor_2=0.6,
-                        motor_3=0.7,
+                        motor_1=self.head.neck.roll.speed_limit,
+                        motor_2=self.head.neck.pitch.speed_limit,
+                        motor_3=self.head.neck.yaw.speed_limit,
                     ),
                     torque_limit=Float3D(
-                        motor_1=self._temp,
-                        motor_2=0.6,
-                        motor_3=0.7,
+                        motor_1=self.head.neck.roll.torque_limit,
+                        motor_2=self.head.neck.pitch.torque_limit,
+                        motor_3=self.head.neck.yaw.torque_limit,
                     ),
                     pid=PID3D(
                         motor_1=PIDGains(
-                            p=500,
-                            i=200,
-                            d=3,
+                            p=self.head.neck.roll.pid.p,
+                            i=self.head.neck.roll.pid.i,
+                            d=self.head.neck.roll.pid.d,
                         ),
                         motor_2=PIDGains(
-                            p=400,
-                            i=700,
-                            d=4,
+                            p=self.head.neck.pitch.pid.p,
+                            i=self.head.neck.pitch.pid.i,
+                            d=self.head.neck.pitch.pid.d,
                         ),
                         motor_3=PIDGains(
-                            p=200,
-                            i=100,
-                            d=1,
+                            p=self.head.neck.yaw.pid.p,
+                            i=self.head.neck.yaw.pid.i,
+                            d=self.head.neck.yaw.pid.d,
                         ),
                     ),
                 ),
@@ -364,18 +364,18 @@ class ReachyServicer(ReachyServiceServicer):
                         id=self.head.l_antenna.id,
                         name=self.head.l_antenna.name,
                     ),
-                    temperature=FloatValue(value=80.0),
-                    present_position=FloatValue(value=-50.0),
-                    present_speed=FloatValue(value=2.0),
-                    present_load=FloatValue(value=26.0),
+                    temperature=self.head.l_antenna.pid.temperature,
+                    present_position=self.head.l_antenna.pid.present_position,
+                    present_speed=self.head.l_antenna.pid.present_speed,
+                    present_load=self.head.l_antenna.pid.present_load,
                     compliant=BoolValue(value=self.head.l_antenna.compliant),
-                    goal_position=FloatValue(value=54.0),
-                    speed_limit=FloatValue(value=90.0),
-                    torque_limit=FloatValue(value=21.0),
+                    goal_position=self.head.l_antenna.pid.goal_position,
+                    speed_limit=self.head.l_antenna.pid.speed_limit,
+                    torque_limit=self.head.l_antenna.pid.torque_limit,
                     pid=PIDGains(
-                            p=500,
-                            i=200,
-                            d=3,
+                            p=self.head.l_antenna.pid.p,
+                            i=self.head.l_antenna.pid.i,
+                            d=self.head.l_antenna.pid.d,
                         ),
                 ),
                 r_antenna_state=DynamixelMotorState(
@@ -383,18 +383,18 @@ class ReachyServicer(ReachyServiceServicer):
                         id=self.head.r_antenna.id,
                         name=self.head.r_antenna.name,
                     ),
-                    temperature=FloatValue(value=854.0),
-                    present_position=FloatValue(value=-820.0),
-                    present_speed=FloatValue(value=24.0),
-                    present_load=FloatValue(value=85.0),
+                    temperature=self.head.r_antenna.pid.temperature,
+                    present_position=self.head.r_antenna.pid.present_position,
+                    present_speed=self.head.r_antenna.pid.present_speed,
+                    present_load=self.head.r_antenna.pid.present_load,
                     compliant=BoolValue(value=self.head.r_antenna.compliant),
-                    goal_position=FloatValue(value=534.0),
-                    speed_limit=FloatValue(value=80.0),
-                    torque_limit=FloatValue(value=3.0),
+                    goal_position=self.head.r_antenna.pid.goal_position,
+                    speed_limit=self.head.r_antenna.pid.speed_limit,
+                    torque_limit=self.head.r_antenna.pid.torque_limit,
                     pid=PIDGains(
-                            p=82,
-                            i=42,
-                            d=1,
+                            p=self.head.r_antenna.pid.p,
+                            i=self.head.r_antenna.pid.i,
+                            d=self.head.r_antenna.pid.d,
                         ),
                 ),
             ),
@@ -421,4 +421,3 @@ class ReachyServicer(ReachyServiceServicer):
 
             yield reachy_state
             last_pub = time.time()
-
