@@ -86,7 +86,7 @@ class Orbita2dServicer:
     def GetState(
         self, request: Orbita2DStateRequest, context: grpc.ServicerContext
     ) -> Orbita2DState:
-        orbita2d_components = self.get_orbita2d_components(request.id)
+        orbita2d_components = self.get_orbita2d_components(request.id, context=context)
 
         state = extract_fields(
             Orbita2DField, request.fields, conversion_table, orbita2d_components
@@ -115,7 +115,7 @@ class Orbita2dServicer:
             if not req_cmd.HasField("id"):
                 context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Missing 'id' field.")
 
-            orbita2d_components = self.get_orbita2d_components(req_cmd.id)
+            orbita2d_components = self.get_orbita2d_components(req_cmd.id, context=context)
 
             if req_cmd.HasField("compliant"):
                 cmd.joint_names.append(orbita2d_components.actuator.name)
@@ -211,15 +211,26 @@ class Orbita2dServicer:
         return Empty()
 
     # Setup utils
-    def get_orbita2d_components(self, component_id: ComponentId) -> Orbita2DComponents:
+    def get_orbita2d_components(self, component_id: ComponentId, context: grpc.ServicerContext) -> Orbita2DComponents:
         if not hasattr(self, "_lazy_components"):
             self._lazy_components = {}
 
         components = self.bridge_node.components
 
-        id = components.get_by_component_id(component_id).id
+        c = components.get_by_component_id(component_id)
+        if c is None:
+            context.abort(
+                grpc.StatusCode.NOT_FOUND,
+                f"Could not find component with id '{component_id}'.",
+            )
 
-        if id not in self._lazy_components:
+        if c.type != "orbita2d":
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT,
+                f"Component '{component_id}' is not an orbita2d.",
+            )
+
+        if c.id not in self._lazy_components:
             orbita2d = components.get_by_component_id(component_id)
             orbita2d_axis1 = components.get_by_name(
                 f"{orbita2d.name}_{orbita2d.extra['axis1']}"
@@ -234,7 +245,7 @@ class Orbita2dServicer:
                 f"{orbita2d.name}_raw_motor_2"
             )
 
-            self._lazy_components[id] = Orbita2DComponents(
+            self._lazy_components[c.id] = Orbita2DComponents(
                 orbita2d,
                 orbita2d_axis1,
                 orbita2d_axis2,
@@ -242,7 +253,7 @@ class Orbita2dServicer:
                 orbita2d_raw_motor_2,
             )
 
-        return self._lazy_components[id]
+        return self._lazy_components[c.id]
 
 
 conversion_table = {
