@@ -16,6 +16,8 @@ from reachy_sdk_api_v2.orbita2d_pb2 import (
     Orbita2DStateRequest,
     Orbita2DStreamStateRequest,
     PID2D,
+    Pose2D,
+    Vector2D,
 )
 
 from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains
@@ -68,19 +70,19 @@ class Orbita2DServicer(Orbita2DServiceServicer):
 
         for field in request.fields:
             if field in (Orbita2DField.NAME, Orbita2DField.ALL):
-                kwargs['name'] = orbita.id
+                kwargs['id'] = ComponentId(name=orbita.name)
             if field in (Orbita2DField.PRESENT_POSITION, Orbita2DField.ALL):
-                kwargs['present_position'] = orbita.get_float2d_message('present_position')
+                kwargs['present_position'] = orbita.get_pose2d_message('present_position')
             if field in (Orbita2DField.PRESENT_SPEED, Orbita2DField.ALL):
-                kwargs['present_speed'] = orbita.get_float2d_message('present_speed')
+                kwargs['present_speed'] = orbita.get_vector2d_message('present_speed')
             if field in (Orbita2DField.PRESENT_LOAD, Orbita2DField.ALL):
-                kwargs['present_load'] = orbita.get_float2d_message('present_load')
+                kwargs['present_load'] = orbita.get_vector2d_message('present_load')
             if field in (Orbita2DField.TEMPERATURE, Orbita2DField.ALL):
                 kwargs['temperature'] = orbita.get_float2d_message('temperature')
             if field in (Orbita2DField.COMPLIANT, Orbita2DField.ALL):
                 kwargs['compliant'] = BoolValue(value=orbita.compliant)
             if field in (Orbita2DField.GOAL_POSITION, Orbita2DField.ALL):
-                kwargs['goal_position'] = orbita.get_float2d_message('goal_position')
+                kwargs['goal_position'] = orbita.get_pose2d_message('goal_position')
             if field in (Orbita2DField.SPEED_LIMIT, Orbita2DField.ALL):
                 kwargs['speed_limit'] = orbita.get_float2d_message('speed_limit')
             if field in (Orbita2DField.TORQUE_LIMIT, Orbita2DField.ALL):
@@ -163,8 +165,26 @@ class FakeOrbita2D:
         axis_2 = getattr(self, self._axis2_type)
 
         return Float2D(
+            motor_1=getattr(axis_1, field),
+            motor_2=getattr(axis_2, field),
+        )
+    
+    def get_pose2d_message(self, field: str) -> Pose2D:
+        axis_1 = getattr(self, self._axis1_type)
+        axis_2 = getattr(self, self._axis2_type)
+
+        return Pose2D(
             axis_1=getattr(axis_1, field),
             axis_2=getattr(axis_2, field),
+        )
+    
+    def get_vector2d_message(self, field: str) -> Vector2D:
+        axis_1 = getattr(self, self._axis1_type)
+        axis_2 = getattr(self, self._axis2_type)
+
+        return Vector2D(
+            x=getattr(axis_1, field),
+            y=getattr(axis_2, field),
         )
 
     def get_pid2d_message(self) -> PID2D:
@@ -172,8 +192,8 @@ class FakeOrbita2D:
         axis_2 = getattr(self, self._axis2_type)
 
         return PID2D(
-            gains_axis_1=axis_1.pid,
-            gains_axis_2=axis_2.pid,
+            motor_1=axis_1.pid,
+            motor_2=axis_2.pid,
         )
 
     def handle_command(self, request: Orbita2DCommand) -> None:
