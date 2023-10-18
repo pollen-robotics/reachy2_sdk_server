@@ -3,6 +3,7 @@ import rclpy
 
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
+from sensor_msgs.msg import JointState
 
 from reachy_sdk_api_v2.component_pb2 import (
     ComponentId,
@@ -25,6 +26,7 @@ from reachy_sdk_api_v2.head_pb2 import (
     NeckGoal,
     NeckIKRequest,
     NeckIKSolution,
+    NeckOrientation,
     SpeedLimitRequest,
 )
 from reachy_sdk_api_v2.kinematics_pb2 import (
@@ -42,9 +44,12 @@ from ..conversion import (
     neck_rotation_to_joint_state,
     pose_matrix_from_quaternion,
     neck_rotation_to_joint_state,
+    rotation3d_as_extrinsinc_euler_angles,
     rotation3d_as_quat,
 )
 from .orbita3d import (
+    Orbita3DCommand,
+    Orbita3DsCommand,
     Orbita3dServicer,
     Orbita3DStateRequest,
 )
@@ -145,10 +150,15 @@ class HeadServicer:
 
         M = pose_matrix_from_quaternion(request.target.q)
 
+        try:
+            q0 = neck_rotation_to_joint_state(request.q0, head)
+        except ValueError:
+            q0 = JointState()
+
         success, joint_position = self.bridge_node.compute_inverse(
             request.id,
             M,
-            neck_rotation_to_joint_state(request.q0, head),
+            q0,
         )
 
         sol = NeckIKSolution()
@@ -162,10 +172,32 @@ class HeadServicer:
     def GoToOrientation(
         self, request: NeckGoal, context: grpc.ServicerContext
     ) -> Empty:
-        # TODO: 
-        # IK + goto ?
-        # Juste goto ?
-        pass
+        head = self.bridge_node.parts.get_by_part_id(request.id)
+
+        q = rotation3d_as_quat(request.rotation)
+
+        ik_req = NeckIKRequest(
+            id=request.id,
+            target=NeckOrientation(
+                q=Quaternion(x=q[0], y=q[1], z=q[2], w=q[3]),
+            ),
+        )
+        resp = self.ComputeNeckIK(ik_req, context)
+
+        if not resp.success:
+            context.abort(grpc.StatusCode.INTERNAL, "Could not compute IK.")
+
+        self.orbita3d_servicer.SendCommand(
+            Orbita3DsCommand(cmd=[
+                Orbita3DCommand(
+                    id=ComponentId(id=head.components[0].id),
+                    goal_position=resp.position,
+                ),
+            ]), 
+            context,
+        )
+
+        return Empty()
 
     def GetOrientation(
         self, request: PartId, context: grpc.ServicerContext
