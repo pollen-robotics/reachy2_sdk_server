@@ -62,7 +62,8 @@ class ComponentsHolder:
     ) -> None:
         state = get_component_full_state(name, node_delegate)
 
-        id = int(state.pop("uid"))
+        # We shift the id by one to avoid having an id of 0.
+        id = int(state.pop("uid")) + 1
 
         c = Component(
             name=name,
@@ -79,22 +80,23 @@ class ComponentsHolder:
 
         return c
 
-    def get_by_component_id(self, component_id: ComponentId) -> Component:
+    def get_by_component_id(self, component_id: ComponentId) -> Optional[Component]:
         if component_id.id:
             return self.get_by_id(component_id.id)
         elif component_id.name:
             return self.get_by_name(component_id.name)
-        else:
-            raise ValueError(f"Invalid component_id: {component_id}")
 
     def get_by_type(self, component_type: str) -> List[Component]:
-        return self.by_type[component_type]
+        if component_type in self.by_type:
+            return self.by_type[component_type]
 
-    def get_by_name(self, component_name: str) -> Component:
-        return self.by_name[component_name]
+    def get_by_name(self, component_name: str) -> Optional[Component]:
+        if component_name in self.by_name:
+            return self.by_name[component_name]
 
-    def get_by_id(self, component_id: int) -> Component:
-        return self.by_id[component_id]
+    def get_by_id(self, component_id: int) -> Optional[Component]:
+        if component_id in self.by_id:
+            return self.by_id[component_id]
 
 
 def guess_component_type(name: str, config: dict) -> str:
