@@ -38,6 +38,19 @@ def rotation3d_as_quat(
         raise ValueError("Unknown rotation type.")
 
 
+def quat_as_rotation3d(
+    q: Tuple[float, float, float, float],
+) -> Rotation3D:
+    return Rotation3D(
+        q=Quaternion(
+            x=q[0],
+            y=q[1],
+            z=q[2],
+            w=q[3],
+        ),
+    )
+
+
 def extrinsic_euler_angles_as_rotation3d(
     roll: float,
     pitch: float,
@@ -168,6 +181,7 @@ def joint_state_to_arm_position(js: JointState, arm: Part) -> ArmPosition:
         ),
     )
 
+
 def joint_state_to_neck_orientation(js: JointState, head: Part) -> Rotation3D:
     head_name = []
     for c in head.components:
@@ -208,10 +222,18 @@ def extract_quaternion_from_pose(pose: Pose) -> Tuple[float, float, float, float
     )
 
 
-def extract_quaternion_from_pose_matrix(M: np.array) -> Tuple[float, float, float, float]:
+def extract_quaternion_from_pose_matrix(
+    M: np.array,
+) -> Tuple[float, float, float, float]:
     return Rotation.from_matrix(M[:3, :3]).as_quat()
+
 
 def pose_matrix_from_quaternion(q: Quaternion) -> np.array:
     M = np.eye(4)
     M[:3, :3] = Rotation.from_quat([q.x, q.y, q.z, q.w]).as_matrix()
     return M
+
+
+def pose_matrix_from_rotation3D(rot: Rotation3D) -> np.array:
+    q = rotation3d_as_quat(rot)
+    return pose_matrix_from_quaternion(Quaternion(x=q[0], y=q[1], z=q[2], w=q[3]))

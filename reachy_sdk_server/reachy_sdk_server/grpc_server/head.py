@@ -44,8 +44,9 @@ from ..conversion import (
     extract_quaternion_from_pose_matrix,
     joint_state_to_neck_orientation,
     neck_rotation_to_joint_state,
-    pose_matrix_from_quaternion,
+    pose_matrix_from_rotation3D,
     neck_rotation_to_joint_state,
+    quat_as_rotation3d,
     rotation3d_as_quat,
 )
 from .orbita3d import (
@@ -92,7 +93,9 @@ class HeadServicer:
             ),
         )
 
-    def get_head_part_from_part_id(self, part_id: PartId, context: grpc.ServicerContext) -> Part:
+    def get_head_part_from_part_id(
+        self, part_id: PartId, context: grpc.ServicerContext
+    ) -> Part:
         part = self.bridge_node.parts.get_by_part_id(part_id)
 
         if part is None:
@@ -143,7 +146,8 @@ class HeadServicer:
     ) -> NeckFKSolution:
         head = self.get_head_part_from_part_id(request.id, context)
         success, pose = self.bridge_node.compute_forward(
-            request.id, neck_rotation_to_joint_state(request.position.neck_position, head)
+            request.id,
+            neck_rotation_to_joint_state(request.position.neck_position, head),
         )
 
         sol = NeckFKSolution()
@@ -151,10 +155,10 @@ class HeadServicer:
         if success:
             sol.success = True
             x, y, z, w = extract_quaternion_from_pose_matrix(pose)
-            sol.orientation.q.x = x
-            sol.orientation.q.y = y
-            sol.orientation.q.z = z
-            sol.orientation.q.w = w
+            sol.orientation.rotation.q.x = x
+            sol.orientation.rotation.q.y = y
+            sol.orientation.rotation.q.z = z
+            sol.orientation.rotation.q.w = w
 
         return sol
 
@@ -163,7 +167,7 @@ class HeadServicer:
     ) -> NeckIKSolution:
         head = self.get_head_part_from_part_id(request.id, context)
 
-        M = pose_matrix_from_quaternion(request.target.q)
+        M = pose_matrix_from_rotation3D(request.target.rotation)
 
         try:
             q0 = neck_rotation_to_joint_state(request.q0, head)
@@ -194,7 +198,7 @@ class HeadServicer:
         ik_req = NeckIKRequest(
             id=request.id,
             target=NeckOrientation(
-                q=Quaternion(x=q[0], y=q[1], z=q[2], w=q[3]),
+                rotation=quat_as_rotation3d(q),
             ),
         )
         resp = self.ComputeNeckIK(ik_req, context)
@@ -203,12 +207,14 @@ class HeadServicer:
             context.abort(grpc.StatusCode.INTERNAL, "Could not compute IK.")
 
         self.orbita3d_servicer.SendCommand(
-            Orbita3DsCommand(cmd=[
-                Orbita3DCommand(
-                    id=ComponentId(id=head.components[0].id),
-                    goal_position=resp.position,
-                ),
-            ]), 
+            Orbita3DsCommand(
+                cmd=[
+                    Orbita3DCommand(
+                        id=ComponentId(id=head.components[0].id),
+                        goal_position=resp.position,
+                    ),
+                ]
+            ),
             context,
         )
 
@@ -216,24 +222,26 @@ class HeadServicer:
 
     def GetOrientation(
         self, request: PartId, context: grpc.ServicerContext
-    ) -> Quaternion:
+    ) -> Rotation3D:
         rot = self.GetState(request, context).neck_state.present_position
 
         fk_req = NeckFKRequest(
             id=request,
             position=HeadPosition(
                 neck_position=rot,
-            )
+            ),
         )
         resp = self.ComputeNeckFK(fk_req, context)
 
         if not resp.success:
             context.abort(grpc.StatusCode.INTERNAL, "Could not compute FK.")
 
-        return resp.orientation.q
+        return resp.orientation.rotation
 
     def LookAt(self, request: HeadLookAtGoal, context: grpc.ServicerContext) -> Empty:
-        q = _find_neck_quaternion_transform([1, 0, 0], [request.point.x, request.point.y, request.point.z])
+        q = _find_neck_quaternion_transform(
+            [1, 0, 0], [request.point.x, request.point.y, request.point.z]
+        )
 
         return self.GoToOrientation(
             NeckGoal(
@@ -259,7 +267,9 @@ class HeadServicer:
         return Empty()
 
     # Compliances
-    def set_stiffness(self, request: PartId, torque: bool, context: grpc.ServicerContext) -> None:
+    def set_stiffness(
+        self, request: PartId, torque: bool, context: grpc.ServicerContext
+    ) -> None:
         # TODO: re-write using self.orbita3d_servicer.SendCommand?
         # TODO: check id
         head = self.get_head_part_from_part_id(request, context)
@@ -306,7 +316,7 @@ class HeadServicer:
             id=request,
             position=HeadPosition(
                 neck_position=rot,
-            )
+            ),
         )
         resp = self.ComputeNeckFK(fk_req, context)
 
@@ -323,15 +333,18 @@ class HeadServicer:
         return Empty()
 
 
-
 def _find_neck_quaternion_transform(
-        vect_origin: Tuple[float, float, float],
-        vect_target: Tuple[float, float, float],
+    vect_origin: Tuple[float, float, float],
+    vect_target: Tuple[float, float, float],
 ) -> Tuple[float, float, float, float]:
     vo = _norm(vect_origin)
 
     neck_in_torso = (vect_target[0] - 0.015, vect_target[1], vect_target[2] - 0.095)
-    head_in_torso = (neck_in_torso[0] - 0.02, neck_in_torso[1], neck_in_torso[2] - 0.06105)
+    head_in_torso = (
+        neck_in_torso[0] - 0.02,
+        neck_in_torso[1],
+        neck_in_torso[2] - 0.06105,
+    )
 
     vd = _norm(head_in_torso)
 
@@ -341,7 +354,7 @@ def _find_neck_quaternion_transform(
     alpha = np.arccos(np.dot(vo, vd))
     if np.isnan(alpha) or alpha < 1e-6:
         return (0, 0, 0, 1)
-    
+
     q = _from_axis_angle(axis=v, angle=alpha)
     return q
 
@@ -352,12 +365,13 @@ def _norm(v):
         v = v / np.linalg.norm(v)
     return v
 
+
 def _from_axis_angle(axis, angle):
     mag_sq = np.dot(axis, axis)
     if mag_sq == 0.0:
         raise ValueError("Rotation axis must be non-zero")
-    
-    if (abs(1.0 - mag_sq) > 1e-12):
+
+    if abs(1.0 - mag_sq) > 1e-12:
         axis = axis / np.sqrt(mag_sq)
 
     theta = angle / 2.0
