@@ -15,9 +15,11 @@ from reachy_sdk_api_v2.orbita3d_pb2 import (
     Orbita3DStateRequest,
     Orbita3DStreamStateRequest,
     PID3D,
+    Vector3D,
 )
 
 from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains
+from reachy_sdk_api_v2.kinematics_pb2 import Rotation3D, ExtEulerAngles
 from reachy_sdk_api_v2.orbita3d_pb2_grpc import Orbita3DServiceServicer
 
 from .utils import endless_get_stream
@@ -64,25 +66,25 @@ class Orbita3DServicer(Orbita3DServiceServicer):
 
         for field in request.fields:
             if field in (Orbita3DField.NAME, Orbita3DField.ALL):
-                kwargs['name'] = orbita.id
+                kwargs['id'] = ComponentId(name=orbita.name)
             if field in (Orbita3DField.PRESENT_POSITION, Orbita3DField.ALL):
-                kwargs['present_position'] = orbita.get_float3d_message('present_position')
+                kwargs['present_position'] = orbita.get_rotation3d_message('present_position')
             if field in (Orbita3DField.PRESENT_SPEED, Orbita3DField.ALL):
-                kwargs['present_speed'] = orbita.get_float3d_message('present_speed')
+                kwargs['present_speed'] = orbita.get_vector3d_message('present_speed')
             if field in (Orbita3DField.PRESENT_LOAD, Orbita3DField.ALL):
-                kwargs['present_load'] = orbita.get_float3d_message('present_load')
+                kwargs['present_load'] = orbita.get_vector3d_message('present_load')
             if field in (Orbita3DField.TEMPERATURE, Orbita3DField.ALL):
                 kwargs['temperature'] = orbita.get_float3d_message('temperature')
             if field in (Orbita3DField.COMPLIANT, Orbita3DField.ALL):
                 kwargs['compliant'] = BoolValue(value=orbita.compliant)
             if field in (Orbita3DField.GOAL_POSITION, Orbita3DField.ALL):
-                kwargs['goal_position'] = orbita.get_float3d_message('goal_position')
+                kwargs['goal_position'] = orbita.get_rotation3d_message('goal_position')
             if field in (Orbita3DField.SPEED_LIMIT, Orbita3DField.ALL):
                 kwargs['speed_limit'] = orbita.get_float3d_message('speed_limit')
             if field in (Orbita3DField.TORQUE_LIMIT, Orbita3DField.ALL):
                 kwargs['torque_limit'] = orbita.get_float3d_message('torque_limit')
             if field in (Orbita3DField.PID, Orbita3DField.ALL):
-                kwargs['pid'] = orbita.get_pid2d_message()
+                kwargs['pid'] = orbita.get_pid3d_message()
 
         return Orbita3DState(
             timestamp=timestamp,
@@ -154,16 +156,32 @@ class FakeOrbita3D:
 
     def get_float3d_message(self, field: str) -> Float3D:
         return Float3D(
-            roll=getattr(self.roll, field),
-            pitch=getattr(self.pitch, field),
-            yaw=getattr(self.yaw, field),
+            motor_1=getattr(self.roll, field),
+            motor_2=getattr(self.pitch, field),
+            motor_3=getattr(self.yaw, field),
         )
 
-    def get_pid2d_message(self) -> PID3D:
+    def get_vector3d_message(self, field: str) -> Vector3D:
+        return Vector3D(
+            x=getattr(self.roll, field),
+            y=getattr(self.pitch, field),
+            z=getattr(self.yaw, field),
+        )
+
+    def get_rotation3d_message(self, field: str) -> Rotation3D:
+        return Rotation3D(
+            rpy=ExtEulerAngles(
+                roll=getattr(self.roll, field),
+                pitch=getattr(self.pitch, field),
+                yaw=getattr(self.yaw, field),
+            )
+        )
+
+    def get_pid3d_message(self) -> PID3D:
         return PID3D(
-            roll=self.roll.pid,
-            pitch=self.pitch.pid,
-            yaw=self.yaw.pid,
+            motor_1=self.roll.pid,
+            motor_2=self.pitch.pid,
+            motor_3=self.yaw.pid,
         )
 
     def handle_command(self, request: Orbita3DCommand) -> None:
