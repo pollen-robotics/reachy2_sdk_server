@@ -31,7 +31,7 @@ class ReachyGRPCJointSDKServicer:
             orbita3d_servicer,
         )
         head_servicer = HeadServicer(self.bridge_node, self.logger, orbita3d_servicer)
-        reachy_servicer = ReachyServicer(self.bridge_node, self.logger, arm_servicer)
+        reachy_servicer = ReachyServicer(self.bridge_node, self.logger, arm_servicer, head_servicer)
 
         self.services = [
             arm_servicer,

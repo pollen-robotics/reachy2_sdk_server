@@ -35,8 +35,11 @@ from reachy_sdk_api_v2.part_pb2 import (
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import (
-    extract_quaternion_from_pose,
-    neck_position_to_joint_state,
+    extract_quaternion_from_pose_matrix,
+    joint_state_to_neck_orientation,
+    neck_rotation_to_joint_state,
+    pose_matrix_from_quaternion,
+    neck_rotation_to_joint_state,
 )
 from .orbita3d import (
     Orbita3dServicer,
@@ -81,7 +84,7 @@ class HeadServicer:
         )
 
     def GetAllHeads(self, request: Empty, context: grpc.ServicerContext) -> ListOfHead:
-        return ListOfHead(heads=[self.get_head(head, context) for head in self.heads])
+        return ListOfHead(head=[self.get_head(head, context) for head in self.heads])
 
     def GetState(self, request: PartId, context: grpc.ServicerContext) -> HeadState:
         head = self.bridge_node.parts.get_by_id(request.id)
@@ -117,22 +120,41 @@ class HeadServicer:
     ) -> NeckFKSolution:
         head = self.bridge_node.parts.get_by_part_id(request.id)
         success, pose = self.bridge_node.compute_forward(
-            request.id, neck_position_to_joint_state(request.position, head)
+            request.id, neck_rotation_to_joint_state(request.position, head)
         )
 
         sol = NeckFKSolution()
 
         if success:
             sol.success = True
-            sol.orientation.q = Quaternion(extract_quaternion_from_pose(pose))
+            x, y, z, w = extract_quaternion_from_pose_matrix(pose)
+            sol.orientation.q.x = x
+            sol.orientation.q.y = y
+            sol.orientation.q.z = z
+            sol.orientation.q.w = w
 
         return sol
 
-    # rpc ComputeNeckIK (NeckIKRequest) returns (NeckIKSolution);
     def ComputeNeckIK(
         self, request: NeckIKRequest, context: grpc.ServicerContext
     ) -> NeckIKSolution:
-        pass
+        head = self.bridge_node.parts.get_by_part_id(request.id)
+
+        M = pose_matrix_from_quaternion(request.target.q)
+
+        success, joint_position = self.bridge_node.compute_inverse(
+            request.id,
+            M,
+            neck_rotation_to_joint_state(request.q0, head),
+        )
+
+        sol = NeckIKSolution()
+
+        if success:
+            sol.success = True
+            sol.position.CopyFrom(joint_state_to_neck_orientation(joint_position, head))
+
+        return sol
 
     # rpc GoToOrientation (NeckGoal) returns (google.protobuf.Empty);
     def GoToOrientation(

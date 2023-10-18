@@ -16,6 +16,7 @@ from reachy_sdk_api_v2.reachy_pb2_grpc import add_ReachyServiceServicer_to_serve
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
+from .head import HeadServicer
 from ..utils import endless_get_stream, get_current_timestamp
 
 
@@ -25,10 +26,13 @@ class ReachyServicer:
         bridge_node: AbstractBridgeNode,
         logger: rclpy.impl.rcutils_logger.RcutilsLogger,
         arm_servicer: ArmServicer,
+        head_servicer: HeadServicer,
     ):
         self.bridge_node = bridge_node
         self.logger = logger
+
         self.arm_servicer = arm_servicer
+        self.head_servicer = head_servicer
 
         self.reachy_id = ReachyId(id=1, name="reachy")
 
@@ -44,6 +48,8 @@ class ReachyServicer:
         for p in self.bridge_node.parts:
             if p.type == "arm":
                 params[p.name] = self.arm_servicer.get_arm(p, context)
+            elif p.type == "head":
+                params[p.name] = self.head_servicer.get_head(p, context)
 
         return Reachy(**params)
 
@@ -61,6 +67,10 @@ class ReachyServicer:
         for p in self.bridge_node.parts:
             if p.type == "arm":
                 params[f"{p.name}_state"] = self.arm_servicer.GetState(
+                    PartId(id=p.id), context
+                )
+            elif p.type == "head":
+                params[f"{p.name}_state"] = self.head_servicer.GetState(
                     PartId(id=p.id), context
                 )
 

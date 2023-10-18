@@ -5,6 +5,7 @@ from reachy_sdk_api_v2.head_pb2 import HeadPosition
 from reachy_sdk_api_v2.kinematics_pb2 import (
     ExtEulerAngles,
     Point,
+    Quaternion,
     Rotation3D,
 )
 from reachy_sdk_api_v2.orbita2d_pb2 import Pose2D
@@ -126,13 +127,13 @@ def head_position_to_joint_state(position: HeadPosition, head: Part) -> JointSta
     return js
 
 
-def neck_position_to_joint_state(position: HeadPosition, head: Part) -> JointState:
+def neck_rotation_to_joint_state(rot: Rotation3D, head: Part) -> JointState:
     js = JointState()
 
     for c in head.components:
         js.name.extend(c.get_all_joints())
 
-    neck_pos = rotation3d_as_extrinsinc_euler_angles(position.neck_position)
+    neck_pos = rotation3d_as_extrinsinc_euler_angles(rot)
 
     js.position = [
         neck_pos[0],
@@ -167,6 +168,20 @@ def joint_state_to_arm_position(js: JointState, arm: Part) -> ArmPosition:
         ),
     )
 
+def joint_state_to_neck_orientation(js: JointState, head: Part) -> Rotation3D:
+    head_name = []
+    for c in head.components:
+        head_name.extend(c.get_all_joints())
+    assert js.name == head_name
+
+    assert len(js.position) == len(head_name)
+
+    return extrinsic_euler_angles_as_rotation3d(
+        roll=js.position[0],
+        pitch=js.position[1],
+        yaw=js.position[2],
+    )
+
 
 def pose_from_pos_and_ori(pos: Point, ori: Rotation3D) -> Pose:
     p = Pose()
@@ -191,3 +206,12 @@ def extract_quaternion_from_pose(pose: Pose) -> Tuple[float, float, float, float
         pose.orientation.z,
         pose.orientation.w,
     )
+
+
+def extract_quaternion_from_pose_matrix(M: np.array) -> Tuple[float, float, float, float]:
+    return Rotation.from_matrix(M[:3, :3]).as_quat()
+
+def pose_matrix_from_quaternion(q: Quaternion) -> np.array:
+    M = np.eye(4)
+    M[:3, :3] = Rotation.from_quat([q.x, q.y, q.z, q.w]).as_matrix()
+    return M

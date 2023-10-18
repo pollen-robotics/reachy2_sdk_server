@@ -75,5 +75,9 @@ class PartsHolder:
             "wrist",
         }:
             return "arm"
+        elif part_name == "head" and set(part_config.keys()) == {
+            "neck",
+        }:
+            return "head"
         else:
             raise ValueError(f"Unknown part type for {part_name}.")
