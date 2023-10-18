@@ -5,10 +5,10 @@ from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
 from google.protobuf.timestamp_pb2 import Timestamp
 from grpc import ServicerContext
 from reachy_sdk_api_v2.dynamixel_motor_pb2 import (
-    ListOfDynamixelMotorInfo,
+    ListOfDynamixelMotor,
     DynamixelMotorCommand,
     DynamixelMotorField,
-    DynamixelMotorInfo,
+    DynamixelMotor,
     DynamixelMotorState,
     DynamixelMotorStateRequest,
     DynamixelMotorStreamStateRequest,
@@ -38,10 +38,10 @@ class DynamixelMotorServicer(DynamixelMotorServiceServicer):
 
     def GetAllDynamixelMotor(
         self, request: Empty, context: ServicerContext
-    ) -> ListOfDynamixelMotorInfo:
-        return ListOfDynamixelMotorInfo(
-            parallel_gripper_info=[
-                DynamixelMotorInfo(
+    ) -> ListOfDynamixelMotor:
+        return ListOfDynamixelMotor(
+            info=[
+                DynamixelMotor(
                     id=ComponentId(id=antenna.id),
                     serial_number=antenna.serial_number,
                 ) for antenna in self.antennas.values()]
