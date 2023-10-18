@@ -22,12 +22,7 @@ from reachy_sdk_api_v2.arm_pb2 import (
 )
 from reachy_sdk_api_v2.arm_pb2_grpc import ArmServiceServicer
 from reachy_sdk_api_v2.part_pb2 import PartInfo, PartId
-from reachy_sdk_api_v2.orbita2d_pb2 import (
-    Orbita2DInfo,
-)
-from reachy_sdk_api_v2.orbita3d_pb2 import (
-    Orbita3DInfo,
-)
+
 from .orbita2d import FakeOrbita2D
 from .orbita3d import FakeOrbita3D
 from .utils import read_config_file
