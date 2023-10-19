@@ -14,7 +14,7 @@ from ..utils import (
 )
 
 from google.protobuf.empty_pb2 import Empty
-from google.protobuf.wrappers_pb2 import BoolValue
+from google.protobuf.wrappers_pb2 import BoolValue,FloatValue
 
 from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains
 from reachy_sdk_api_v2.orbita2d_pb2 import (
@@ -259,37 +259,40 @@ class Orbita2dServicer:
 conversion_table = {
     "id": lambda o: ComponentId(id=o.actuator.id, name=o.actuator.name),
     "present_position": lambda o: Pose2D(
-        axis_1=o.axis1.state["position"], axis_2=o.axis2.state["position"]
+        axis_1=FloatValue(value=o.axis1.state["position"]),
+        axis_2=FloatValue(value=o.axis2.state["position"])
     ),
     "present_speed": lambda o: Vector2D(
-        x=o.axis1.state["velocity"], y=o.axis2.state["velocity"]
+        x=FloatValue(value=o.axis1.state["velocity"]),
+        y=FloatValue(value=o.axis2.state["velocity"])
     ),
     "present_load": lambda o: Vector2D(
-        x=o.axis1.state["effort"], y=o.axis2.state["effort"]
+        x=FloatValue(value=o.axis1.state["effort"]),
+        y=FloatValue(value=o.axis2.state["effort"])
     ),
     "compliant": lambda o: BoolValue(value=not o.actuator.state["torque"]),
     "goal_position": lambda o: Pose2D(
-        axis_1=o.axis1.state["target_position"],
-        axis_2=o.axis2.state["target_position"],
+        axis_1=FloatValue(value=o.axis1.state["target_position"]),
+        axis_2=FloatValue(value=o.axis2.state["target_position"]),
     ),
     "speed_limit": lambda o: Float2D(
-        motor_1=o.raw_motor_1.state["speed_limit"],
-        motor_2=o.raw_motor_2.state["speed_limit"],
+        motor_1=FloatValue(value=o.raw_motor_1.state["speed_limit"]),
+        motor_2=FloatValue(value=o.raw_motor_2.state["speed_limit"]),
     ),
     "torque_limit": lambda o: Float2D(
-        motor_1=o.raw_motor_1.state["torque_limit"],
-        motor_2=o.raw_motor_2.state["torque_limit"],
+        motor_1=FloatValue(value=o.raw_motor_1.state["torque_limit"]),
+        motor_2=FloatValue(value=o.raw_motor_2.state["torque_limit"]),
     ),
     "pid": lambda o: PID2D(
         motor_1=PIDGains(
-            p=o.raw_motor_1.state["p_gain"],
-            i=o.raw_motor_1.state["i_gain"],
-            d=o.raw_motor_1.state["d_gain"],
+            p=FloatValue(value=o.raw_motor_1.state["p_gain"]),
+            i=FloatValue(value=o.raw_motor_1.state["i_gain"]),
+            d=FloatValue(value=o.raw_motor_1.state["d_gain"]),
         ),
         motor_2=PIDGains(
-            p=o.raw_motor_2.state["p_gain"],
-            i=o.raw_motor_2.state["i_gain"],
-            d=o.raw_motor_2.state["d_gain"],
+            p=FloatValue(value=o.raw_motor_2.state["p_gain"]),
+            i=FloatValue(value=o.raw_motor_2.state["i_gain"]),
+            d=FloatValue(value=o.raw_motor_2.state["d_gain"]),
         ),
     ),
 }
