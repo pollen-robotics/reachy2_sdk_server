@@ -113,6 +113,7 @@ class ArmServicer:
         return ArmState(
             timestamp=get_current_timestamp(self.bridge_node),
             id=request,
+            activated=True,
             shoulder_state=self.orbita2d_servicer.GetState(
                 Orbita2DStateRequest(
                     fields=self.orbita2d_servicer.default_fields,

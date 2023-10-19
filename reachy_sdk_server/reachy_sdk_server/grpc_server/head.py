@@ -118,6 +118,7 @@ class HeadServicer:
         return HeadState(
             timestamp=get_current_timestamp(self.bridge_node),
             id=request,
+            activated=True,
             neck_state=self.orbita3d_servicer.GetState(
                 Orbita3DStateRequest(
                     fields=self.orbita3d_servicer.default_fields,
