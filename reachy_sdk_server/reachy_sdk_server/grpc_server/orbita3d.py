@@ -294,7 +294,7 @@ conversion_table = {
             yaw=FloatValue(value=o.yaw.state["position"]),
         ),
     ),
-    "present_velocity": lambda o: Vector3D(
+    "present_speed": lambda o: Vector3D(
         x=FloatValue(value=o.roll.state["velocity"]),
         y=FloatValue(value=o.pitch.state["velocity"]),
         z=FloatValue(value=o.yaw.state["velocity"]),
