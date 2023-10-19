@@ -2,6 +2,7 @@ from collections import namedtuple
 from control_msgs.msg import DynamicJointState, InterfaceValue
 import grpc
 import rclpy
+import math
 from typing import Iterator
 
 
@@ -16,7 +17,7 @@ from ..utils import (
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue,FloatValue
 
-from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains
+from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains,JointLimits
 from reachy_sdk_api_v2.orbita2d_pb2 import (
     PID2D,
     Pose2D,
@@ -31,6 +32,7 @@ from reachy_sdk_api_v2.orbita2d_pb2 import (
     Orbita2DStatus,
     Orbita2DStreamStateRequest,
     Vector2D,
+    Limits2D,
 )
 from reachy_sdk_api_v2.orbita2d_pb2_grpc import add_Orbita2DServiceServicer_to_server
 
@@ -47,6 +49,14 @@ class Orbita2dServicer:
     default_fields = [
         Orbita2DField.PRESENT_POSITION,
         Orbita2DField.GOAL_POSITION,
+        Orbita2DField.PRESENT_SPEED,
+        Orbita2DField.PRESENT_LOAD,
+        Orbita2DField.TEMPERATURE,
+        Orbita2DField.JOINT_LIMIT,
+        Orbita2DField.TORQUE_LIMIT,
+        Orbita2DField.SPEED_LIMIT,
+        Orbita2DField.PID,
+        Orbita2DField.COMPLIANT,
     ]
 
     def __init__(
@@ -92,6 +102,11 @@ class Orbita2dServicer:
             Orbita2DField, request.fields, conversion_table, orbita2d_components
         )
         state["timestamp"] = get_current_timestamp(self.bridge_node)
+        state["temperature"] = Float2D(motor_1=FloatValue(value=40.0), motor_2=FloatValue(value=40.0))
+        state["joint_limit"] = Limits2D(
+            axis_1=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0)),
+            axis_2=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0)),
+            )
         return Orbita2DState(**state)
 
     def StreamState(
@@ -276,23 +291,23 @@ conversion_table = {
         axis_2=FloatValue(value=o.axis2.state["target_position"]),
     ),
     "speed_limit": lambda o: Float2D(
-        motor_1=FloatValue(value=o.raw_motor_1.state["speed_limit"]),
-        motor_2=FloatValue(value=o.raw_motor_2.state["speed_limit"]),
+        motor_1=FloatValue(value=o.raw_motor_1.state["speed_limit"]) if not math.isnan(o.raw_motor_1.state["speed_limit"]) else FloatValue(value=100.0),
+        motor_2=FloatValue(value=o.raw_motor_2.state["speed_limit"]) if not math.isnan(o.raw_motor_2.state["speed_limit"]) else FloatValue(value=100.0)
     ),
     "torque_limit": lambda o: Float2D(
-        motor_1=FloatValue(value=o.raw_motor_1.state["torque_limit"]),
-        motor_2=FloatValue(value=o.raw_motor_2.state["torque_limit"]),
+        motor_1=FloatValue(value=o.raw_motor_1.state["torque_limit"]) if not math.isnan(o.raw_motor_1.state["torque_limit"]) else FloatValue(value=100.0),
+        motor_2=FloatValue(value=o.raw_motor_2.state["torque_limit"]) if not math.isnan(o.raw_motor_2.state["torque_limit"]) else FloatValue(value=100.0),
     ),
     "pid": lambda o: PID2D(
         motor_1=PIDGains(
-            p=FloatValue(value=o.raw_motor_1.state["p_gain"]),
-            i=FloatValue(value=o.raw_motor_1.state["i_gain"]),
-            d=FloatValue(value=o.raw_motor_1.state["d_gain"]),
+            p=FloatValue(value=o.raw_motor_1.state["p_gain"]) if not math.isnan(o.raw_motor_1.state["p_gain"]) else FloatValue(value=100.0),
+            i=FloatValue(value=o.raw_motor_1.state["i_gain"]) if not math.isnan(o.raw_motor_1.state["i_gain"]) else FloatValue(value=100.0),
+            d=FloatValue(value=o.raw_motor_1.state["d_gain"]) if not math.isnan(o.raw_motor_1.state["d_gain"]) else FloatValue(value=100.0),
         ),
         motor_2=PIDGains(
-            p=FloatValue(value=o.raw_motor_2.state["p_gain"]),
-            i=FloatValue(value=o.raw_motor_2.state["i_gain"]),
-            d=FloatValue(value=o.raw_motor_2.state["d_gain"]),
+            p=FloatValue(value=o.raw_motor_2.state["p_gain"]) if not math.isnan(o.raw_motor_2.state["p_gain"]) else FloatValue(value=100.0),
+            i=FloatValue(value=o.raw_motor_2.state["i_gain"]) if not math.isnan(o.raw_motor_2.state["i_gain"]) else FloatValue(value=100.0),
+            d=FloatValue(value=o.raw_motor_2.state["d_gain"]) if not math.isnan(o.raw_motor_2.state["d_gain"]) else FloatValue(value=100.0),
         ),
     ),
 }
