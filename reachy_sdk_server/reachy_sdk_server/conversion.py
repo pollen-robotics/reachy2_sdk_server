@@ -9,6 +9,7 @@ from reachy_sdk_api_v2.kinematics_pb2 import (
     Rotation3D,
 )
 from reachy_sdk_api_v2.orbita2d_pb2 import Pose2D
+from google.protobuf.wrappers_pb2 import FloatValue
 from scipy.spatial.transform import Rotation
 from sensor_msgs.msg import JointState
 from typing import Tuple
@@ -30,7 +31,7 @@ def rotation3d_as_quat(
         return rot.q.x, rot.q.y, rot.q.z, rot.q.w
     elif rot.HasField("rpy"):
         return Rotation.from_euler(
-            "xyz", [rot.rpy.roll, rot.rpy.pitch, rot.rpy.yaw], degrees=False
+            "xyz", [rot.rpy.roll.value, rot.rpy.pitch.value, rot.rpy.yaw.value], degrees=False
         ).as_quat()
     elif rot.HasField("matrix"):
         return Rotation.from_matrix(np.array(rot.matrix.data).reshape((3, 3))).as_quat()
@@ -58,9 +59,9 @@ def extrinsic_euler_angles_as_rotation3d(
 ) -> Rotation3D:
     return Rotation3D(
         rpy=ExtEulerAngles(
-            roll=roll,
-            pitch=pitch,
-            yaw=yaw,
+            roll=FloatValue(value=roll),
+            pitch=FloatValue(value=pitch),
+            yaw=FloatValue(value=yaw),
         ),
     )
 
