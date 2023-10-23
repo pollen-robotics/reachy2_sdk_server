@@ -174,15 +174,15 @@ class Orbita3dServicer:
                     [
                         InterfaceValue(
                             interface_names=["speed_limit"],
-                            values=[cmd_req.speed_limit.motor_1],
+                            values=[cmd_req.speed_limit.motor_1.value],
                         ),
                         InterfaceValue(
                             interface_names=["speed_limit"],
-                            values=[cmd_req.speed_limit.motor_2],
+                            values=[cmd_req.speed_limit.motor_2.value],
                         ),
                         InterfaceValue(
                             interface_names=["speed_limit"],
-                            values=[cmd_req.speed_limit.motor_3],
+                            values=[cmd_req.speed_limit.motor_3.value],
                         ),
                     ]
                 )
@@ -191,15 +191,15 @@ class Orbita3dServicer:
                     [
                         InterfaceValue(
                             interface_names=["torque_limit"],
-                            values=[cmd_req.torque_limit.motor_1],
+                            values=[cmd_req.torque_limit.motor_1.value],
                         ),
                         InterfaceValue(
                             interface_names=["torque_limit"],
-                            values=[cmd_req.torque_limit.motor_2],
+                            values=[cmd_req.torque_limit.motor_2.value],
                         ),
                         InterfaceValue(
                             interface_names=["torque_limit"],
-                            values=[cmd_req.torque_limit.motor_3],
+                            values=[cmd_req.torque_limit.motor_3.value],
                         ),
                     ]
                 )
