@@ -31,7 +31,7 @@ def rotation3d_as_quat(
         return rot.q.x, rot.q.y, rot.q.z, rot.q.w
     elif rot.HasField("rpy"):
         return Rotation.from_euler(
-            "xyz", [rot.rpy.roll.value, rot.rpy.pitch.value, rot.rpy.yaw.value], degrees=False
+            "xyz", [rot.rpy.roll, rot.rpy.pitch, rot.rpy.yaw], degrees=False
         ).as_quat()
     elif rot.HasField("matrix"):
         return Rotation.from_matrix(np.array(rot.matrix.data).reshape((3, 3))).as_quat()
