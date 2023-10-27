@@ -59,9 +59,9 @@ def extrinsic_euler_angles_as_rotation3d(
 ) -> Rotation3D:
     return Rotation3D(
         rpy=ExtEulerAngles(
-            roll=FloatValue(value=roll),
-            pitch=FloatValue(value=pitch),
-            yaw=FloatValue(value=yaw),
+            roll=roll,
+            pitch=pitch,
+            yaw=yaw,
         ),
     )
 
