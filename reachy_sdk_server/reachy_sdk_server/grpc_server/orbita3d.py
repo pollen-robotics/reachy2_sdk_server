@@ -289,9 +289,9 @@ conversion_table = {
     "id": lambda o: ComponentId(id=o.actuator.id, name=o.actuator.name),
     "present_position": lambda o: Rotation3D(
         rpy=ExtEulerAngles(
-            roll=FloatValue(value=o.roll.state["position"]),
-            pitch=FloatValue(value=o.pitch.state["position"]),
-            yaw=FloatValue(value=o.yaw.state["position"]),
+            roll=o.roll.state["position"],
+            pitch=o.pitch.state["position"],
+            yaw=o.yaw.state["position"],
         ),
     ),
     "present_speed": lambda o: Vector3D(
@@ -307,9 +307,9 @@ conversion_table = {
     "compliant": lambda o: BoolValue(value=not o.actuator.state["torque"]),
     "goal_position": lambda o: Rotation3D(
         rpy=ExtEulerAngles(
-            roll=FloatValue(value=o.roll.state["target_position"]),
-            pitch=FloatValue(value=o.pitch.state["target_position"]),
-            yaw=FloatValue(value=o.yaw.state["target_position"]),
+            roll=o.roll.state["target_position"],
+            pitch=o.pitch.state["target_position"],
+            yaw=o.yaw.state["target_position"],
         ),
     ),
     "speed_limit": lambda o: Float3D(
