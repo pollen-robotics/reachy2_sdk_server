@@ -110,10 +110,10 @@ def arm_position_to_joint_state(position: ArmPosition, arm: Part) -> JointState:
     wrist_pos = rotation3d_as_extrinsinc_euler_angles(position.wrist_position)
 
     js.position = [
-        shoulder_pos.axis_1,
-        shoulder_pos.axis_2,
-        elbow_pos.axis_1,
-        elbow_pos.axis_2,
+        shoulder_pos.axis_1.value,
+        shoulder_pos.axis_2.value,
+        elbow_pos.axis_1.value,
+        elbow_pos.axis_2.value,
         wrist_pos[0],
         wrist_pos[1],
         wrist_pos[2],
