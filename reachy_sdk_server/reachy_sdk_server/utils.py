@@ -1,8 +1,9 @@
-from typing import Tuple
-import rclpy
+import os
 import time
-import yaml
+from typing import Tuple
 
+import rclpy
+import yaml
 from google.protobuf.timestamp_pb2 import Timestamp
 from pollen_msgs.srv import GetDynamicState
 from reachy_sdk_api_v2 import orbita2d_pb2
@@ -102,3 +103,15 @@ def extract_fields(FieldEnum, fields, conversion_table, component) -> dict:
         grpc_state[f] = conversion_table[f](component)
 
     return grpc_state
+
+
+def get_list_audio_files(directory):
+    audio_files = []
+
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.lower().endswith((".wav", ".ogg")):
+                audio_files.append(os.path.join(root, file))
+
+    # Return the list of audio file paths
+    return audio_files

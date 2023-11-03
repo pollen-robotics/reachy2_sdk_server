@@ -1,26 +1,52 @@
+import time
+
 import grpc
 import rclpy
 from sound_play.libsoundplay import SoundClient
 
+from ..utils import get_list_audio_files
 
+
+# ToDo : move this code to actual functions called by grpc
 class ReachyGRPCAudioSDKServicer:
     def __init__(self) -> None:
         rclpy.init()
+        # Dummy node
+        self.node = rclpy.create_node("soundclient_example")
+        # note: non blocking mode for gprc?
+        self.soundhandle = SoundClient(self.node, blocking=True)
 
     def test(self) -> None:
-        node = rclpy.create_node("soundclient_example")
+        # look into its default sounds folder if there is no path
+        # https://github.com/ros-drivers/audio_common/tree/ros2/sound_play/sounds
+        self.node.get_logger().info("Playing say-beep at full volume.")
+        self.soundhandle.playWave("say-beep.wav")
 
-        node.get_logger().info("Example: Playing sounds in *blocking* mode.")
-        soundhandle = SoundClient(node, blocking=True)
+        self.node.get_logger().info("Playing say-beep at volume 0.3.")
+        self.soundhandle.playWave("say-beep.wav", volume=0.3)
 
-        node.get_logger().info("Playing say-beep at full volume.")
-        soundhandle.playWave("say-beep.wav")
+    def say_text(self, text: str) -> None:
+        self.node.get_logger().info(f"Say {text}")
+        self.soundhandle.say(text)
 
-        node.get_logger().info("Playing say-beep at volume 0.3.")
-        soundhandle.playWave("say-beep.wav", volume=0.3)
+    def play_sound(self, file_name: str) -> None:
+        self.node.get_logger().info(f"Playing {file_name}")
+        # could be a wav or ogg
+        self.soundhandle.playWave(file_name)
 
-        node.get_logger().info("Speaking some long string.")
-        soundhandle.say("It was the best of times, it was the worst of times.")
+    def stop(self) -> None:
+        # note: not sure it is working. Need to double check ROS package
+        self.node.get_logger().info(f"Stop playing")
+        self.soundhandle.stopAll()
+
+    def start_capture(self, filename: str) -> None:
+        # Todo check filename (has to be mp3, in the sound folder)
+        self.node.get_logger().info(f"Start recording {filename}")
+        # Todo: connect to ROS node
+
+    def stop_capture(self) -> None:
+        self.node.get_logger().info("Stop recording")
+        # Todo : connect to ROS node
 
 
 def main():
@@ -30,12 +56,26 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=50051)
     parser.add_argument("--max-workers", type=int, default=10)
-    parser.add_argument("reachy_config", type=str)
     args = parser.parse_args()
 
     servicer = ReachyGRPCAudioSDKServicer()
 
     servicer.test()
+
+    servicer.say_text("Hello I'm Reachy!")
+
+    # path defined in the docker-compose (or when creating container)
+    audiofiles = get_list_audio_files("/root/sounds/")
+    print(audiofiles)
+    # servicer.play_sound(audiofiles[0])
+
+    servicer.start_capture("/root/sounds/record.mp3")
+
+    time.sleep(1)
+
+    servicer.stop_capture()
+
+    servicer.stop()
 
     return
 
