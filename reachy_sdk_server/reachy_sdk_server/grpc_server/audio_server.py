@@ -5,17 +5,21 @@ import rclpy
 from sound_play.libsoundplay import SoundClient
 
 from ..utils import get_list_audio_files
-from .sound import SoundServicer
 
 from google.protobuf.empty_pb2 import Empty
+from google.protobuf.wrappers_pb2 import BoolValue
 
 from reachy_sdk_api_v2.sound_pb2 import (
-    ListOfMicrophoneInfo,
-    ListOfSpeakerInfo,
+    ListOfMicrophone,
+    Microphone,
+    ListOfSpeaker,
+    Speaker,
+    RecordingRequest,
     RecordingAck,
     VolumeRequest,
     SoundId,
     SoundAck,
+    ListOfSound,
 )
 from reachy_sdk_api_v2.sound_pb2_grpc import (
     add_SoundServiceServicer_to_server,
@@ -32,10 +36,10 @@ class ReachyGRPCAudioSDKServicer:
         # note: non blocking mode for gprc?
         self.soundhandle = SoundClient(self.node, blocking=True)
 
-        self.logger.info("Reachy GRPC Audio SDK Servicer initialized.")
+        self.node.get_logger().info("Reachy GRPC Audio SDK Servicer initialized.")
 
     def register_to_server(self, server: grpc.Server):
-        self.logger.info("Registering 'SoundServiceServicer' to server.")
+        self.node.get_logger().info("Registering 'SoundServiceServicer' to server.")
         add_SoundServiceServicer_to_server(self, server)
 
     def test(self) -> None:
@@ -70,23 +74,24 @@ class ReachyGRPCAudioSDKServicer:
         self.node.get_logger().info("Stop recording")
         # Todo : connect to ROS node
 
-    def GetAllMicrophone(self, request: Empty, context: grpc.ServicerContext) -> ListOfMicrophoneInfo:
-        return ListOfMicrophoneInfo(microphone_info=[])
+    def GetAllMicrophone(self, request: Empty, context: grpc.ServicerContext) -> ListOfMicrophone:
+        return ListOfMicrophone(microphone_info=[Microphone(id=ComponentId(id=1, name="microphone_1"))])
 
-    def GetAllSpeaker(self, request: Empty, context: grpc.ServicerContext) -> ListOfSpeakerInfo:
-        return ListOfSpeakerInfo(speaker_info=[])
+    def GetAllSpeaker(self, request: Empty, context: grpc.ServicerContext) -> ListOfSpeaker:
+        return ListOfSpeaker(speaker_info=[Speaker(id=ComponentId(id=1, name="speaker_1"))])
 
     def StartRecording(
-        self, request: ComponentId, context: grpc.ServicerContext
+        self, request: RecordingRequest, context: grpc.ServicerContext
     ) -> Empty:
-        self.start_capture("coucou.mp3")
+        file_name = request.recording_id.id + "mp3"
+        self.start_capture(file_name)
         return Empty()
 
     def StopRecording(
         self, request: ComponentId, context: grpc.ServicerContext
     ) -> RecordingAck:
         self.stop_capture()
-        return RecordingAck(ack=SoundAck(success=True))
+        return RecordingAck(ack=SoundAck(success=BoolValue(value=True)))
 
     def TestSpeaker(
         self, request: ComponentId, context: grpc.ServicerContext
@@ -103,6 +108,14 @@ class ReachyGRPCAudioSDKServicer:
     def PlaySound(self, request: SoundId, context: grpc.ServicerContext) -> Empty:
         self.play_sound(request.id)
         return Empty()
+
+    def StopSound(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
+        return Empty()
+
+    def GetSoundsList(self, request: Empty, context: grpc.ServicerContext) -> ListOfSound:
+        audiofiles = get_list_audio_files("/root/sounds/")
+        soundsList = [SoundId(id=sound) for sound in audiofiles]
+        return ListOfSound(sounds=soundsList)
 
 
 def main():
@@ -122,26 +135,8 @@ def main():
     server.add_insecure_port(f"[::]:{args.port}")
     server.start()
 
-    servicer.logger.info(f"Server started on port {args.port}.")
+    servicer.node.get_logger().info(f"Server started on port {args.port}.")
     server.wait_for_termination()
-    # servicer.test()
-
-    # servicer.say_text("Hello I'm Reachy!")
-
-    # path defined in the docker-compose (or when creating container)
-    # audiofiles = get_list_audio_files("/root/sounds/")
-    # print(audiofiles)
-    # # servicer.play_sound(audiofiles[0])
-
-    # servicer.start_capture("/root/sounds/record.mp3")
-
-    # time.sleep(1)
-
-    # servicer.stop_capture()
-
-    # servicer.stop()
-
-    # return
 
 
 if __name__ == "__main__":
