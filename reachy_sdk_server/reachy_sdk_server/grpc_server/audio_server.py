@@ -123,7 +123,7 @@ def main():
     from concurrent import futures
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=50061)
+    parser.add_argument("--port", type=int, default=50063)
     parser.add_argument("--max-workers", type=int, default=10)
     args = parser.parse_args()
 
