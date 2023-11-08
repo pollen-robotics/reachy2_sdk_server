@@ -1,3 +1,4 @@
+import pathlib
 import time
 
 import grpc
@@ -43,10 +44,14 @@ class ReachyGRPCAudioSDKServicer:
         self.node.get_logger().info(f"Stop playing")
         self.soundhandle.stopAll()
 
-    def start_capture(self, filename: str) -> None:
+    def start_capture(self, filename: str) -> bool:
+        if not pathlib.Path(filename).parent.absolute().exists():
+            self.node.get_logger().error(f"Path does not exist {filename}")
+            return False
         self.node.get_logger().info(f"Start recording {filename}")
         self._audiorecorder.make_pipe(filename)
         self._audiorecorder.start()
+        return True
 
     def stop_capture(self) -> None:
         self.node.get_logger().info("Stop recording")
@@ -77,13 +82,14 @@ def main():
 
     servicer.stop()
 
-    servicer.start_capture("/root/sounds/record.ogg")
+    success = servicer.start_capture("/root/sounds/record.ogg")
 
-    time.sleep(3)
+    if success:
+        time.sleep(3)
 
-    servicer.stop_capture()
+        servicer.stop_capture()
 
-    servicer.play_sound("/root/sounds/record.ogg")
+        servicer.play_sound("/root/sounds/record.ogg")
 
     return
 
