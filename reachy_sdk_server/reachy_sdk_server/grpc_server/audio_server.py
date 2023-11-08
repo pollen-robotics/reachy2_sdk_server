@@ -1,3 +1,4 @@
+import pathlib
 import time
 
 import grpc
@@ -5,6 +6,8 @@ import rclpy
 from sound_play.libsoundplay import SoundClient
 
 from ..utils import get_list_audio_files
+from .audio_capture_action_client import AudioCaptureActionClient
+from .audio_recorder import AudioRecorder
 
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue
@@ -26,7 +29,6 @@ from reachy_sdk_api_v2.sound_pb2_grpc import (
 )
 from reachy_sdk_api_v2.component_pb2 import ComponentId
 
-
 # ToDo : move this code to actual functions called by grpc
 class ReachyGRPCAudioSDKServicer:
     def __init__(self) -> None:
@@ -35,6 +37,9 @@ class ReachyGRPCAudioSDKServicer:
         self.node = rclpy.create_node("soundclient_example")
         # note: non blocking mode for gprc?
         self.soundhandle = SoundClient(self.node, blocking=True)
+
+        self._audiocaptureclient = AudioCaptureActionClient()
+        self._audiorecorder = AudioRecorder()
 
         self.node.get_logger().info("Reachy GRPC Audio SDK Servicer initialized.")
 
@@ -65,14 +70,18 @@ class ReachyGRPCAudioSDKServicer:
         self.node.get_logger().info(f"Stop playing")
         self.soundhandle.stopAll()
 
-    def start_capture(self, filename: str) -> None:
-        # Todo check filename (has to be mp3, in the sound folder)
+    def start_capture(self, filename: str) -> bool:
+        if not pathlib.Path(filename).parent.absolute().exists():
+            self.node.get_logger().error(f"Path does not exist {filename}")
+            return False
         self.node.get_logger().info(f"Start recording {filename}")
-        # Todo: connect to ROS node
+        self._audiorecorder.make_pipe(filename)
+        self._audiorecorder.start()
+        return True
 
     def stop_capture(self) -> None:
         self.node.get_logger().info("Stop recording")
-        # Todo : connect to ROS node
+        self._audiorecorder.stop()
 
     def GetAllMicrophone(self, request: Empty, context: grpc.ServicerContext) -> ListOfMicrophone:
         return ListOfMicrophone(microphone_info=[Microphone(id=ComponentId(id=1, name="microphone_1"))])
@@ -116,7 +125,6 @@ class ReachyGRPCAudioSDKServicer:
         audiofiles = get_list_audio_files("/root/sounds/")
         soundsList = [SoundId(id=sound) for sound in audiofiles]
         return ListOfSound(sounds=soundsList)
-
 
 def main():
     import argparse
