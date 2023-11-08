@@ -1,45 +1,41 @@
 import pathlib
-import time
 
 import grpc
 import rclpy
+from google.protobuf.empty_pb2 import Empty
+from google.protobuf.wrappers_pb2 import BoolValue
+from reachy_sdk_api_v2.component_pb2 import ComponentId
+from reachy_sdk_api_v2.sound_pb2 import (
+    ListOfMicrophone,
+    ListOfSound,
+    ListOfSpeaker,
+    Microphone,
+    RecordingAck,
+    RecordingRequest,
+    SoundAck,
+    SoundId,
+    Speaker,
+    VolumeRequest,
+)
+from reachy_sdk_api_v2.sound_pb2_grpc import add_SoundServiceServicer_to_server
 from sound_play.libsoundplay import SoundClient
 
 from ..utils import get_list_audio_files
-from .audio_capture_action_client import AudioCaptureActionClient
 from .audio_recorder import AudioRecorder
 
-from google.protobuf.empty_pb2 import Empty
-from google.protobuf.wrappers_pb2 import BoolValue
-
-from reachy_sdk_api_v2.sound_pb2 import (
-    ListOfMicrophone,
-    Microphone,
-    ListOfSpeaker,
-    Speaker,
-    RecordingRequest,
-    RecordingAck,
-    VolumeRequest,
-    SoundId,
-    SoundAck,
-    ListOfSound,
-)
-from reachy_sdk_api_v2.sound_pb2_grpc import (
-    add_SoundServiceServicer_to_server,
-)
-from reachy_sdk_api_v2.component_pb2 import ComponentId
 
 # ToDo : move this code to actual functions called by grpc
 class ReachyGRPCAudioSDKServicer:
     def __init__(self) -> None:
         rclpy.init()
         # Dummy node
-        self.node = rclpy.create_node("soundclient_example")
+        self.node = rclpy.create_node("ReachyGRPCAudioSDKServicer_node")
         # note: non blocking mode for gprc?
         self.soundhandle = SoundClient(self.node, blocking=True)
 
-        self._audiocaptureclient = AudioCaptureActionClient()
         self._audiorecorder = AudioRecorder()
+
+        self._volume: float = 1  # in [0.0,1.0]
 
         self.node.get_logger().info("Reachy GRPC Audio SDK Servicer initialized.")
 
@@ -47,84 +43,71 @@ class ReachyGRPCAudioSDKServicer:
         self.node.get_logger().info("Registering 'SoundServiceServicer' to server.")
         add_SoundServiceServicer_to_server(self, server)
 
-    def test(self) -> None:
-        # look into its default sounds folder if there is no path
-        # https://github.com/ros-drivers/audio_common/tree/ros2/sound_play/sounds
-        self.node.get_logger().info("Playing say-beep at full volume.")
-        self.soundhandle.playWave("say-beep.wav")
-
-        self.node.get_logger().info("Playing say-beep at volume 0.3.")
-        self.soundhandle.playWave("say-beep.wav", volume=0.3)
-
     def say_text(self, text: str) -> None:
         self.node.get_logger().info(f"Say {text}")
         self.soundhandle.say(text)
 
-    def play_sound(self, file_name: str) -> None:
-        self.node.get_logger().info(f"Playing {file_name}")
-        # could be a wav or ogg
-        self.soundhandle.playWave(file_name)
+    def GetAllMicrophone(
+        self, request: Empty, context: grpc.ServicerContext
+    ) -> ListOfMicrophone:
+        return ListOfMicrophone(
+            microphone_info=[Microphone(id=ComponentId(id=1, name="microphone_1"))]
+        )
 
-    def stop(self) -> None:
-        # note: not sure it is working. Need to double check ROS package
-        self.node.get_logger().info(f"Stop playing")
-        self.soundhandle.stopAll()
-
-    def start_capture(self, filename: str) -> bool:
-        if not pathlib.Path(filename).parent.absolute().exists():
-            self.node.get_logger().error(f"Path does not exist {filename}")
-            return False
-        self.node.get_logger().info(f"Start recording {filename}")
-        self._audiorecorder.make_pipe(filename)
-        self._audiorecorder.start()
-        return True
-
-    def stop_capture(self) -> None:
-        self.node.get_logger().info("Stop recording")
-        self._audiorecorder.stop()
-
-    def GetAllMicrophone(self, request: Empty, context: grpc.ServicerContext) -> ListOfMicrophone:
-        return ListOfMicrophone(microphone_info=[Microphone(id=ComponentId(id=1, name="microphone_1"))])
-
-    def GetAllSpeaker(self, request: Empty, context: grpc.ServicerContext) -> ListOfSpeaker:
-        return ListOfSpeaker(speaker_info=[Speaker(id=ComponentId(id=1, name="speaker_1"))])
+    def GetAllSpeaker(
+        self, request: Empty, context: grpc.ServicerContext
+    ) -> ListOfSpeaker:
+        return ListOfSpeaker(
+            speaker_info=[Speaker(id=ComponentId(id=1, name="speaker_1"))]
+        )
 
     def StartRecording(
         self, request: RecordingRequest, context: grpc.ServicerContext
     ) -> Empty:
-        file_name = request.recording_id.id + "mp3"
-        self.start_capture(file_name)
-        return Empty()
+        file_name = request.recording_id.id + ".ogg"
+        if not pathlib.Path(file_name).parent.absolute().exists():
+            self.node.get_logger().error(f"Path does not exist {file_name}")
+            return False
+        self.node.get_logger().info(f"Start recording {file_name}")
+        self._audiorecorder.make_pipe(file_name)
+        self._audiorecorder.start()
+        return True
 
     def StopRecording(
         self, request: ComponentId, context: grpc.ServicerContext
     ) -> RecordingAck:
-        self.stop_capture()
+        self.node.get_logger().info("Stop recording")
+        self._audiorecorder.stop()
         return RecordingAck(ack=SoundAck(success=BoolValue(value=True)))
 
-    def TestSpeaker(
-        self, request: ComponentId, context: grpc.ServicerContext
-    ) -> Empty:
-        self.test()
+    def TestSpeaker(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
+        self.soundhandle.playWave("say-beep.wav", volume=self._volume)
         return Empty()
 
     def ChangeVolume(
         self, request: VolumeRequest, context: grpc.ServicerContext
     ) -> Empty:
-        # TODO
+        self._volume = request.id
         return Empty()
 
     def PlaySound(self, request: SoundId, context: grpc.ServicerContext) -> Empty:
-        self.play_sound(request.id)
+        self.node.get_logger().info(f"Playing {request.id}")
+        # could be a wav or ogg
+        self.soundhandle.playWave(request.id)
         return Empty()
 
     def StopSound(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
+        self.node.get_logger().info(f"Stop playing")
+        self.soundhandle.stopAll()
         return Empty()
 
-    def GetSoundsList(self, request: Empty, context: grpc.ServicerContext) -> ListOfSound:
+    def GetSoundsList(
+        self, request: Empty, context: grpc.ServicerContext
+    ) -> ListOfSound:
         audiofiles = get_list_audio_files("/root/sounds/")
         soundsList = [SoundId(id=sound) for sound in audiofiles]
         return ListOfSound(sounds=soundsList)
+
 
 def main():
     import argparse
