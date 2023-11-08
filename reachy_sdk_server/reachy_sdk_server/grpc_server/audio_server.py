@@ -5,6 +5,8 @@ import rclpy
 from sound_play.libsoundplay import SoundClient
 
 from ..utils import get_list_audio_files
+from .audio_capture_action_client import AudioCaptureActionClient
+from .audio_recorder import AudioRecorder
 
 
 # ToDo : move this code to actual functions called by grpc
@@ -15,6 +17,8 @@ class ReachyGRPCAudioSDKServicer:
         self.node = rclpy.create_node("soundclient_example")
         # note: non blocking mode for gprc?
         self.soundhandle = SoundClient(self.node, blocking=True)
+        self._audiocaptureclient = AudioCaptureActionClient()
+        self._audiorecorder = AudioRecorder()
 
     def test(self) -> None:
         # look into its default sounds folder if there is no path
@@ -40,13 +44,13 @@ class ReachyGRPCAudioSDKServicer:
         self.soundhandle.stopAll()
 
     def start_capture(self, filename: str) -> None:
-        # Todo check filename (has to be mp3, in the sound folder)
         self.node.get_logger().info(f"Start recording {filename}")
-        # Todo: connect to ROS node
+        self._audiorecorder.make_pipe(filename)
+        self._audiorecorder.start()
 
     def stop_capture(self) -> None:
         self.node.get_logger().info("Stop recording")
-        # Todo : connect to ROS node
+        self._audiorecorder.stop()
 
 
 def main():
@@ -69,13 +73,17 @@ def main():
     print(audiofiles)
     # servicer.play_sound(audiofiles[0])
 
-    servicer.start_capture("/root/sounds/record.mp3")
-
     time.sleep(1)
+
+    servicer.stop()
+
+    servicer.start_capture("/root/sounds/record.ogg")
+
+    time.sleep(3)
 
     servicer.stop_capture()
 
-    servicer.stop()
+    servicer.play_sound("/root/sounds/record.ogg")
 
     return
 
