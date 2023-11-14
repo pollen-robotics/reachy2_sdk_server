@@ -17,6 +17,7 @@ from reachy_sdk_api_v2.orbita3d_pb2 import (
     Orbita3DCommand,
     Orbita3DsCommand,
     Orbita3DField,
+    Orbita3DGoal,
     Orbita3D,
     Orbita3DState,
     Orbita3DStateRequest,
@@ -104,6 +105,11 @@ class Orbita3dServicer:
             yaw=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0))
             )
         return Orbita3DState(**state)
+
+    def GoToOrientation(
+        self, request: Orbita3DGoal, context: grpc.ServicerContext
+    ) -> Empty:
+        return Empty()
 
     def StreamState(
         self, request: Orbita3DStreamStateRequest, context: grpc.ServicerContext
