@@ -5,18 +5,11 @@ import rclpy
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue
 from reachy_sdk_api_v2.component_pb2 import ComponentId
-from reachy_sdk_api_v2.sound_pb2 import (
-    ListOfMicrophone,
-    ListOfSound,
-    ListOfSpeaker,
-    Microphone,
-    RecordingAck,
-    RecordingRequest,
-    SoundAck,
-    SoundId,
-    Speaker,
-    VolumeRequest,
-)
+from reachy_sdk_api_v2.sound_pb2 import (ListOfMicrophone, ListOfSound,
+                                         ListOfSpeaker, Microphone,
+                                         RecordingAck, RecordingRequest,
+                                         SoundAck, SoundId, Speaker,
+                                         VolumeRequest)
 from reachy_sdk_api_v2.sound_pb2_grpc import add_SoundServiceServicer_to_server
 from sound_play.libsoundplay import SoundClient
 
@@ -28,10 +21,9 @@ from .audio_recorder import AudioRecorder
 class ReachyGRPCAudioSDKServicer:
     def __init__(self) -> None:
         rclpy.init()
-        # Dummy node
         self.node = rclpy.create_node("ReachyGRPCAudioSDKServicer_node")
-        # note: non blocking mode for gprc?
-        self.soundhandle = SoundClient(self.node, blocking=True)
+
+        self.soundhandle = SoundClient(self.node, blocking=False)
 
         self._audiorecorder = AudioRecorder()
 
@@ -63,15 +55,15 @@ class ReachyGRPCAudioSDKServicer:
 
     def StartRecording(
         self, request: RecordingRequest, context: grpc.ServicerContext
-    ) -> Empty:
+    ) -> SoundAck:
         file_name = request.recording_id.id + ".ogg"
         if not pathlib.Path(file_name).parent.absolute().exists():
             self.node.get_logger().error(f"Path does not exist {file_name}")
-            return False
+            return SoundAck(success=BoolValue(value=False))
         self.node.get_logger().info(f"Start recording {file_name}")
         self._audiorecorder.make_pipe(file_name)
         self._audiorecorder.start()
-        return True
+        return SoundAck(success=BoolValue(value=True))
 
     def StopRecording(
         self, request: ComponentId, context: grpc.ServicerContext
@@ -87,13 +79,14 @@ class ReachyGRPCAudioSDKServicer:
     def ChangeVolume(
         self, request: VolumeRequest, context: grpc.ServicerContext
     ) -> Empty:
-        self._volume = request.id
+        self.node.get_logger().info(f"Set volume to {request.volume}")
+        self._volume = request.volume
         return Empty()
 
     def PlaySound(self, request: SoundId, context: grpc.ServicerContext) -> Empty:
-        self.node.get_logger().info(f"Playing {request.id}")
+        self.node.get_logger().info(f"Playing {request.sound.id}")
         # could be a wav or ogg
-        self.soundhandle.playWave(request.id)
+        self.soundhandle.playWave(request.sound.id, volume=self._volume)
         return Empty()
 
     def StopSound(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
