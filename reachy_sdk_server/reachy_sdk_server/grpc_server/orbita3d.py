@@ -8,15 +8,16 @@ from typing import Iterator
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
 
-from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains, JointLimits
-from reachy_sdk_api_v2.kinematics_pb2 import ExtEulerAngles, Rotation3d
-from reachy_sdk_api_v2.orbita3d_pb2 import (
+from reachy2_sdk_api.component_pb2 import ComponentId, PIDGains, JointLimits
+from reachy2_sdk_api.kinematics_pb2 import ExtEulerAngles, Rotation3d
+from reachy2_sdk_api.orbita3d_pb2 import (
     PID3d,
     Float3d,
     ListOfOrbita3d,
     Orbita3dCommand,
     Orbita3dsCommand,
     Orbita3dField,
+    Orbita3dGoal,
     Orbita3d,
     Orbita3dState,
     Orbita3dStateRequest,
@@ -25,7 +26,7 @@ from reachy_sdk_api_v2.orbita3d_pb2 import (
     Vector3d,
     Limits3d,
 )
-from reachy_sdk_api_v2.orbita3d_pb2_grpc import add_Orbita3dServiceServicer_to_server
+from reachy2_sdk_api.orbita3d_pb2_grpc import add_Orbita3dServiceServicer_to_server
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import rotation3d_as_extrinsinc_euler_angles
@@ -104,6 +105,11 @@ class Orbita3dServicer:
             yaw=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0))
             )
         return Orbita3dState(**state)
+
+    def GoToOrientation(
+        self, request: Orbita3dGoal, context: grpc.ServicerContext
+    ) -> Empty:
+        return Empty()
 
     def StreamState(
         self, request: Orbita3dStreamStateRequest, context: grpc.ServicerContext
