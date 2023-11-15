@@ -59,11 +59,11 @@ class ReachyGRPCAudioSDKServicer:
         file_name = request.recording_id.id + ".ogg"
         if not pathlib.Path(file_name).parent.absolute().exists():
             self.node.get_logger().error(f"Path does not exist {file_name}")
-            return SoundAck(success=BoolValue(value=False))
+            return RecordingAck(ack=SoundAck(success=BoolValue(value=False)))
         self.node.get_logger().info(f"Start recording {file_name}")
         self._audiorecorder.make_pipe(file_name)
         self._audiorecorder.start()
-        return SoundAck(success=BoolValue(value=True))
+        return RecordingAck(ack=SoundAck(success=BoolValue(value=True)))
 
     def StopRecording(
         self, request: ComponentId, context: grpc.ServicerContext
