@@ -6,9 +6,9 @@ from reachy_sdk_api_v2.kinematics_pb2 import (
     ExtEulerAngles,
     Point,
     Quaternion,
-    Rotation3D,
+    Rotation3d,
 )
-from reachy_sdk_api_v2.orbita2d_pb2 import Pose2D
+from reachy_sdk_api_v2.orbita2d_pb2 import Pose2d
 from google.protobuf.wrappers_pb2 import FloatValue
 from scipy.spatial.transform import Rotation
 from sensor_msgs.msg import JointState
@@ -18,14 +18,14 @@ from .parts import Part
 
 
 def rotation3d_as_extrinsinc_euler_angles(
-    rot: Rotation3D,
+    rot: Rotation3d,
 ) -> Tuple[float, float, float]:
     q = rotation3d_as_quat(rot)
     return Rotation.from_quat(q).as_euler("xyz")
 
 
 def rotation3d_as_quat(
-    rot: Rotation3D,
+    rot: Rotation3d,
 ) -> Tuple[float, float, float, float]:
     if rot.HasField("q"):
         return rot.q.x, rot.q.y, rot.q.z, rot.q.w
@@ -41,8 +41,8 @@ def rotation3d_as_quat(
 
 def quat_as_rotation3d(
     q: Tuple[float, float, float, float],
-) -> Rotation3D:
-    return Rotation3D(
+) -> Rotation3d:
+    return Rotation3d(
         q=Quaternion(
             x=q[0],
             y=q[1],
@@ -56,8 +56,8 @@ def extrinsic_euler_angles_as_rotation3d(
     roll: float,
     pitch: float,
     yaw: float,
-) -> Rotation3D:
-    return Rotation3D(
+) -> Rotation3d:
+    return Rotation3d(
         rpy=ExtEulerAngles(
             roll=roll,
             pitch=pitch,
@@ -141,7 +141,7 @@ def head_position_to_joint_state(position: HeadPosition, head: Part) -> JointSta
     return js
 
 
-def neck_rotation_to_joint_state(rot: Rotation3D, head: Part) -> JointState:
+def neck_rotation_to_joint_state(rot: Rotation3d, head: Part) -> JointState:
     js = JointState()
 
     for c in head.components:
@@ -167,11 +167,11 @@ def joint_state_to_arm_position(js: JointState, arm: Part) -> ArmPosition:
     assert len(js.position) == len(arm_name)
 
     return ArmPosition(
-        shoulder_position=Pose2D(
+        shoulder_position=Pose2d(
             axis_1=js.position[0],
             axis_2=js.position[1],
         ),
-        elbow_position=Pose2D(
+        elbow_position=Pose2d(
             axis_1=js.position[2],
             axis_2=js.position[3],
         ),
@@ -183,7 +183,7 @@ def joint_state_to_arm_position(js: JointState, arm: Part) -> ArmPosition:
     )
 
 
-def joint_state_to_neck_orientation(js: JointState, head: Part) -> Rotation3D:
+def joint_state_to_neck_orientation(js: JointState, head: Part) -> Rotation3d:
     head_name = []
     for c in head.components:
         head_name.extend(c.get_all_joints())
@@ -198,7 +198,7 @@ def joint_state_to_neck_orientation(js: JointState, head: Part) -> Rotation3D:
     )
 
 
-def pose_from_pos_and_ori(pos: Point, ori: Rotation3D) -> Pose:
+def pose_from_pos_and_ori(pos: Point, ori: Rotation3d) -> Pose:
     p = Pose()
 
     p.position.x = pos.x
@@ -235,6 +235,6 @@ def pose_matrix_from_quaternion(q: Quaternion) -> np.array:
     return M
 
 
-def pose_matrix_from_rotation3D(rot: Rotation3D) -> np.array:
+def pose_matrix_from_rotation3d(rot: Rotation3d) -> np.array:
     q = rotation3d_as_quat(rot)
     return pose_matrix_from_quaternion(Quaternion(x=q[0], y=q[1], z=q[2], w=q[3]))

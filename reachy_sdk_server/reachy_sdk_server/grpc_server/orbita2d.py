@@ -19,44 +19,44 @@ from google.protobuf.wrappers_pb2 import BoolValue,FloatValue
 
 from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains,JointLimits
 from reachy_sdk_api_v2.orbita2d_pb2 import (
-    PID2D,
-    Pose2D,
-    Float2D,
-    ListOfOrbita2D,
-    Orbita2DCommand,
-    Orbita2DsCommand,
-    Orbita2DField,
-    Orbita2D,
-    Orbita2DState,
-    Orbita2DStateRequest,
-    Orbita2DStatus,
-    Orbita2DStreamStateRequest,
-    Vector2D,
-    Limits2D,
+    PID2d,
+    Pose2d,
+    Float2d,
+    ListOfOrbita2d,
+    Orbita2dCommand,
+    Orbita2dsCommand,
+    Orbita2dField,
+    Orbita2d,
+    Orbita2dState,
+    Orbita2dStateRequest,
+    Orbita2dStatus,
+    Orbita2dStreamStateRequest,
+    Vector2d,
+    Limits2d,
 )
-from reachy_sdk_api_v2.orbita2d_pb2_grpc import add_Orbita2DServiceServicer_to_server
+from reachy_sdk_api_v2.orbita2d_pb2_grpc import add_Orbita2dServiceServicer_to_server
 
 
 from ..components import Component
 
 
-Orbita2DComponents = namedtuple(
-    "Orbita2DComponents", ["actuator", "axis1", "axis2", "raw_motor_1", "raw_motor_2"]
+Orbita2dComponents = namedtuple(
+    "Orbita2dComponents", ["actuator", "axis1", "axis2", "raw_motor_1", "raw_motor_2"]
 )
 
 
 class Orbita2dServicer:
     default_fields = [
-        Orbita2DField.PRESENT_POSITION,
-        Orbita2DField.GOAL_POSITION,
-        Orbita2DField.PRESENT_SPEED,
-        Orbita2DField.PRESENT_LOAD,
-        Orbita2DField.TEMPERATURE,
-        Orbita2DField.JOINT_LIMIT,
-        Orbita2DField.TORQUE_LIMIT,
-        Orbita2DField.SPEED_LIMIT,
-        Orbita2DField.PID,
-        Orbita2DField.COMPLIANT,
+        Orbita2dField.PRESENT_POSITION,
+        Orbita2dField.GOAL_POSITION,
+        Orbita2dField.PRESENT_SPEED,
+        Orbita2dField.PRESENT_LOAD,
+        Orbita2dField.TEMPERATURE,
+        Orbita2dField.JOINT_LIMIT,
+        Orbita2dField.TORQUE_LIMIT,
+        Orbita2dField.SPEED_LIMIT,
+        Orbita2dField.PID,
+        Orbita2dField.COMPLIANT,
     ]
 
     def __init__(
@@ -69,11 +69,11 @@ class Orbita2dServicer:
 
     def register_to_server(self, server: grpc.Server):
         self.logger.info("Registering 'Orbita2dServiceServicer' to server.")
-        add_Orbita2DServiceServicer_to_server(self, server)
+        add_Orbita2dServiceServicer_to_server(self, server)
 
     @classmethod
-    def get_info(cls, orbita2d: Component) -> Orbita2D:
-        return Orbita2D(
+    def get_info(cls, orbita2d: Component) -> Orbita2d:
+        return Orbita2d(
             id=ComponentId(
                 id=orbita2d.id,
                 name=orbita2d.name,
@@ -82,11 +82,11 @@ class Orbita2dServicer:
             axis_2=axis_from_str(orbita2d.extra["axis2"]),
         )
 
-    def GetAllOrbita2D(
+    def GetAllOrbita2d(
         self, request: Empty, context: grpc.ServicerContext
-    ) -> ListOfOrbita2D:
-        return ListOfOrbita2D(
-            orbita2D=[
+    ) -> ListOfOrbita2d:
+        return ListOfOrbita2d(
+            orbita2d=[
                 self.get_info(o)
                 for o in self.bridge_node.components.get_by_type("orbita2d")
             ]
@@ -94,24 +94,24 @@ class Orbita2dServicer:
 
     # State
     def GetState(
-        self, request: Orbita2DStateRequest, context: grpc.ServicerContext
-    ) -> Orbita2DState:
+        self, request: Orbita2dStateRequest, context: grpc.ServicerContext
+    ) -> Orbita2dState:
         orbita2d_components = self.get_orbita2d_components(request.id, context=context)
 
         state = extract_fields(
-            Orbita2DField, request.fields, conversion_table, orbita2d_components
+            Orbita2dField, request.fields, conversion_table, orbita2d_components
         )
         state["timestamp"] = get_current_timestamp(self.bridge_node)
-        state["temperature"] = Float2D(motor_1=FloatValue(value=40.0), motor_2=FloatValue(value=40.0))
-        state["joint_limit"] = Limits2D(
+        state["temperature"] = Float2d(motor_1=FloatValue(value=40.0), motor_2=FloatValue(value=40.0))
+        state["joint_limit"] = Limits2d(
             axis_1=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0)),
             axis_2=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0)),
             )
-        return Orbita2DState(**state)
+        return Orbita2dState(**state)
 
     def StreamState(
-        self, request: Orbita2DStreamStateRequest, context: grpc.ServicerContext
-    ) -> Iterator[Orbita2DState]:
+        self, request: Orbita2dStreamStateRequest, context: grpc.ServicerContext
+    ) -> Iterator[Orbita2dState]:
         return endless_get_stream(
             self.GetState,
             request.req,
@@ -121,7 +121,7 @@ class Orbita2dServicer:
 
     # Command
     def SendCommand(
-        self, request: Orbita2DsCommand, context: grpc.ServicerContext
+        self, request: Orbita2dsCommand, context: grpc.ServicerContext
     ) -> Empty:
         cmd = DynamicJointState()
         cmd.joint_names = []
@@ -207,7 +207,7 @@ class Orbita2dServicer:
         return Empty()
 
     def StreamCommand(
-        self, request_stream: Iterator[Orbita2DsCommand], context: grpc.ServicerContext
+        self, request_stream: Iterator[Orbita2dsCommand], context: grpc.ServicerContext
     ) -> Empty:
         for request in request_stream:
             self.SendCommand(request, context)
@@ -216,8 +216,8 @@ class Orbita2dServicer:
     # Doctor
     def Audit(
         self, request: ComponentId, context: grpc.ServicerContext
-    ) -> Orbita2DStatus:
-        return Orbita2DStatus()
+    ) -> Orbita2dStatus:
+        return Orbita2dStatus()
 
     def HeartBeat(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
         return Empty()
@@ -226,7 +226,7 @@ class Orbita2dServicer:
         return Empty()
 
     # Setup utils
-    def get_orbita2d_components(self, component_id: ComponentId, context: grpc.ServicerContext) -> Orbita2DComponents:
+    def get_orbita2d_components(self, component_id: ComponentId, context: grpc.ServicerContext) -> Orbita2dComponents:
         if not hasattr(self, "_lazy_components"):
             self._lazy_components = {}
 
@@ -260,7 +260,7 @@ class Orbita2dServicer:
                 f"{orbita2d.name}_raw_motor_2"
             )
 
-            self._lazy_components[c.id] = Orbita2DComponents(
+            self._lazy_components[c.id] = Orbita2dComponents(
                 orbita2d,
                 orbita2d_axis1,
                 orbita2d_axis2,
@@ -273,32 +273,32 @@ class Orbita2dServicer:
 
 conversion_table = {
     "id": lambda o: ComponentId(id=o.actuator.id, name=o.actuator.name),
-    "present_position": lambda o: Pose2D(
+    "present_position": lambda o: Pose2d(
         axis_1=FloatValue(value=o.axis1.state["position"]),
         axis_2=FloatValue(value=o.axis2.state["position"])
     ),
-    "present_speed": lambda o: Vector2D(
+    "present_speed": lambda o: Vector2d(
         x=FloatValue(value=o.axis1.state["velocity"]),
         y=FloatValue(value=o.axis2.state["velocity"])
     ),
-    "present_load": lambda o: Vector2D(
+    "present_load": lambda o: Vector2d(
         x=FloatValue(value=o.axis1.state["effort"]),
         y=FloatValue(value=o.axis2.state["effort"])
     ),
     "compliant": lambda o: BoolValue(value=not o.actuator.state["torque"]),
-    "goal_position": lambda o: Pose2D(
+    "goal_position": lambda o: Pose2d(
         axis_1=FloatValue(value=o.axis1.state["target_position"]),
         axis_2=FloatValue(value=o.axis2.state["target_position"]),
     ),
-    "speed_limit": lambda o: Float2D(
+    "speed_limit": lambda o: Float2d(
         motor_1=FloatValue(value=o.raw_motor_1.state["speed_limit"]) if not math.isnan(o.raw_motor_1.state["speed_limit"]) else FloatValue(value=100.0),
         motor_2=FloatValue(value=o.raw_motor_2.state["speed_limit"]) if not math.isnan(o.raw_motor_2.state["speed_limit"]) else FloatValue(value=100.0)
     ),
-    "torque_limit": lambda o: Float2D(
+    "torque_limit": lambda o: Float2d(
         motor_1=FloatValue(value=o.raw_motor_1.state["torque_limit"]) if not math.isnan(o.raw_motor_1.state["torque_limit"]) else FloatValue(value=100.0),
         motor_2=FloatValue(value=o.raw_motor_2.state["torque_limit"]) if not math.isnan(o.raw_motor_2.state["torque_limit"]) else FloatValue(value=100.0),
     ),
-    "pid": lambda o: PID2D(
+    "pid": lambda o: PID2d(
         motor_1=PIDGains(
             p=FloatValue(value=o.raw_motor_1.state["p_gain"]) if not math.isnan(o.raw_motor_1.state["p_gain"]) else FloatValue(value=100.0),
             i=FloatValue(value=o.raw_motor_1.state["i_gain"]) if not math.isnan(o.raw_motor_1.state["i_gain"]) else FloatValue(value=100.0),

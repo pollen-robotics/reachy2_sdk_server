@@ -37,15 +37,15 @@ from ..conversion import (
 )
 from .orbita2d import (
     ComponentId,
-    Orbita2DCommand,
-    Orbita2DsCommand,
+    Orbita2dCommand,
+    Orbita2dsCommand,
     Orbita2dServicer,
-    Orbita2DStateRequest,
+    Orbita2dStateRequest,
 )
 from .orbita3d import (
-    Orbita3DCommand,
-    Orbita3DsCommand,
-    Orbita3DStateRequest,
+    Orbita3dCommand,
+    Orbita3dsCommand,
+    Orbita3dStateRequest,
     Orbita3dServicer,
 )
 from ..parts import Part
@@ -115,21 +115,21 @@ class ArmServicer:
             id=request,
             activated=True,
             shoulder_state=self.orbita2d_servicer.GetState(
-                Orbita2DStateRequest(
+                Orbita2dStateRequest(
                     fields=self.orbita2d_servicer.default_fields,
                     id=ComponentId(id=arm.components[0].id),
                 ),
                 context,
             ),
             elbow_state=self.orbita2d_servicer.GetState(
-                Orbita2DStateRequest(
+                Orbita2dStateRequest(
                     fields=self.orbita2d_servicer.default_fields,
                     id=ComponentId(id=arm.components[1].id),
                 ),
                 context,
             ),
             wrist_state=self.orbita3d_servicer.GetState(
-                Orbita3DStateRequest(
+                Orbita3dStateRequest(
                     fields=self.orbita3d_servicer.default_fields,
                     id=ComponentId(id=arm.components[2].id),
                 ),
@@ -161,15 +161,15 @@ class ArmServicer:
         # We do not take the duration into account
         # We will develop a more advanced controller to handles this
 
-        # TODO: Use Orbita2DsCommand
+        # TODO: Use Orbita2dsCommand
         self.orbita2d_servicer.SendCommand(
-            Orbita2DsCommand(
+            Orbita2dsCommand(
                 cmd=[
-                    Orbita2DCommand(
+                    Orbita2dCommand(
                         id=ComponentId(id=arm.components[0].id),
                         goal_position=request.position.shoulder_position,
                     ),
-                    Orbita2DCommand(
+                    Orbita2dCommand(
                         id=ComponentId(id=arm.components[1].id),
                         goal_position=request.position.elbow_position,
                     ),
@@ -178,9 +178,9 @@ class ArmServicer:
             context,
         )
         self.orbita3d_servicer.SendCommand(
-            Orbita3DsCommand(
+            Orbita3dsCommand(
                 cmd=[
-                    Orbita3DCommand(
+                    Orbita3dCommand(
                         id=ComponentId(id=arm.components[2].id),
                         goal_position=request.position.wrist_position,
                     ),
