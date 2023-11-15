@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from .components import ComponentsHolder
 
-from reachy_sdk_api_v2.part_pb2 import PartId
+from reachy2_sdk_api.part_pb2 import PartId
 
 
 Part = namedtuple("Part", ["name", "id", "type", "components"])

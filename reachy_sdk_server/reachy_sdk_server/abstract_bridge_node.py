@@ -9,8 +9,8 @@ from typing import Tuple
 
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
 
-from reachy_sdk_api_v2.component_pb2 import ComponentId
-from reachy_sdk_api_v2.part_pb2 import PartId
+from reachy2_sdk_api.component_pb2 import ComponentId
+from reachy2_sdk_api.part_pb2 import PartId
 
 from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix

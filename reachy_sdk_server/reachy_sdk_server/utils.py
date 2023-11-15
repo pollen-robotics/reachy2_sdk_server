@@ -6,7 +6,7 @@ import rclpy
 import yaml
 from google.protobuf.timestamp_pb2 import Timestamp
 from pollen_msgs.srv import GetDynamicState
-from reachy_sdk_api_v2 import orbita2d_pb2
+from reachy2_sdk_api import orbita2d_pb2
 
 
 def parse_reachy_config(reachy_config_path: str) -> dict:
