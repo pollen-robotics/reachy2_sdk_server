@@ -1,12 +1,19 @@
 import pathlib
-import time
 
 import grpc
 import rclpy
+from google.protobuf.empty_pb2 import Empty
+from google.protobuf.wrappers_pb2 import BoolValue
+from reachy_sdk_api_v2.component_pb2 import ComponentId
+from reachy_sdk_api_v2.sound_pb2 import (ListOfMicrophone, ListOfSound,
+                                         ListOfSpeaker, Microphone,
+                                         RecordingAck, RecordingRequest,
+                                         SoundAck, SoundId, Speaker,
+                                         VolumeRequest)
+from reachy_sdk_api_v2.sound_pb2_grpc import add_SoundServiceServicer_to_server
 from sound_play.libsoundplay import SoundClient
 
 from ..utils import get_list_audio_files
-from .audio_capture_action_client import AudioCaptureActionClient
 from .audio_recorder import AudioRecorder
 
 
@@ -14,48 +21,85 @@ from .audio_recorder import AudioRecorder
 class ReachyGRPCAudioSDKServicer:
     def __init__(self) -> None:
         rclpy.init()
-        # Dummy node
-        self.node = rclpy.create_node("soundclient_example")
-        # note: non blocking mode for gprc?
-        self.soundhandle = SoundClient(self.node, blocking=True)
-        self._audiocaptureclient = AudioCaptureActionClient()
+        self.node = rclpy.create_node("ReachyGRPCAudioSDKServicer_node")
+
+        self.soundhandle = SoundClient(self.node, blocking=False)
+
         self._audiorecorder = AudioRecorder()
 
-    def test(self) -> None:
-        # look into its default sounds folder if there is no path
-        # https://github.com/ros-drivers/audio_common/tree/ros2/sound_play/sounds
-        self.node.get_logger().info("Playing say-beep at full volume.")
-        self.soundhandle.playWave("say-beep.wav")
+        self._volume: float = 1  # in [0.0,1.0]
 
-        self.node.get_logger().info("Playing say-beep at volume 0.3.")
-        self.soundhandle.playWave("say-beep.wav", volume=0.3)
+        self.node.get_logger().info("Reachy GRPC Audio SDK Servicer initialized.")
+
+    def register_to_server(self, server: grpc.Server):
+        self.node.get_logger().info("Registering 'SoundServiceServicer' to server.")
+        add_SoundServiceServicer_to_server(self, server)
 
     def say_text(self, text: str) -> None:
         self.node.get_logger().info(f"Say {text}")
         self.soundhandle.say(text)
 
-    def play_sound(self, file_name: str) -> None:
-        self.node.get_logger().info(f"Playing {file_name}")
-        # could be a wav or ogg
-        self.soundhandle.playWave(file_name)
+    def GetAllMicrophone(
+        self, request: Empty, context: grpc.ServicerContext
+    ) -> ListOfMicrophone:
+        return ListOfMicrophone(
+            microphone_info=[Microphone(id=ComponentId(id=1, name="microphone_1"))]
+        )
 
-    def stop(self) -> None:
-        # note: not sure it is working. Need to double check ROS package
-        self.node.get_logger().info(f"Stop playing")
-        self.soundhandle.stopAll()
+    def GetAllSpeaker(
+        self, request: Empty, context: grpc.ServicerContext
+    ) -> ListOfSpeaker:
+        return ListOfSpeaker(
+            speaker_info=[Speaker(id=ComponentId(id=1, name="speaker_1"))]
+        )
 
-    def start_capture(self, filename: str) -> bool:
-        if not pathlib.Path(filename).parent.absolute().exists():
-            self.node.get_logger().error(f"Path does not exist {filename}")
-            return False
-        self.node.get_logger().info(f"Start recording {filename}")
-        self._audiorecorder.make_pipe(filename)
+    def StartRecording(
+        self, request: RecordingRequest, context: grpc.ServicerContext
+    ) -> SoundAck:
+        file_name = request.recording_id.id + ".ogg"
+        if not pathlib.Path(file_name).parent.absolute().exists():
+            self.node.get_logger().error(f"Path does not exist {file_name}")
+            return RecordingAck(ack=SoundAck(success=BoolValue(value=False)))
+        self.node.get_logger().info(f"Start recording {file_name}")
+        self._audiorecorder.make_pipe(file_name)
         self._audiorecorder.start()
-        return True
+        return RecordingAck(ack=SoundAck(success=BoolValue(value=True)))
 
-    def stop_capture(self) -> None:
+    def StopRecording(
+        self, request: ComponentId, context: grpc.ServicerContext
+    ) -> RecordingAck:
         self.node.get_logger().info("Stop recording")
         self._audiorecorder.stop()
+        return RecordingAck(ack=SoundAck(success=BoolValue(value=True)))
+
+    def TestSpeaker(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
+        self.soundhandle.playWave("say-beep.wav", volume=self._volume)
+        return Empty()
+
+    def ChangeVolume(
+        self, request: VolumeRequest, context: grpc.ServicerContext
+    ) -> Empty:
+        self.node.get_logger().info(f"Set volume to {request.volume}")
+        self._volume = request.volume
+        return Empty()
+
+    def PlaySound(self, request: SoundId, context: grpc.ServicerContext) -> Empty:
+        self.node.get_logger().info(f"Playing {request.sound.id}")
+        # could be a wav or ogg
+        self.soundhandle.playWave(request.sound.id, volume=self._volume)
+        return Empty()
+
+    def StopSound(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
+        self.node.get_logger().info(f"Stop playing")
+        self.soundhandle.stopAll()
+        return Empty()
+
+    def GetSoundsList(
+        self, request: Empty, context: grpc.ServicerContext
+    ) -> ListOfSound:
+        audiofiles = get_list_audio_files("/root/sounds/")
+        soundsList = [SoundId(id=sound) for sound in audiofiles]
+        return ListOfSound(sounds=soundsList)
 
 
 def main():
@@ -63,44 +107,19 @@ def main():
     from concurrent import futures
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=50051)
+    parser.add_argument("--port", type=int, default=50063)
     parser.add_argument("--max-workers", type=int, default=10)
     args = parser.parse_args()
 
     servicer = ReachyGRPCAudioSDKServicer()
-
-    servicer.test()
-
-    servicer.say_text("Hello I'm Reachy!")
-
-    # path defined in the docker-compose (or when creating container)
-    audiofiles = get_list_audio_files("/root/sounds/")
-    print(audiofiles)
-    # servicer.play_sound(audiofiles[0])
-
-    time.sleep(1)
-
-    servicer.stop()
-
-    success = servicer.start_capture("/root/sounds/record.ogg")
-
-    if success:
-        time.sleep(3)
-
-        servicer.stop_capture()
-
-        servicer.play_sound("/root/sounds/record.ogg")
-
-    return
-
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers))
 
-    servicer.register_all_services(server)
+    servicer.register_to_server(server)
 
     server.add_insecure_port(f"[::]:{args.port}")
     server.start()
 
-    servicer.logger.info(f"Server started on port {args.port}.")
+    servicer.node.get_logger().info(f"Server started on port {args.port}.")
     server.wait_for_termination()
 
 
