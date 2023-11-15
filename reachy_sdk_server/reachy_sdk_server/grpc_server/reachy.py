@@ -4,14 +4,14 @@ import rclpy
 
 from google.protobuf.empty_pb2 import Empty
 
-from reachy_sdk_api_v2.part_pb2 import PartId
-from reachy_sdk_api_v2.reachy_pb2 import (
+from reachy2_sdk_api.part_pb2 import PartId
+from reachy2_sdk_api.reachy_pb2 import (
     Reachy,
     ReachyId,
     ReachyState,
     ReachyStreamStateRequest,
 )
-from reachy_sdk_api_v2.reachy_pb2_grpc import add_ReachyServiceServicer_to_server
+from reachy2_sdk_api.reachy_pb2_grpc import add_ReachyServiceServicer_to_server
 
 
 from ..abstract_bridge_node import AbstractBridgeNode

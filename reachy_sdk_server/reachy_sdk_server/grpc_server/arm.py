@@ -5,7 +5,7 @@ from control_msgs.msg import DynamicJointState, InterfaceValue
 
 from google.protobuf.empty_pb2 import Empty
 
-from reachy_sdk_api_v2.arm_pb2 import (
+from reachy2_sdk_api.arm_pb2 import (
     Arm,
     ArmCartesianGoal,
     ArmDescription,
@@ -22,11 +22,11 @@ from reachy_sdk_api_v2.arm_pb2 import (
     ListOfArm,
     SpeedLimitRequest,
 )
-from reachy_sdk_api_v2.arm_pb2_grpc import (
+from reachy2_sdk_api.arm_pb2_grpc import (
     add_ArmServiceServicer_to_server,
 )
-from reachy_sdk_api_v2.part_pb2 import PartId
-from reachy_sdk_api_v2.kinematics_pb2 import Matrix4x4
+from reachy2_sdk_api.part_pb2 import PartId
+from reachy2_sdk_api.kinematics_pb2 import Matrix4x4
 
 
 from ..abstract_bridge_node import AbstractBridgeNode

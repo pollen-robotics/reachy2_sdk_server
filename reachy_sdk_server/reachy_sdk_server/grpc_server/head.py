@@ -7,13 +7,13 @@ from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
 from sensor_msgs.msg import JointState
 
-from reachy_sdk_api_v2.component_pb2 import (
+from reachy2_sdk_api.component_pb2 import (
     ComponentId,
 )
-from reachy_sdk_api_v2.head_pb2_grpc import (
+from reachy2_sdk_api.head_pb2_grpc import (
     add_HeadServiceServicer_to_server,
 )
-from reachy_sdk_api_v2.head_pb2 import (
+from reachy2_sdk_api.head_pb2 import (
     Head,
     HeadDescription,
     HeadLookAtGoal,
@@ -31,11 +31,11 @@ from reachy_sdk_api_v2.head_pb2 import (
     NeckOrientation,
     SpeedLimitRequest,
 )
-from reachy_sdk_api_v2.kinematics_pb2 import (
+from reachy2_sdk_api.kinematics_pb2 import (
     Rotation3d,
     Quaternion,
 )
-from reachy_sdk_api_v2.part_pb2 import (
+from reachy2_sdk_api.part_pb2 import (
     PartId,
 )
 

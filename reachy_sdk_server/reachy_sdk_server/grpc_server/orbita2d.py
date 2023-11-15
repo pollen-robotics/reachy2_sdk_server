@@ -17,8 +17,8 @@ from ..utils import (
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue,FloatValue
 
-from reachy_sdk_api_v2.component_pb2 import ComponentId, PIDGains,JointLimits
-from reachy_sdk_api_v2.orbita2d_pb2 import (
+from reachy2_sdk_api.component_pb2 import ComponentId, PIDGains,JointLimits
+from reachy2_sdk_api.orbita2d_pb2 import (
     PID2d,
     Pose2d,
     Float2d,
@@ -34,7 +34,7 @@ from reachy_sdk_api_v2.orbita2d_pb2 import (
     Vector2d,
     Limits2d,
 )
-from reachy_sdk_api_v2.orbita2d_pb2_grpc import add_Orbita2dServiceServicer_to_server
+from reachy2_sdk_api.orbita2d_pb2_grpc import add_Orbita2dServiceServicer_to_server
 
 
 from ..components import Component
