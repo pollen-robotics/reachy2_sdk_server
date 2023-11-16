@@ -25,7 +25,7 @@ class PartsHolder:
         # We start at 1 to avoid having a part_id of 0
         part_id = 1
 
-        for part in ("r_arm", "l_arm", "head"):
+        for part in ("r_arm", "l_arm", "head", "hand"):
             if part in config:
                 part_config = config[part]
 
@@ -80,5 +80,7 @@ class PartsHolder:
             "neck",
         }:
             return "head"
+        elif part_name == "hand":
+            return "hand"
         else:
             raise ValueError(f"Unknown part type for {part_name}.")

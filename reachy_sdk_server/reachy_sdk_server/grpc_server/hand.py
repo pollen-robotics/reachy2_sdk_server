@@ -1,0 +1,173 @@
+import grpc
+import numpy as np
+import rclpy
+
+from control_msgs.msg import DynamicJointState, InterfaceValue
+from google.protobuf.empty_pb2 import Empty
+
+from ..abstract_bridge_node import AbstractBridgeNode
+from ..parts import Part
+
+from reachy2_sdk_api.hand_pb2_grpc import (
+    add_HandServiceServicer_to_server,
+)
+from reachy2_sdk_api.hand_pb2 import (
+    Force,
+    Hand,
+    HandPosition,
+    HandPositionRequest,
+    HandState,
+    HandStatus,
+    HandTemperatures,
+    JointsLimits,
+    ListOfHand,
+    ParrallelGripperPosition,
+    SpeedLimitRequest,
+)
+from reachy2_sdk_api.part_pb2 import (
+    PartId,
+)
+
+
+class HandServicer:
+    def __init__(
+        self,
+        bridge_node: AbstractBridgeNode,
+        logger: rclpy.impl.rcutils_logger.RcutilsLogger,
+    ) -> None:
+        self.bridge_node = bridge_node
+        self.logger = logger
+
+        self.hands = self.bridge_node.parts.get_by_type("hand")
+
+    def register_to_server(self, server: grpc.Server):
+        self.logger.info("Registering 'HandServiceServicer' to server.")
+        add_HandServiceServicer_to_server(self, server)
+
+    def get_hand(self, hand: Part, context: grpc.ServicerContext) -> Hand:
+        return HandServicer(
+            part_id=PartId(name=hand.name, id=hand.id),
+        )
+
+    def get_hand_part_from_part_id(
+        self, part_id: PartId, context: grpc.ServicerContext
+    ) -> Part:
+        part = self.bridge_node.parts.get_by_part_id(part_id)
+
+        if part is None:
+            context.abort(grpc.StatusCode.NOT_FOUND, f"Part not found (id={part_id}).")
+
+        if part.type != "hand":
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT,
+                f"Part '{part_id}' is not an hand.",
+            )
+
+        return part
+
+    def GetAllHands(self, request: Empty, context: grpc.ServicerContext) -> ListOfHand:
+        return ListOfHand(hand=[self.get_hand(hand, context) for hand in self.hands])
+
+    def GetHandState(self, request: PartId, context: grpc.ServicerContext) -> HandState:
+        hand = self.get_hand_part_from_part_id(request, context)
+
+        return HandState(
+            present_position=HandPosition(
+                position=ParrallelGripperPosition(position=hand.components[0].state['position']),
+            ),
+            goal_position=self.GetHandGoalPosition(request, context),
+        )
+
+    def OpenHand(self, request: PartId, context: grpc.ServicerContext) -> Empty:
+        return self.SetHandPosition(HandPositionRequest(id=request, position=1.0), context=context)
+    
+    def CloseHand(self, request: PartId, context: grpc.ServicerContext) -> Empty:
+        return self.SetHandPosition(HandPositionRequest(id=request, position=0.0), context=context)
+
+    def set_stiffness(
+        self, request: PartId, torque: bool, context: grpc.ServicerContext
+    ) -> None:
+        hand = self.get_hand_part_from_part_id(request, context)
+
+        cmd = DynamicJointState()
+        cmd.joint_names = []
+
+        for c in hand.components:
+            cmd.joint_names.append(c.name)
+            cmd.interface_values.append(
+                InterfaceValue(
+                    interface_names=["torque"],
+                    values=[torque],
+                )
+            )
+
+        self.logger.info(f"Publishing command: {cmd}")
+        self.bridge_node.publish_command(cmd)
+
+    def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
+        self.set_stiffness(request, torque=True, context=context)
+        return Empty()
+    
+    def TurnOff(self, request: PartId, context: grpc.ServicerContext) -> Empty:
+        self.set_stiffness(request, torque=False, context=context)
+        return Empty()
+    
+    def GetHandGoalPosition(self, request: PartId, context: grpc.ServicerContext) -> HandPosition:
+        hand = self.get_hand_part_from_part_id(request, context)
+
+        return HandPosition(
+            position=ParrallelGripperPosition(position=hand.components[0].state['position']),
+        )
+
+    OPEN_POSITION = 0.0
+    CLOSE_POSITION = 1.0
+
+    def SetHandPosition(self, request: HandPositionRequest, context: grpc.ServicerContext) -> Empty:
+        hand = self.get_hand_part_from_part_id(request.id, context)
+
+        percentage = np.clip(request.position.position, 0, 1)
+
+        if hand.name.startswith("l_"):
+            percentage = 1 - percentage
+
+        position = self.OPEN_POSITION + percentage * (self.CLOSE_POSITION - self.OPEN_POSITION)
+
+        cmd = DynamicJointState()
+        cmd.joint_names = []
+
+        for c in hand.components:
+            cmd.joint_names.append(c.name)
+            cmd.interface_values.append(
+                InterfaceValue(
+                    interface_names=["position"],
+                    values=[position],
+                )
+            )
+
+        self.bridge_node.publish_command(cmd)
+
+        return Empty()
+
+    def Audit(self, request: PartId, context: grpc.ServicerContext) -> HandStatus:
+        return HandStatus()
+    
+    def HeartBeat(self, request: PartId, context: grpc.ServicerContext) -> Empty:
+        return Empty()
+
+    def Restart(self, request: PartId, context: grpc.ServicerContext) -> Empty:
+        return Empty()
+    
+    def ResetDefaultValues(self, request: PartId, context: grpc.ServicerContext) -> Empty:
+        return Empty()
+
+    def GetJointLimit(self, request: PartId, context: grpc.ServicerContext) -> JointsLimits:
+        return JointsLimits()
+    
+    def GetTemperature(self, request: PartId, context: grpc.ServicerContext) -> HandTemperatures:
+        return HandTemperatures()
+    
+    def SetSpeedLimit(self, request: SpeedLimitRequest, context: grpc.ServicerContext) -> Empty:
+        return Empty()
+
+    def GetForce(self, request: PartId, context: grpc.ServicerContext) -> Force:
+        return Force()
