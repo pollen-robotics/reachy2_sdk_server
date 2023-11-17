@@ -79,7 +79,7 @@ class ReachyServicer:
                     PartId(id=p.id), context
                 )
             elif p.type == "hand":
-                params[f"{p.name}_state"] = self.hand_servicer.GetHandState(
+                params[f"{p.name}_state"] = self.hand_servicer.GetState(
                     PartId(id=p.id), context
                 )
 

@@ -69,7 +69,7 @@ class HandServicer:
     def GetAllHands(self, request: Empty, context: grpc.ServicerContext) -> ListOfHand:
         return ListOfHand(hand=[self.get_hand(hand, context) for hand in self.hands])
 
-    def GetHandState(self, request: PartId, context: grpc.ServicerContext) -> HandState:
+    def GetState(self, request: PartId, context: grpc.ServicerContext) -> HandState:
         hand = self.get_hand_part_from_part_id(request, context)
 
         position = hand.components[0].state['position']
@@ -135,11 +135,10 @@ class HandServicer:
     def GetHandGoalPosition(self, request: PartId, context: grpc.ServicerContext) -> HandPosition:
         hand = self.get_hand_part_from_part_id(request, context)
 
-        position = hand.components[0].state['position']
-        opening = self.position_to_opening(position)
+        position = hand.components[0].state['target_position']
 
         return HandPosition(
-            parallel_gripper=ParallelGripperPosition(position=opening),
+            parallel_gripper=ParallelGripperPosition(position=position),
         )
 
     def SetHandPosition(self, request: HandPositionRequest, context: grpc.ServicerContext) -> Empty:
