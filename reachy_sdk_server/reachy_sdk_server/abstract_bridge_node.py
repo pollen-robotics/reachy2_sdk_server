@@ -115,6 +115,9 @@ class AbstractBridgeNode(Node):
         self.command_target_pub_lock = Lock()
 
         for part in self.parts:
+            if part.type not in ("arm", "head"):
+                continue
+
             c = self.create_client(
                 srv_type=GetForwardKinematics,
                 srv_name=f"/{part.name}/forward_kinematics",
