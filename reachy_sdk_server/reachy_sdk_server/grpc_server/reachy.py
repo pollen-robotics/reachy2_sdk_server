@@ -4,18 +4,19 @@ import rclpy
 
 from google.protobuf.empty_pb2 import Empty
 
-from reachy_sdk_api_v2.part_pb2 import PartId
-from reachy_sdk_api_v2.reachy_pb2 import (
+from reachy2_sdk_api.part_pb2 import PartId
+from reachy2_sdk_api.reachy_pb2 import (
     Reachy,
     ReachyId,
     ReachyState,
     ReachyStreamStateRequest,
 )
-from reachy_sdk_api_v2.reachy_pb2_grpc import add_ReachyServiceServicer_to_server
+from reachy2_sdk_api.reachy_pb2_grpc import add_ReachyServiceServicer_to_server
 
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
+from .hand import HandServicer
 from .head import HeadServicer
 from ..utils import endless_get_stream, get_current_timestamp
 
@@ -26,12 +27,14 @@ class ReachyServicer:
         bridge_node: AbstractBridgeNode,
         logger: rclpy.impl.rcutils_logger.RcutilsLogger,
         arm_servicer: ArmServicer,
+        hand_servicer: HandServicer,
         head_servicer: HeadServicer,
     ):
         self.bridge_node = bridge_node
         self.logger = logger
 
         self.arm_servicer = arm_servicer
+        self.hand_servicer = hand_servicer
         self.head_servicer = head_servicer
 
         self.reachy_id = ReachyId(id=1, name="reachy")
@@ -50,6 +53,8 @@ class ReachyServicer:
                 params[p.name] = self.arm_servicer.get_arm(p, context)
             elif p.type == "head":
                 params[p.name] = self.head_servicer.get_head(p, context)
+            elif p.type == "hand":
+                params[p.name] = self.hand_servicer.get_hand(p, context)
 
         return Reachy(**params)
 
@@ -71,6 +76,10 @@ class ReachyServicer:
                 )
             elif p.type == "head":
                 params[f"{p.name}_state"] = self.head_servicer.GetState(
+                    PartId(id=p.id), context
+                )
+            elif p.type == "hand":
+                params[f"{p.name}_state"] = self.hand_servicer.GetState(
                     PartId(id=p.id), context
                 )
 

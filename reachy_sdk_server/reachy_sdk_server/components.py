@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from reachy_sdk_api_v2.component_pb2 import ComponentId
+from reachy2_sdk_api.component_pb2 import ComponentId
 import rclpy
 from typing import List, Optional
 
