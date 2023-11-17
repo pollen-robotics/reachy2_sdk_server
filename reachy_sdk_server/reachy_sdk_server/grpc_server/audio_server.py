@@ -5,11 +5,19 @@ import rclpy
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue
 from reachy2_sdk_api.component_pb2 import ComponentId
-from reachy2_sdk_api.sound_pb2 import (ListOfMicrophone, ListOfSound,
-                                         ListOfSpeaker, Microphone,
-                                         RecordingAck, RecordingRequest,
-                                         SoundAck, SoundId, Speaker,
-                                         VolumeRequest)
+from reachy_sdk_api_v2.sound_pb2 import (
+    ListOfMicrophone,
+    ListOfSound,
+    ListOfSpeaker,
+    Microphone,
+    RecordingAck,
+    RecordingRequest,
+    SoundAck,
+    SoundId,
+    Speaker,
+    TextRequest,
+    VolumeRequest,
+)
 from reachy2_sdk_api.sound_pb2_grpc import add_SoundServiceServicer_to_server
 from sound_play.libsoundplay import SoundClient
 
@@ -34,10 +42,6 @@ class ReachyGRPCAudioSDKServicer:
     def register_to_server(self, server: grpc.Server):
         self.node.get_logger().info("Registering 'SoundServiceServicer' to server.")
         add_SoundServiceServicer_to_server(self, server)
-
-    def say_text(self, text: str) -> None:
-        self.node.get_logger().info(f"Say {text}")
-        self.soundhandle.say(text)
 
     def GetAllMicrophone(
         self, request: Empty, context: grpc.ServicerContext
@@ -100,6 +104,11 @@ class ReachyGRPCAudioSDKServicer:
         audiofiles = get_list_audio_files("/root/sounds/")
         soundsList = [SoundId(id=sound) for sound in audiofiles]
         return ListOfSound(sounds=soundsList)
+
+    def SayText(self, request: TextRequest, context: grpc.ServicerContext) -> Empty:
+        self.node.get_logger().info(f"Saying {request.text}")
+        self.soundhandle.say(request.text)
+        return Empty()
 
 
 def main():
