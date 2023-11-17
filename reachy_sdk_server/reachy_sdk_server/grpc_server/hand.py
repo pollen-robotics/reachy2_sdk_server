@@ -4,6 +4,7 @@ import rclpy
 
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
+from google.protobuf.wrappers_pb2 import FloatValue
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..parts import Part
@@ -21,7 +22,7 @@ from reachy2_sdk_api.hand_pb2 import (
     HandTemperatures,
     JointsLimits,
     ListOfHand,
-    ParrallelGripperPosition,
+    ParallelGripperPosition,
     SpeedLimitRequest,
 )
 from reachy2_sdk_api.part_pb2 import (
@@ -45,7 +46,7 @@ class HandServicer:
         add_HandServiceServicer_to_server(self, server)
 
     def get_hand(self, hand: Part, context: grpc.ServicerContext) -> Hand:
-        return HandServicer(
+        return Hand(
             part_id=PartId(name=hand.name, id=hand.id),
         )
 
@@ -71,18 +72,38 @@ class HandServicer:
     def GetHandState(self, request: PartId, context: grpc.ServicerContext) -> HandState:
         hand = self.get_hand_part_from_part_id(request, context)
 
+        position = hand.components[0].state['position']
+        opening = self.position_to_opening(position)
+
         return HandState(
+            opening=FloatValue(value=opening),
             present_position=HandPosition(
-                position=ParrallelGripperPosition(position=hand.components[0].state['position']),
+                parallel_gripper=ParallelGripperPosition(position=position),
             ),
             goal_position=self.GetHandGoalPosition(request, context),
         )
 
     def OpenHand(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        return self.SetHandPosition(HandPositionRequest(id=request, position=1.0), context=context)
+        return self.SetHandPosition(
+            request=HandPositionRequest(
+                id=request, 
+                position=HandPosition(
+                    parallel_gripper=ParallelGripperPosition(position=1.0),
+                ),
+            ),
+            context=context,
+        )
     
     def CloseHand(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        return self.SetHandPosition(HandPositionRequest(id=request, position=0.0), context=context)
+        return self.SetHandPosition(
+            request=HandPositionRequest(
+                id=request, 
+                position=HandPosition(
+                    parallel_gripper=ParallelGripperPosition(position=0.0),
+                ),
+            ),
+            context=context,
+        )
 
     def set_stiffness(
         self, request: PartId, torque: bool, context: grpc.ServicerContext
@@ -101,7 +122,6 @@ class HandServicer:
                 )
             )
 
-        self.logger.info(f"Publishing command: {cmd}")
         self.bridge_node.publish_command(cmd)
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
@@ -115,22 +135,18 @@ class HandServicer:
     def GetHandGoalPosition(self, request: PartId, context: grpc.ServicerContext) -> HandPosition:
         hand = self.get_hand_part_from_part_id(request, context)
 
-        return HandPosition(
-            position=ParrallelGripperPosition(position=hand.components[0].state['position']),
-        )
+        position = hand.components[0].state['position']
+        opening = self.position_to_opening(position)
 
-    OPEN_POSITION = 0.0
-    CLOSE_POSITION = 1.0
+        return HandPosition(
+            parallel_gripper=ParallelGripperPosition(position=opening),
+        )
 
     def SetHandPosition(self, request: HandPositionRequest, context: grpc.ServicerContext) -> Empty:
         hand = self.get_hand_part_from_part_id(request.id, context)
 
-        percentage = np.clip(request.position.position, 0, 1)
-
-        if hand.name.startswith("l_"):
-            percentage = 1 - percentage
-
-        position = self.OPEN_POSITION + percentage * (self.CLOSE_POSITION - self.OPEN_POSITION)
+        opening = np.clip(request.position.parallel_gripper.position, 0, 1)
+        position = self.opening_to_position(opening)
 
         cmd = DynamicJointState()
         cmd.joint_names = []
@@ -171,3 +187,15 @@ class HandServicer:
 
     def GetForce(self, request: PartId, context: grpc.ServicerContext) -> Force:
         return Force()
+    OPEN_POSITION = -1.50
+    CLOSE_POSITION = 0.0
+
+    def opening_to_position(self, opening: float) -> float:
+        opening = np.clip(opening, 0, 1)
+        return self.CLOSE_POSITION + opening * (self.OPEN_POSITION - self.CLOSE_POSITION)
+
+    def position_to_opening(self, position: float) -> float:
+        opening = (position - self.CLOSE_POSITION) / (self.OPEN_POSITION - self.CLOSE_POSITION)
+        opening = np.clip(opening, 0, 1)
+        return opening
+                                               

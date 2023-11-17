@@ -16,7 +16,7 @@ reachy:
       axis1: roll
       axis2: pitch
       axis3: yaw
-  hand:
+  l_hand:
     two_fingers_gripper:
       name: l_gripper_finger
       actuator: dynamixel
@@ -37,7 +37,7 @@ reachy:
       axis1: roll
       axis2: pitch
       axis3: yaw
-  hand:
+  r_hand:
     two_fingers_gripper:
       name: r_gripper_finger
       actuator: dynamixel
