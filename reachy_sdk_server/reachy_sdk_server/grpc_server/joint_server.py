@@ -58,6 +58,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=50051)
     parser.add_argument("--max-workers", type=int, default=10)
+    parser.add_argument("--ros-args", action="store_true")
     parser.add_argument("reachy_config", type=str)
     args = parser.parse_args()
 
