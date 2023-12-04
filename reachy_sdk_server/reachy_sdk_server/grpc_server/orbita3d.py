@@ -124,8 +124,6 @@ class Orbita3dServicer:
     def SendCommand(
         self, request: Orbita3dsCommand, context: grpc.ServicerContext
     ) -> Empty:
-        self.logger.info(f"Received command: {request}")
-
         cmd = DynamicJointState()
         cmd.joint_names = []
 
@@ -221,7 +219,6 @@ class Orbita3dServicer:
                 cmd.interface_values.extend(raw_commands)
 
         if cmd.joint_names:
-            self.logger.info(f"Publishing command: {cmd}")
             self.bridge_node.publish_command(cmd)
 
         return Empty()

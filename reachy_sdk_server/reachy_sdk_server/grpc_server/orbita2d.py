@@ -201,7 +201,6 @@ class Orbita2dServicer:
                 cmd.interface_values.extend(raw_commands)
 
         if cmd.joint_names:
-            self.logger.debug(f"Publishing command: {cmd}")
             self.bridge_node.publish_command(cmd)
 
         return Empty()

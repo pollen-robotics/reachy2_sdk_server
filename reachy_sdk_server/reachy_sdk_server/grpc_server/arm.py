@@ -243,7 +243,6 @@ class ArmServicer:
                 )
             )
 
-        self.logger.info(f"Publishing command: {cmd}")
         self.bridge_node.publish_command(cmd)
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
