@@ -168,12 +168,12 @@ def joint_state_to_arm_position(js: JointState, arm: Part) -> ArmPosition:
 
     return ArmPosition(
         shoulder_position=Pose2d(
-            axis_1=js.position[0],
-            axis_2=js.position[1],
+            axis_1=FloatValue(value=js.position[0]),
+            axis_2=FloatValue(value=js.position[1]),
         ),
         elbow_position=Pose2d(
-            axis_1=js.position[2],
-            axis_2=js.position[3],
+            axis_1=FloatValue(value=js.position[2]),
+            axis_2=FloatValue(value=js.position[3]),
         ),
         wrist_position=extrinsic_euler_angles_as_rotation3d(
             roll=js.position[4],
