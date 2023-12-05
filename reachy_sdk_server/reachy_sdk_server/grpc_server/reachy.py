@@ -18,7 +18,7 @@ from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
 from .hand import HandServicer
 from .head import HeadServicer
-from ..utils import endless_get_stream, get_current_timestamp
+from ..utils import endless_timer_get_stream, get_current_timestamp
 
 
 class ReachyServicer:
@@ -88,6 +88,10 @@ class ReachyServicer:
     def StreamReachyState(
         self, request: ReachyStreamStateRequest, context: grpc.ServicerContext
     ) -> Iterator[ReachyState]:
-        return endless_get_stream(
-            self.GetReachyState, request.id, context, 1 / request.publish_frequency
+        return endless_timer_get_stream(
+            self.bridge_node,
+            self.GetReachyState,
+            request.id,
+            context,
+            1 / request.publish_frequency,
         )

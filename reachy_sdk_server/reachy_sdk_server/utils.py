@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Tuple
+import queue
 
 import rclpy
 import yaml
@@ -68,6 +68,18 @@ def endless_get_stream(func, request, context, period):
     while True:
         yield func(request, context)
         time.sleep(period)
+
+
+def endless_timer_get_stream(node, func, request, context, period):
+    q = queue.Queue()
+
+    def timer_callback():
+        q.put(func(request, context))
+
+    node.create_timer(period, timer_callback)
+
+    while True:
+        yield q.get()
 
 
 def get_current_timestamp(bridge_node: rclpy.node.Node) -> Timestamp:
