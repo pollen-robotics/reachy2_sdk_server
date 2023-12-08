@@ -4,6 +4,8 @@ import rclpy
 from control_msgs.msg import DynamicJointState, InterfaceValue
 
 from google.protobuf.empty_pb2 import Empty
+from typing import List, Optional
+
 
 from reachy2_sdk_api.arm_pb2 import (
     Arm,
@@ -88,6 +90,19 @@ class ArmServicer:
             ),
         )
 
+    def part_to_list_of_joint_names(self, part: Part) -> List[str]:
+        """Return a list of joint names from a part.
+        The output names match those of the /joint_state message, e.g.: r_shoulder_pitch
+        """
+        joint_names = []
+        for component in part.components:
+            base_name = component.extra["name"]
+            for axis in ["axis1", "axis2", "axis3"]:
+                if axis in component.extra:
+                    joint_name = f"{base_name}_{component.extra[axis]}"
+                    joint_names.append(joint_name)
+        return joint_names
+
     def GetAllArms(self, request: Empty, context: grpc.ServicerContext) -> ListOfArm:
         return ListOfArm(arm=[self.get_arm(arm, context) for arm in self.arms])
 
@@ -157,39 +172,51 @@ class ArmServicer:
     ) -> Empty:
         arm = self.get_arm_part_by_part_id(request.id, context)
 
-        # TODO:
-        # We do not take the duration into account
-        # We will develop a more advanced controller to handles this
+        joint_names = self.part_to_list_of_joint_names(arm)
+        self.logger.info(f"joint_names: {joint_names}")
 
-        # TODO: Use Orbita2dsCommand
-        self.orbita2d_servicer.SendCommand(
-            Orbita2dsCommand(
-                cmd=[
-                    Orbita2dCommand(
-                        id=ComponentId(id=arm.components[0].id),
-                        goal_position=request.position.shoulder_position,
-                    ),
-                    Orbita2dCommand(
-                        id=ComponentId(id=arm.components[1].id),
-                        goal_position=request.position.elbow_position,
-                    ),
-                ]
-            ),
-            context,
-        )
-        self.orbita3d_servicer.SendCommand(
-            Orbita3dsCommand(
-                cmd=[
-                    Orbita3dCommand(
-                        id=ComponentId(id=arm.components[2].id),
-                        goal_position=request.position.wrist_position,
-                    ),
-                ]
-            ),
-            context,
-        )
+        duration = request.duration.value
+        self.logger.info(f"duration: {duration}")
+
+        goal_positions = [
+            request.position.shoulder_position.axis_1.value,
+            request.position.shoulder_position.axis_2.value,
+            request.position.elbow_position.axis_1.value,
+            request.position.elbow_position.axis_2.value,
+            request.position.wrist_position.rpy.roll,
+            request.position.wrist_position.rpy.pitch,
+            request.position.wrist_position.rpy.yaw,
+        ]
+        self.logger.info(f"goal_positions: {goal_positions}")
+
+        # send_goal(
+        #     self,
+        #     part: str,
+        #     joint_names: List[str],
+        #     goal_positions: List[float],
+        #     duration: float,
+        #     goal_velocities: List[float] = [],
+        #     mode: str = "minimum_jerk",  # "linear" or "minimum_jerk"
+        #     feedback_callback=None,
+        #     return_handle=False,
+        # )
 
         return Empty()
+
+    # def arm_joint_goal_unpack(
+    #     self, position: ArmPosition
+    # ) -> Tuple[List[str], List[float]]:
+    #     joint_names = []
+    #     positions = []
+    #     part_id = request.id
+    #     part = self.bridge_node.parts.get_by_part_id(part_id)
+
+    #     if part.type != "arm":
+
+    #     for joint in position.DESCRIPTOR.fields:
+    #         joint_names.append(joint.name)
+    #         positions.append(getattr(position, joint.name))
+    #     return joint_names, positions
 
     def GetCartesianPosition(
         self, request: PartId, context: grpc.ServicerContext
