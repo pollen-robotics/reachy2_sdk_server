@@ -7,6 +7,7 @@ from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
 from .hand import HandServicer
 from .head import HeadServicer
+from .mobile_base import MobileBaseServicer
 from .orbita2d import Orbita2dServicer
 from .orbita3d import Orbita3dServicer
 from .reachy import ReachyServicer
@@ -33,12 +34,14 @@ class ReachyGRPCJointSDKServicer:
         )
         hand_servicer = HandServicer(self.bridge_node, self.logger)
         head_servicer = HeadServicer(self.bridge_node, self.logger, orbita3d_servicer)
+        mobile_base_servicer = MobileBaseServicer(self.logger, reachy_config_path)
         reachy_servicer = ReachyServicer(self.bridge_node, self.logger, arm_servicer, hand_servicer, head_servicer)
 
         self.services = [
             arm_servicer,
             hand_servicer,
             head_servicer,
+            mobile_base_servicer,
             orbita2d_servicer,
             orbita3d_servicer,
             reachy_servicer,

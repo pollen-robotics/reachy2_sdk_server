@@ -18,6 +18,7 @@ from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
 from .hand import HandServicer
 from .head import HeadServicer
+from .mobile_base import MobileBaseServicer
 from ..utils import endless_timer_get_stream, get_current_timestamp
 
 
@@ -29,6 +30,7 @@ class ReachyServicer:
         arm_servicer: ArmServicer,
         hand_servicer: HandServicer,
         head_servicer: HeadServicer,
+        mobile_base_servicer: MobileBaseServicer,
     ):
         self.bridge_node = bridge_node
         self.logger = logger
@@ -36,6 +38,7 @@ class ReachyServicer:
         self.arm_servicer = arm_servicer
         self.hand_servicer = hand_servicer
         self.head_servicer = head_servicer
+        self.mobile_base_servicer = mobile_base_servicer
 
         self.reachy_id = ReachyId(id=1, name="reachy")
 
@@ -56,6 +59,7 @@ class ReachyServicer:
             elif p.type == "hand":
                 params[p.name] = self.hand_servicer.get_hand(p, context)
 
+        params["mobile_base"] = self.mobile_base_servicer.get_mobile_base()
         return Reachy(**params)
 
     def GetReachyState(
@@ -82,6 +86,8 @@ class ReachyServicer:
                 params[f"{p.name}_state"] = self.hand_servicer.GetState(
                     PartId(id=p.id), context
                 )
+
+        # TODO: add mobile base
 
         return ReachyState(**params)
 

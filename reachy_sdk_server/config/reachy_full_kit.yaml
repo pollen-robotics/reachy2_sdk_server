@@ -48,3 +48,7 @@ reachy:
       axis1: roll
       axis2: pitch
       axis3: yaw
+mobile_base:
+  serial_number: MB-001
+  version_hard: 1.2
+  version_soft: 1.1

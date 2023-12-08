@@ -3,6 +3,7 @@ import time
 import queue
 
 import rclpy
+from rclpy.node import Node
 import yaml
 from google.protobuf.timestamp_pb2 import Timestamp
 from pollen_msgs.srv import GetDynamicState
