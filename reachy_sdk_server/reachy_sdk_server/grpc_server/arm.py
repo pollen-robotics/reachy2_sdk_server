@@ -1,5 +1,6 @@
 import grpc
 import rclpy
+import asyncio
 
 from control_msgs.msg import DynamicJointState, InterfaceValue
 
@@ -171,6 +172,7 @@ class ArmServicer:
         self, request: ArmJointGoal, context: grpc.ServicerContext
     ) -> Empty:
         arm = self.get_arm_part_by_part_id(request.id, context)
+        self.logger.info(f"arm: {arm.name}")
 
         joint_names = self.part_to_list_of_joint_names(arm)
         self.logger.info(f"joint_names: {joint_names}")
@@ -189,34 +191,20 @@ class ArmServicer:
         ]
         self.logger.info(f"goal_positions: {goal_positions}")
 
-        # send_goal(
-        #     self,
-        #     part: str,
-        #     joint_names: List[str],
-        #     goal_positions: List[float],
-        #     duration: float,
-        #     goal_velocities: List[float] = [],
-        #     mode: str = "minimum_jerk",  # "linear" or "minimum_jerk"
-        #     feedback_callback=None,
-        #     return_handle=False,
-        # )
+        asyncio.run_coroutine_threadsafe(
+            self.bridge_node.send_goto_goal(
+                arm.name,
+                joint_names,
+                goal_positions,
+                duration,
+                mode="minimum_jerk",
+                feedback_callback=None,
+                return_handle=False,
+            ),
+            self.bridge_node.asyncio_loop,
+        )
 
         return Empty()
-
-    # def arm_joint_goal_unpack(
-    #     self, position: ArmPosition
-    # ) -> Tuple[List[str], List[float]]:
-    #     joint_names = []
-    #     positions = []
-    #     part_id = request.id
-    #     part = self.bridge_node.parts.get_by_part_id(part_id)
-
-    #     if part.type != "arm":
-
-    #     for joint in position.DESCRIPTOR.fields:
-    #         joint_names.append(joint.name)
-    #         positions.append(getattr(position, joint.name))
-    #     return joint_names, positions
 
     def GetCartesianPosition(
         self, request: PartId, context: grpc.ServicerContext

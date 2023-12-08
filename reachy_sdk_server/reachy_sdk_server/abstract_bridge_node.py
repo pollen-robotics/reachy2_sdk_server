@@ -5,12 +5,18 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
 from threading import Event, Lock
-from typing import Tuple
+from typing import Tuple, List
+
+from rclpy.action import ActionClient
+from asyncio.events import AbstractEventLoop
+
 
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
 
 from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.part_pb2 import PartId
+from pollen_msgs.action import Goto
+
 
 from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix
@@ -19,11 +25,14 @@ from .utils import parse_reachy_config
 
 
 class AbstractBridgeNode(Node):
-    def __init__(self, reachy_config_path: str = None) -> None:
+    def __init__(
+        self, reachy_config_path: str = None, asyncio_loop: AbstractEventLoop = None
+    ) -> None:
         super().__init__(node_name="reachy_abstract_bridge_node")
 
         self.logger = self.get_logger()
 
+        self.asyncio_loop = asyncio_loop
         self.config = parse_reachy_config(reachy_config_path)
         self.components = ComponentsHolder(self.config)
 
@@ -63,6 +72,15 @@ class AbstractBridgeNode(Node):
             callback=self.update_command,
             qos_profile=10,
         )
+
+        # Setup goto action clients
+        self.prefixes = ["r_arm", "l_arm", "neck"]
+        self.goto_action_client = {}
+        for prefix in self.prefixes:
+            self.goto_action_client[prefix] = ActionClient(self, Goto, f"{prefix}_goto")
+            self.get_logger().info(f"Waiting for action server {prefix}_goto...")
+            self.goto_action_client[prefix].wait_for_server()
+        self.get_logger().info(f"Setup complete.")
 
     def wait_for_setup(self) -> None:
         # Wait for a first /dynamic_joint_state message to get a list of all joints
@@ -179,3 +197,51 @@ class AbstractBridgeNode(Node):
 
         with self.command_target_pub_lock:
             self.target_pose_pubs[id].publish(msg)
+
+    async def send_goto_goal(
+        self,
+        part: str,
+        joint_names: List[str],
+        goal_positions: List[float],
+        duration: float,
+        goal_velocities: List[float] = [],
+        mode: str = "minimum_jerk",  # "linear" or "minimum_jerk"
+        sampling_freq: float = 150.0,
+        feedback_callback=None,
+        return_handle=False,
+    ):
+        goal_msg = Goto.Goal()
+        request = goal_msg.request  # This is of type pollen_msgs/GotoRequest
+
+        request.duration = duration
+        request.mode = mode
+        request.sampling_freq = sampling_freq
+        request.safety_on = False
+
+        request.goal_joints = JointState()
+        request.goal_joints.name = joint_names
+        request.goal_joints.position = goal_positions
+        request.goal_joints.velocity = goal_velocities
+        request.goal_joints.effort = []  # Not implemented for now
+
+        self.get_logger().info("Sending goal request...")
+
+        goal_handle = await self.goto_action_client[part].send_goal_async(
+            goal_msg, feedback_callback=feedback_callback
+        )
+        self.get_logger().info("feedback_callback setuped")
+
+        if not goal_handle.accepted:
+            self.get_logger().error("Goal rejected!")
+            return
+
+        self.get_logger().info("Goal accepted")
+
+        if return_handle:
+            return goal_handle
+        else:
+            res = await goal_handle.get_result_async()
+            result = res.result
+            status = res.status
+            self.get_logger().info(f"Goto finished. Result: {result.result.status}")
+            return result, status
