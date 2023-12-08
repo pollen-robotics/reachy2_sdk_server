@@ -76,10 +76,15 @@ def endless_timer_get_stream(node, func, request, context, period):
     def timer_callback():
         q.put(func(request, context))
 
-    node.create_timer(period, timer_callback)
+    t = node.create_timer(period, timer_callback)
 
-    while True:
-        yield q.get()
+    try:
+        while True:
+            yield q.get()
+    except GeneratorExit:
+        node.destroy_timer(t)
+        node.logger.info("Client left stream.")
+        raise
 
 
 def get_current_timestamp(bridge_node: rclpy.node.Node) -> Timestamp:
