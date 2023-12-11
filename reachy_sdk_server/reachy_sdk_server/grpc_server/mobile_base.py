@@ -104,6 +104,7 @@ class MobileBaseServicer(
         self.cmd_vel_pub = self.create_publisher(Twist, "cmd_vel", 10)
 
         self.bridge = CvBridge()
+        # TODO: subscription does not work because the node is not spinned
         self.lidar_img_subscriber = self.create_subscription(Image, 'lidar_image', self.get_lidar_img, 1)
 
         self.set_speed_client = self.create_client(SetSpeed, "SetSpeed")
