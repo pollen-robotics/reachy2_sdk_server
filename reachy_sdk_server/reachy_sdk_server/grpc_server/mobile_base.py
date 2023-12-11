@@ -95,7 +95,7 @@ class MobileBaseServicer(
             "version_soft": config["mobile_base"]["version_soft"],
         }
 
-        if config["mobile_base"]["serial_number"] is None:
+        if config["mobile_base"]["serial_number"] == "None":
             self.logger.info("No mobile base found in the config file. Mobile base server not initialized.")
             return
 
