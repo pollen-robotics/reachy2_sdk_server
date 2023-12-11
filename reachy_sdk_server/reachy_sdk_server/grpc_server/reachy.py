@@ -11,6 +11,9 @@ from reachy2_sdk_api.reachy_pb2 import (
     ReachyState,
     ReachyStreamStateRequest,
 )
+
+from reachy2_sdk_api.mobile_base_utility_pb2 import MobileBase, MobileBaseInfo
+
 from reachy2_sdk_api.reachy_pb2_grpc import add_ReachyServiceServicer_to_server
 
 
@@ -59,7 +62,8 @@ class ReachyServicer:
             elif p.type == "hand":
                 params[p.name] = self.hand_servicer.get_hand(p, context)
 
-        params["mobile_base"] = self.mobile_base_servicer.get_mobile_base()
+        params["mobile_base"] = self.mobile_base_servicer.get_mobile_base(context)
+
         return Reachy(**params)
 
     def GetReachyState(
