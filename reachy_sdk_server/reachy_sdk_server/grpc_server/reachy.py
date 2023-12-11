@@ -91,7 +91,9 @@ class ReachyServicer:
                     PartId(id=p.id), context
                 )
 
-        # TODO: add mobile base
+        params["mobile_base_state"] = self.mobile_base_servicer.GetState(
+            Empty(), context
+        )
 
         return ReachyState(**params)
 

@@ -181,11 +181,11 @@ class MobileBaseServicer(
         if self.info["serial_number"] is None:
             return MobileBaseState()
 
-        zuuu_safety = self.GetZuuuSafety(request, context)
-
         req = MobileBaseState(
             battery_level=self.GetBatteryLevel(request, context),
-            lidar_safety_state=zuuu_safety.lidar_obstacle_detection_status,
+            lidar_obstacle_detection_status=self.GetZuuuSafety(
+                request, context
+                ).obstacle_detection_status,
         )
         return req
 
@@ -248,16 +248,16 @@ class MobileBaseServicer(
         req = DistanceToGoal.Request()
 
         future = self.distance_to_goal_client.call_async(req)
-        for _ in range(1000):
-            if future.done():
-                ros_response = future.result()
-                print(ros_response)
-                response.delta_x.value = ros_response.delta_x
-                response.delta_y.value = ros_response.delta_y
-                response.delta_theta.value = ros_response.delta_theta
-                response.distance.value = ros_response.distance
-                break
-            time.sleep(0.001)
+        rclpy.spin_until_future_complete(self, future)
+
+        if future.done():
+            ros_response = future.result()
+            print(ros_response)
+            response.delta_x.value = ros_response.delta_x
+            response.delta_y.value = ros_response.delta_y
+            response.delta_theta.value = ros_response.delta_theta
+            response.distance.value = ros_response.distance
+
         return response
 
     def SetControlMode(
@@ -306,18 +306,16 @@ class MobileBaseServicer(
         """Get mobile base drive mode."""
         req = GetZuuuMode.Request()
 
-        future = self.get_zuuu_mode_client.call_async(req)
-        for _ in range(1000):
-            if future.done():
-                mode = future.result().mode
-                break
-            time.sleep(0.001)
-        if not future.done():
-            mode = ZuuuModePossiblities.NONE_ZUUU_MODE
-            return ZuuuModeCommand(mode=mode)
+        mode = ZuuuModePossiblities.NONE_ZUUU_MODE
 
-        mode_grpc = getattr(ZuuuModePossiblities, mode)
-        return ZuuuModeCommand(mode=mode_grpc)
+        future = self.get_zuuu_mode_client.call_async(req)
+        rclpy.spin_until_future_complete(self, future)
+
+        if future.done():
+            mode = future.result().mode
+            mode = getattr(ZuuuModePossiblities, mode)
+
+        return ZuuuModeCommand(mode=mode)
 
     def GetBatteryLevel(self, request: Empty, context) -> BatteryLevel:
         """Get mobile base battery level in Volt."""
@@ -326,12 +324,12 @@ class MobileBaseServicer(
         response = BatteryLevel(level=FloatValue(value=0.0))
 
         future = self.get_battery_voltage_client.call_async(req)
-        for _ in range(1000):
-            if future.done():
-                ros_response = future.result()
-                response.level.value = ros_response.voltage
-                break
-            time.sleep(0.001)
+        rclpy.spin_until_future_complete(self, future)
+
+        if future.done():
+            ros_response = future.result()
+            response.level.value = ros_response.voltage
+
         return response
 
     def GetOdometry(self, request: Empty, context) -> OdometryVector:
@@ -347,14 +345,13 @@ class MobileBaseServicer(
         )
 
         future = self.get_odometry_client.call_async(req)
-        for _ in range(1000):
-            if future.done():
-                ros_response = future.result()
-                response.x.value = ros_response.x
-                response.y.value = ros_response.y
-                response.theta.value = ros_response.theta
-                break
-            time.sleep(0.001)
+        rclpy.spin_until_future_complete(self, future)
+
+        if future.done():
+            ros_response = future.result()
+            response.x.value = ros_response.x
+            response.y.value = ros_response.y
+            response.theta.value = ros_response.theta
         return response
 
     def ResetOdometry(self, request: Empty, context) -> MobilityServiceAck:
@@ -370,34 +367,31 @@ class MobileBaseServicer(
                     self,
                     request: Empty,
                     context) -> LidarSafety:
-        """Get the anti-collision safety status handled by the mobile base hal
-        along with the safety and critical distances.
-        """
+        """Get the anti-collision safety status handled by the mobile base hal along with the safety and critical distances."""
         req = GetZuuuSafety.Request()
 
         future = self.get_zuuu_safety_client.call_async(req)
-        for _ in range(1000):
-            if future.done():
-                ros_response = future.result()
-                safety_on = ros_response.safety_on
-                safety_distance = ros_response.safety_distance
-                critical_distance = ros_response.critical_distance
-                obstacle_detection_status = ros_response.obstacle_detection_status
-                break
-            time.sleep(0.001)
-        if obstacle_detection_status == "green":
-            obstacle_detection_status = LidarObstacleDetectionEnum.NO_OBJECT_DETECTED
-        elif obstacle_detection_status == "orange":
-            obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_SLOWDOWN
-        elif obstacle_detection_status == "red":
-            obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_STOP
+        rclpy.spin_until_future_complete(self, future)
 
-        return LidarSafety(
-            safety_on=BoolValue(value=safety_on),
-            safety_distance=FloatValue(value=safety_distance),
-            critical_distance=FloatValue(value=critical_distance),
-            obstacle_detection_status=LidarObstacleDetectionStatus(status=obstacle_detection_status),
-        )
+        response = LidarSafety()
+
+        if future.done():
+            ros_response = future.result()
+            response.safety_on.value = ros_response.safety_on
+            response.safety_distance.value = ros_response.safety_distance
+            response.critical_distance.value = ros_response.critical_distance
+
+            ros_obstacle_detection_status = ros_response.obstacle_detection_status
+            if ros_obstacle_detection_status == "green":
+                grpc_obstacle_detection_status = LidarObstacleDetectionEnum.NO_OBJECT_DETECTED
+            elif ros_obstacle_detection_status == "orange":
+                grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_SLOWDOWN
+            elif ros_obstacle_detection_status == "red":
+                grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_STOP
+
+            response.obstacle_detection_status.status = grpc_obstacle_detection_status
+
+        return response
 
     def SetZuuuSafety(
         self, request: LidarSafety, context
