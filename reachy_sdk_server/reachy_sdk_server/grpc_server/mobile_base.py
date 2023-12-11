@@ -99,7 +99,6 @@ class MobileBaseServicer(
             self.logger.info("No mobile base found in the config file. Mobile base server not initialized.")
             return
 
-
         super().__init__(node_name="mobile_base_server")
 
         self.cmd_vel_pub = self.create_publisher(Twist, "cmd_vel", 10)
