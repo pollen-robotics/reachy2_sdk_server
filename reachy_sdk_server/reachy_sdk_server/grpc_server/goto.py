@@ -1,7 +1,9 @@
 import asyncio
+import copy
 import grpc
 import rclpy
 import threading
+import math
 
 from typing import List, Optional
 from google.protobuf.empty_pb2 import Empty
@@ -15,9 +17,10 @@ from reachy2_sdk_api.goto_pb2 import (
     GoToGoalStatus,
 )
 from action_msgs.msg import GoalStatus
+from sensor_msgs.msg import JointState
 
 
-from ..conversion import pose_from_pos_and_ori
+from ..conversion import pose_from_pos_and_ori, arm_position_to_joint_state
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..parts import Part
 
@@ -77,70 +80,64 @@ class GoToServicer:
         self, request: GoToId, context: grpc.ServicerContext
     ) -> GoToGoalStatus:
         goal_handle = self.goal_manager.get_goal_handle(request.id)
-        return GoToGoalStatus(goal_status=int(goal_handle.status))
+        if goal_handle is None:
+            self.logger.error(f"Goal with id {request.id} not found.")
+            return GoToGoalStatus(goal_status=GoalStatus.STATUS_UNKNOWN)
+        else:
+            return GoToGoalStatus(goal_status=int(goal_handle.status))
 
     # Position and GoTo
     def GoToCartesian(
         self, request: CartesianGoal, context: grpc.ServicerContext
     ) -> GoToId:
-        # TODO: implement grpc method
-        # We do not take the duration or tolerance into account
-        # We will develop a more advanced controller to handles this
+        if request.HasField("arm_cartesian_goal"):
+            # this is an ArmCartesianGoal
+            arm_cartesian_goal = request.arm_cartesian_goal
 
-        return GoToId(id=34)
-        if request.HasField("arm_joint_goal"):
-            # The message contains an arm_joint_goal
-            arm_joint_goal = request.arm_joint_goal
-            self.logger.info(f"arm_joint_goal: {arm_joint_goal}")
-        elif request.HasField("neck_joint_goal"):
-            # The message contains a neck_joint_goal
-            neck_joint_goal = request.neck_joint_goal
-            self.logger.info(f"neck_joint_goal: {neck_joint_goal}")
+            arm = self.get_arm_part_by_part_id(arm_cartesian_goal.id, context)
+            duration = arm_cartesian_goal.duration.value
+
+            default_q0 = JointState()
+            for c in arm.components:
+                default_q0.name.extend(c.get_all_joints())
+            default_q0.position = [0.0, 0.0, 0.0, -math.pi / 2, 0.0, 0.0, 0.0]
+
+            success, joint_position = self.bridge_node.compute_inverse(
+                arm_cartesian_goal.id,
+                arm_cartesian_goal.goal_pose.data,
+                default_q0,
+            )  # 'joint_position': 'sensor_msgs/JointState'
+            if not success:
+                self.logger.error(
+                    f"Could not compute inverse kinematics for arm {arm_cartesian_goal.id}"
+                )
+                return GoToId(id=-1)
+
+            joint_names = joint_position.name
+            goal_positions = joint_position.position
+
+            arm = self.get_arm_part_by_part_id(arm_cartesian_goal.id, context)
+
+            return self.goto_joints(
+                arm.name,
+                joint_names,
+                goal_positions,
+                duration,
+                mode="minimum_jerk",
+            )
+
+        elif request.HasField("neck_cartesian_goal"):
+            # this is a NeckCartesianGoal https://github.com/pollen-robotics/reachy2-sdk-api/blob/81-adjust-goto-methods/protos/head.proto
+            neck_cartesian_goal = request.neck_cartesian_goal
+            self.logger.info(
+                f"neck_cartesian_goal: {neck_cartesian_goal}\nTODO IMPLEMENT THIS"
+            )
+            return GoToId(id=-1)
         else:
-            # Neither arm_joint_goal nor neck_joint_goal is set
-            # Handle this case accordingly
-            None
-
-        # arm = self.get_arm_part_by_part_id(request.id, context)
-        # duration = request.duration.value
-
-        # success, joint_position = self.bridge_node.compute_inverse(
-        #     request.id,
-        #     request.target.pose.data,
-        #     arm_position_to_joint_state(request.q0, arm),
-        # )  # 'joint_position': 'sensor_msgs/JointState'
-        # # get the joint names and joint positions from the joint_state
-        # joint_names = []
-        # goal_positions = []
-        # for i in range(len(joint_position.name)):
-        #     joint_names.append(joint_position.name[i])
-        #     goal_positions.append(joint_position.position[i])
-
-        # self.logger.info(f"goal_positions: {goal_positions}")
-
-        # future = asyncio.run_coroutine_threadsafe(
-        #     self.bridge_node.send_goto_goal(
-        #         arm.name,
-        #         joint_names,
-        #         goal_positions,
-        #         duration,
-        #         mode="minimum_jerk",
-        #         feedback_callback=None,
-        #         return_handle=True,
-        #     ),
-        #     self.bridge_node.asyncio_loop,
-        # )
-        # if future is None:
-        #     self.logger.info("GotoGoal was rejected")
-        #     ## TODO return -1
-        #     return Empty()
-
-        # # Wait for the result and get it => This has to be fast
-        # goal_handle = future.result()
-
-        # goal_id = self.goal_manager.store_goal_handle(goal_handle)
-        # self.logger.info(f"goal_id: {goal_id}")
-        # # TODO return unique id that represents this goal handle
+            self.logger.error(
+                f"{request} is ill formed. Expected arm_cartesian_goal or neck_cartesian_goal"
+            )
+            return GoToId(id=-1)
 
     def GoToJoints(self, request: JointsGoal, context: grpc.ServicerContext) -> GoToId:
         if request.HasField("arm_joint_goal"):
@@ -162,31 +159,14 @@ class GoToServicer:
                 arm_joint_goal.joints_goal.wrist_position.rpy.yaw,
             ]
 
-            self.logger.info(f"goto goal_positions: {goal_positions}")
-
-            future = asyncio.run_coroutine_threadsafe(
-                self.bridge_node.send_goto_goal(
-                    arm.name,
-                    joint_names,
-                    goal_positions,
-                    duration,
-                    mode="minimum_jerk",
-                    feedback_callback=None,
-                    return_handle=True,
-                ),
-                self.bridge_node.asyncio_loop,
+            return self.goto_joints(
+                arm.name,
+                joint_names,
+                goal_positions,
+                duration,
+                mode="minimum_jerk",
             )
-            if future is None:
-                self.logger.info("GotoGoal was rejected")
-                return GoToId(id=-1)
 
-            # Wait for the result and get it => This has to be fast
-            goal_handle = future.result()
-
-            goal_id = self.goal_manager.store_goal_handle(goal_handle)
-            self.logger.info(f"goal_id: {goal_id}")
-
-            return GoToId(id=goal_id)
         elif request.HasField("neck_joint_goal"):
             # The message contains a neck_joint_goal
             neck_joint_goal = (
@@ -199,6 +179,34 @@ class GoToServicer:
                 f"{request} is ill formed. Expected arm_joint_goal or neck_joint_goal"
             )
             return GoToId(id=-1)
+
+    def goto_joints(
+        self, part_name, joint_names, goal_positions, duration, mode="minimum_jerk"
+    ):
+        self.logger.info(f"goto goal_positions: {goal_positions}")
+        future = asyncio.run_coroutine_threadsafe(
+            self.bridge_node.send_goto_goal(
+                part_name,
+                joint_names,
+                goal_positions,
+                duration,
+                mode="minimum_jerk",
+                feedback_callback=None,
+                return_handle=True,
+            ),
+            self.bridge_node.asyncio_loop,
+        )
+        if future is None:
+            self.logger.info("GotoGoal was rejected")
+            return GoToId(id=-1)
+
+        # Wait for the result and get it => This has to be fast
+        goal_handle = future.result()
+
+        goal_id = self.goal_manager.store_goal_handle(goal_handle)
+        self.logger.info(f"goal_id: {goal_id}")
+
+        return GoToId(id=goal_id)
 
     def get_status_string_by_goal_id(self, goal_id: int) -> str:
         """
@@ -239,6 +247,7 @@ class GoToServicer:
 
 
 class GoalManager:
+    # TODO decide how/when to remove goal handles from the dict. Also investigate the bug that appears when spamming gotos.
     def __init__(self):
         self.goal_handles = {}
         self.goal_id_counter = 0
@@ -255,7 +264,7 @@ class GoalManager:
         return goal_id
 
     def get_goal_handle(self, goal_id):
-        return self.goal_handles.get(goal_id)
+        return self.goal_handles.get(goal_id, None)
 
     def remove_goal_handle(self, goal_id):
         return self.goal_handles.pop(goal_id, None)
