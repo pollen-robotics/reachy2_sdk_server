@@ -25,9 +25,9 @@ from reachy2_sdk_api.arm_pb2 import (
     ListOfArm,
     SpeedLimitRequest,
 )
-from reachy2_sdk_api.arm_pb2_grpc import (
-    add_ArmServiceServicer_to_server,
-)
+
+from reachy2_sdk_api.arm_pb2_grpc import add_ArmServiceServicer_to_server
+
 from reachy2_sdk_api.part_pb2 import PartId
 from reachy2_sdk_api.kinematics_pb2 import Matrix4x4
 
@@ -152,59 +152,6 @@ class ArmServicer:
                 context,
             ),
         )
-
-    # Position and GoTo
-    def GoToCartesianPosition(
-        self, request: ArmCartesianGoal, context: grpc.ServicerContext
-    ) -> Empty:
-        # TODO:
-        # We do not take the duration or tolerance into account
-        # We will develop a more advanced controller to handles this
-
-        self.bridge_node.publish_target_pose(
-            request.id,
-            pose_from_pos_and_ori(request.target_position, request.target_orientation),
-        )
-
-        return Empty()
-
-    def GoToJointPosition(
-        self, request: ArmJointGoal, context: grpc.ServicerContext
-    ) -> Empty:
-        arm = self.get_arm_part_by_part_id(request.id, context)
-        self.logger.info(f"arm: {arm.name}")
-
-        joint_names = self.part_to_list_of_joint_names(arm)
-        self.logger.info(f"joint_names: {joint_names}")
-
-        duration = request.duration.value
-        self.logger.info(f"duration: {duration}")
-
-        goal_positions = [
-            request.position.shoulder_position.axis_1.value,
-            request.position.shoulder_position.axis_2.value,
-            request.position.elbow_position.axis_1.value,
-            request.position.elbow_position.axis_2.value,
-            request.position.wrist_position.rpy.roll,
-            request.position.wrist_position.rpy.pitch,
-            request.position.wrist_position.rpy.yaw,
-        ]
-        self.logger.info(f"goal_positions: {goal_positions}")
-
-        asyncio.run_coroutine_threadsafe(
-            self.bridge_node.send_goto_goal(
-                arm.name,
-                joint_names,
-                goal_positions,
-                duration,
-                mode="minimum_jerk",
-                feedback_callback=None,
-                return_handle=False,
-            ),
-            self.bridge_node.asyncio_loop,
-        )
-
-        return Empty()
 
     def GetCartesianPosition(
         self, request: PartId, context: grpc.ServicerContext

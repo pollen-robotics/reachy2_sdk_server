@@ -11,6 +11,7 @@ from reachy2_sdk_api.reachy_pb2 import (
     ReachyState,
     ReachyStreamStateRequest,
 )
+from reachy2_sdk_api.goto_pb2_grpc import add_GoToServiceServicer_to_server
 from reachy2_sdk_api.reachy_pb2_grpc import add_ReachyServiceServicer_to_server
 
 
