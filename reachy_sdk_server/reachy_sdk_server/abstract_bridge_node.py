@@ -224,18 +224,18 @@ class AbstractBridgeNode(Node):
         request.goal_joints.velocity = goal_velocities
         request.goal_joints.effort = []  # Not implemented for now
 
-        self.get_logger().info("Sending goal request...")
+        self.get_logger().debug("Sending goal request...")
 
         goal_handle = await self.goto_action_client[part].send_goal_async(
             goal_msg, feedback_callback=feedback_callback
         )
-        self.get_logger().info("feedback_callback setuped")
+        self.get_logger().debug("feedback_callback setuped")
 
         if not goal_handle.accepted:
             self.get_logger().error("Goal rejected!")
             return None
 
-        self.get_logger().info("Goal accepted")
+        self.get_logger().debug("Goal accepted")
 
         if return_handle:
             return goal_handle
@@ -243,5 +243,5 @@ class AbstractBridgeNode(Node):
             res = await goal_handle.get_result_async()
             result = res.result
             status = res.status
-            self.get_logger().info(f"Goto finished. Result: {result.result.status}")
+            self.get_logger().debug(f"Goto finished. Result: {result.result.status}")
             return result, status

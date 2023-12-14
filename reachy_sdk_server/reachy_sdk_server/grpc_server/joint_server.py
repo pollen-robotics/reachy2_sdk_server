@@ -6,6 +6,7 @@ import asyncio
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
+from .goto import GoToServicer
 from .hand import HandServicer
 from .head import HeadServicer
 from .orbita2d import Orbita2dServicer
@@ -41,6 +42,7 @@ class ReachyGRPCJointSDKServicer:
             orbita2d_servicer,
             orbita3d_servicer,
         )
+        goto_servicer = GoToServicer(self.bridge_node, self.logger)
         hand_servicer = HandServicer(self.bridge_node, self.logger)
         head_servicer = HeadServicer(self.bridge_node, self.logger, orbita3d_servicer)
         reachy_servicer = ReachyServicer(
@@ -49,6 +51,7 @@ class ReachyGRPCJointSDKServicer:
 
         self.services = [
             arm_servicer,
+            goto_servicer,
             hand_servicer,
             head_servicer,
             orbita2d_servicer,
