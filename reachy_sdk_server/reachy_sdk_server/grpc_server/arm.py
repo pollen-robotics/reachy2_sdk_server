@@ -1,11 +1,14 @@
 import grpc
 import rclpy
 import asyncio
+import threading
+
 
 from control_msgs.msg import DynamicJointState, InterfaceValue
 
 from google.protobuf.empty_pb2 import Empty
 from typing import List, Optional
+from action_msgs.msg import GoalStatus
 
 
 from reachy2_sdk_api.arm_pb2 import (
@@ -70,6 +73,9 @@ class ArmServicer:
         self.orbita3d_servicer = orbita3d_servicer
 
         self.arms = self.bridge_node.parts.get_by_type("arm")
+
+        # goto goals management
+        self.goal_manager = GoalManager()
 
     def register_to_server(self, server: grpc.Server):
         self.logger.info("Registering 'ArmServiceServicer' to server.")
@@ -157,15 +163,46 @@ class ArmServicer:
     def GoToCartesianPosition(
         self, request: ArmCartesianGoal, context: grpc.ServicerContext
     ) -> Empty:
-        # TODO:
-        # We do not take the duration or tolerance into account
-        # We will develop a more advanced controller to handles this
+        arm = self.get_arm_part_by_part_id(request.id, context)
+        duration = request.duration.value
 
-        self.bridge_node.publish_target_pose(
+        success, joint_position = self.bridge_node.compute_inverse(
             request.id,
-            pose_from_pos_and_ori(request.target_position, request.target_orientation),
-        )
+            request.target.pose.data,
+            arm_position_to_joint_state(request.q0, arm),
+        )  # 'joint_position': 'sensor_msgs/JointState'
+        # get the joint names and joint positions from the joint_state
+        joint_names = []
+        goal_positions = []
+        for i in range(len(joint_position.name)):
+            joint_names.append(joint_position.name[i])
+            goal_positions.append(joint_position.position[i])
 
+        self.logger.info(f"goal_positions: {goal_positions}")
+
+        future = asyncio.run_coroutine_threadsafe(
+            self.bridge_node.send_goto_goal(
+                arm.name,
+                joint_names,
+                goal_positions,
+                duration,
+                mode="minimum_jerk",
+                feedback_callback=None,
+                return_handle=True,
+            ),
+            self.bridge_node.asyncio_loop,
+        )
+        if future is None:
+            self.logger.info("GotoGoal was rejected")
+            ## TODO return -1
+            return Empty()
+
+        # Wait for the result and get it => This has to be fast
+        goal_handle = future.result()
+
+        goal_id = self.goal_manager.store_goal_handle(goal_handle)
+        self.logger.info(f"goal_id: {goal_id}")
+        # TODO return unique id that represents this goal handle
         return Empty()
 
     def GoToJointPosition(
@@ -191,7 +228,7 @@ class ArmServicer:
         ]
         self.logger.info(f"goal_positions: {goal_positions}")
 
-        asyncio.run_coroutine_threadsafe(
+        future = asyncio.run_coroutine_threadsafe(
             self.bridge_node.send_goto_goal(
                 arm.name,
                 joint_names,
@@ -199,12 +236,55 @@ class ArmServicer:
                 duration,
                 mode="minimum_jerk",
                 feedback_callback=None,
-                return_handle=False,
+                return_handle=True,
             ),
             self.bridge_node.asyncio_loop,
         )
+        if future is None:
+            self.logger.info("GotoGoal was rejected")
+            ## TODO return -1
+            return Empty()
 
+        # Wait for the result and get it => This has to be fast
+        goal_handle = future.result()
+
+        goal_id = self.goal_manager.store_goal_handle(goal_handle)
+        self.logger.info(f"goal_id: {goal_id}")
+        # TODO return unique id that represents this goal handle
         return Empty()
+
+    def get_status_string_by_goal_id(self, goal_id: int) -> str:
+        """
+        Get the status string based on the goto goal ID.
+        """
+        status_mapping = {
+            GoalStatus.STATUS_UNKNOWN: "Unknown",
+            GoalStatus.STATUS_ACCEPTED: "Accepted",
+            GoalStatus.STATUS_EXECUTING: "Executing",
+            GoalStatus.STATUS_SUCCEEDED: "Succeeded",
+            GoalStatus.STATUS_CANCELED: "Canceled",
+            GoalStatus.STATUS_ABORTED: "Aborted",
+        }
+
+        return status_mapping.get(goal_id, "Unknown")
+
+    def cancel_goal_by_goal_id(self, goal_id: int) -> None:
+        goal_handle = self.goal_manager.get_goal_handle(goal_id)
+
+        if goal_handle is not None:
+            asyncio.run_coroutine_threadsafe(
+                goal_handle.cancel_goal_async(),
+                self.bridge_node.asyncio_loop,
+            )
+            # We could check if the cancel request succeeded here.
+            # Probably not necessary since the state can be checked by the client.
+            return True
+        else:
+            return False
+
+    def cancel_all_goals(self) -> None:
+        for goal_id in self.goal_manager.goal_handles.keys():
+            self.cancel_goal_by_goal_id(goal_id)
 
     def GetCartesianPosition(
         self, request: PartId, context: grpc.ServicerContext
@@ -335,3 +415,26 @@ class ArmServicer:
         self, request: PartId, context: grpc.ServicerContext
     ) -> Empty:
         return Empty()
+
+
+class GoalManager:
+    def __init__(self):
+        self.goal_handles = {}
+        self.goal_id_counter = 0
+        self.lock = threading.Lock()
+
+    def generate_unique_id(self):
+        with self.lock:
+            self.goal_id_counter += 1
+            return self.goal_id_counter
+
+    def store_goal_handle(self, goal_handle):
+        goal_id = self.generate_unique_id()
+        self.goal_handles[goal_id] = goal_handle
+        return goal_id
+
+    def get_goal_handle(self, goal_id):
+        return self.goal_handles.get(goal_id)
+
+    def remove_goal_handle(self, goal_id):
+        return self.goal_handles.pop(goal_id, None)

@@ -233,7 +233,7 @@ class AbstractBridgeNode(Node):
 
         if not goal_handle.accepted:
             self.get_logger().error("Goal rejected!")
-            return
+            return None
 
         self.get_logger().info("Goal accepted")
 
