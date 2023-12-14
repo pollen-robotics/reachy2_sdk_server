@@ -1,7 +1,7 @@
-import grpc
-import rclpy
 import threading
 
+import grpc
+import rclpy
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
@@ -35,7 +35,14 @@ class ReachyGRPCJointSDKServicer:
         hand_servicer = HandServicer(self.bridge_node, self.logger)
         head_servicer = HeadServicer(self.bridge_node, self.logger, orbita3d_servicer)
         mobile_base_servicer = MobileBaseServicer(self.logger, reachy_config_path)
-        reachy_servicer = ReachyServicer(self.bridge_node, self.logger, arm_servicer, hand_servicer, head_servicer, mobile_base_servicer)
+        reachy_servicer = ReachyServicer(
+            self.bridge_node,
+            self.logger,
+            arm_servicer,
+            hand_servicer,
+            head_servicer,
+            mobile_base_servicer,
+        )
 
         self.services = [
             arm_servicer,
@@ -54,8 +61,18 @@ class ReachyGRPCJointSDKServicer:
             serv.register_to_server(server)
 
 
+async def main_loop(servicer, port):
+    server = grpc.aio.server()
+    servicer.register_all_services(server)
+
+    server.add_insecure_port(f"[::]:{port}")
+    await server.start()
+    await server.wait_for_termination()
+
+
 def main():
     import argparse
+    import asyncio
     from concurrent import futures
 
     parser = argparse.ArgumentParser()
@@ -66,15 +83,15 @@ def main():
     args = parser.parse_args()
 
     servicer = ReachyGRPCJointSDKServicer(reachy_config_path=args.reachy_config)
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers))
+    # server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers))
+    # servicer.register_all_services(server)
 
-    servicer.register_all_services(server)
-
-    server.add_insecure_port(f"[::]:{args.port}")
-    server.start()
+    # server.add_insecure_port(f"[::]:{args.port}")
+    # server.start()
 
     servicer.logger.info(f"Server started on port {args.port}.")
-    server.wait_for_termination()
+    # server.wait_for_termination()
+    asyncio.run(main_loop(servicer, args.port))
 
 
 if __name__ == "__main__":

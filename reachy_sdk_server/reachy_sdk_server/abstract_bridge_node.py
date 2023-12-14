@@ -1,16 +1,15 @@
-from control_msgs.msg import DynamicJointState
-from geometry_msgs.msg import Pose, PoseStamped
-import numpy as np
-import rclpy
-from rclpy.node import Node
-from sensor_msgs.msg import JointState
 from threading import Event, Lock
 from typing import Tuple
 
+import numpy as np
+import rclpy
+from control_msgs.msg import DynamicJointState
+from geometry_msgs.msg import Pose, PoseStamped
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
-
+from rclpy.node import Node
 from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.part_pb2 import PartId
+from sensor_msgs.msg import JointState
 
 from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix

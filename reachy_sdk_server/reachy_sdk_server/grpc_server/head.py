@@ -1,28 +1,21 @@
+from typing import Tuple
+
 import grpc
 import numpy as np
 import rclpy
-from typing import Tuple
-
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
-from sensor_msgs.msg import JointState
-
-from reachy2_sdk_api.component_pb2 import (
-    ComponentId,
-)
-from reachy2_sdk_api.head_pb2_grpc import (
-    add_HeadServiceServicer_to_server,
-)
+from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.head_pb2 import (
     Head,
     HeadDescription,
     HeadLookAtGoal,
     HeadPosition,
+    HeadState,
     HeadStatus,
     HeadTemperatures,
-    HeadState,
-    ListOfHead,
     JointsLimits,
+    ListOfHead,
     NeckFKRequest,
     NeckFKSolution,
     NeckGoal,
@@ -31,13 +24,10 @@ from reachy2_sdk_api.head_pb2 import (
     NeckOrientation,
     SpeedLimitRequest,
 )
-from reachy2_sdk_api.kinematics_pb2 import (
-    Rotation3d,
-    Quaternion,
-)
-from reachy2_sdk_api.part_pb2 import (
-    PartId,
-)
+from reachy2_sdk_api.head_pb2_grpc import add_HeadServiceServicer_to_server
+from reachy2_sdk_api.kinematics_pb2 import Quaternion, Rotation3d
+from reachy2_sdk_api.part_pb2 import PartId
+from sensor_msgs.msg import JointState
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import (
@@ -45,18 +35,17 @@ from ..conversion import (
     joint_state_to_neck_orientation,
     neck_rotation_to_joint_state,
     pose_matrix_from_rotation3d,
-    neck_rotation_to_joint_state,
     quat_as_rotation3d,
     rotation3d_as_quat,
 )
+from ..parts import Part
+from ..utils import get_current_timestamp
 from .orbita3d import (
     Orbita3dCommand,
     Orbita3dsCommand,
     Orbita3dServicer,
     Orbita3dStateRequest,
 )
-from ..parts import Part
-from ..utils import get_current_timestamp
 
 
 class HeadServicer:
@@ -218,6 +207,39 @@ class HeadServicer:
             ),
             context,
         )
+
+        return Empty()
+
+    async def GoToOrientations(
+        self, request_iterator: NeckGoal, context: grpc.ServicerContext
+    ) -> Empty:
+        async for request in request_iterator:
+            head = self.get_head_part_from_part_id(request.id, context)
+
+            q = rotation3d_as_quat(request.rotation)
+
+            ik_req = NeckIKRequest(
+                id=request.id,
+                target=NeckOrientation(
+                    rotation=quat_as_rotation3d(q),
+                ),
+            )
+            resp = self.ComputeNeckIK(ik_req, context)
+
+            if not resp.success:
+                context.abort(grpc.StatusCode.INTERNAL, "Could not compute IK.")
+
+            self.orbita3d_servicer.SendCommand(
+                Orbita3dsCommand(
+                    cmd=[
+                        Orbita3dCommand(
+                            id=ComponentId(id=head.components[0].id),
+                            goal_position=resp.position,
+                        ),
+                    ]
+                ),
+                context,
+            )
 
         return Empty()
 

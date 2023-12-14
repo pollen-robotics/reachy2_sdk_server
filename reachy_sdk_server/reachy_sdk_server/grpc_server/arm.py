@@ -1,10 +1,7 @@
 import grpc
 import rclpy
-
 from control_msgs.msg import DynamicJointState, InterfaceValue
-
 from google.protobuf.empty_pb2 import Empty
-
 from reachy2_sdk_api.arm_pb2 import (
     Arm,
     ArmCartesianGoal,
@@ -14,20 +11,17 @@ from reachy2_sdk_api.arm_pb2 import (
     ArmIKRequest,
     ArmIKSolution,
     ArmJointGoal,
+    ArmLimits,
     ArmPosition,
     ArmState,
     ArmStatus,
     ArmTemperatures,
-    ArmLimits,
     ListOfArm,
     SpeedLimitRequest,
 )
-from reachy2_sdk_api.arm_pb2_grpc import (
-    add_ArmServiceServicer_to_server,
-)
-from reachy2_sdk_api.part_pb2 import PartId
+from reachy2_sdk_api.arm_pb2_grpc import add_ArmServiceServicer_to_server
 from reachy2_sdk_api.kinematics_pb2 import Matrix4x4
-
+from reachy2_sdk_api.part_pb2 import PartId
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import (
@@ -35,6 +29,8 @@ from ..conversion import (
     joint_state_to_arm_position,
     pose_from_pos_and_ori,
 )
+from ..parts import Part
+from ..utils import get_current_timestamp
 from .orbita2d import (
     ComponentId,
     Orbita2dCommand,
@@ -45,11 +41,9 @@ from .orbita2d import (
 from .orbita3d import (
     Orbita3dCommand,
     Orbita3dsCommand,
-    Orbita3dStateRequest,
     Orbita3dServicer,
+    Orbita3dStateRequest,
 )
-from ..parts import Part
-from ..utils import get_current_timestamp
 
 
 class ArmServicer:
@@ -149,6 +143,23 @@ class ArmServicer:
             request.id,
             pose_from_pos_and_ori(request.target_position, request.target_orientation),
         )
+
+        return Empty()
+
+    # Position and GoTo
+    async def GoToCartesianPositions(
+        self, request_iterator: ArmCartesianGoal, context: grpc.ServicerContext
+    ) -> Empty:
+        # TODO:
+        # We do not take the duration or tolerance into account
+        # We will develop a more advanced controller to handles this
+        async for request in request_iterator:
+            self.bridge_node.publish_target_pose(
+                request.id,
+                pose_from_pos_and_ori(
+                    request.target_position, request.target_orientation
+                ),
+            )
 
         return Empty()
 

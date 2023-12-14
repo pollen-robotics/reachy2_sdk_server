@@ -1,10 +1,9 @@
 from collections import defaultdict, namedtuple
 from typing import List, Optional
 
-from .components import ComponentsHolder
-
 from reachy2_sdk_api.part_pb2 import PartId
 
+from .components import ComponentsHolder
 
 Part = namedtuple("Part", ["name", "id", "type", "components"])
 
