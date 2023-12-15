@@ -8,6 +8,7 @@ import math
 from typing import List, Optional
 from google.protobuf.empty_pb2 import Empty
 from reachy2_sdk_api.goto_pb2_grpc import add_GoToServiceServicer_to_server
+from reachy2_sdk_api.arm_pb2 import ArmCartesianGoal
 from reachy2_sdk_api.part_pb2 import PartId
 from reachy2_sdk_api.goto_pb2 import (
     CartesianGoal,
@@ -16,11 +17,16 @@ from reachy2_sdk_api.goto_pb2 import (
     GoToAck,
     GoToGoalStatus,
 )
+
 from action_msgs.msg import GoalStatus
 from sensor_msgs.msg import JointState
 
 
-from ..conversion import pose_from_pos_and_ori, arm_position_to_joint_state
+from ..conversion import (
+    pose_from_pos_and_ori,
+    arm_position_to_joint_state,
+    rotation3d_as_extrinsinc_euler_angles,
+)
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..parts import Part
 
@@ -51,6 +57,22 @@ class GoToServicer:
             context.abort(
                 grpc.StatusCode.INVALID_ARGUMENT,
                 f"Part '{part_id}' is not an arm.",
+            )
+
+        return part
+
+    def get_neck_part_by_part_id(
+        self, part_id: PartId, context: grpc.ServicerContext
+    ) -> Part:
+        part = self.bridge_node.parts.get_by_part_id(part_id)
+
+        if part is None:
+            context.abort(grpc.StatusCode.NOT_FOUND, f"Part not found (id={part_id}).")
+
+        if part.type != "neck":
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT,
+                f"Part '{part_id}' is not a nack.",
             )
 
         return part
@@ -92,6 +114,16 @@ class GoToServicer:
                 f"Goal with id {request.id} found, status:{goal_handle.status} Returning:{1+int(goal_handle.status)}"
             )
             return GoToGoalStatus(goal_status=(1 + int(goal_handle.status)))
+
+    def SendArmCartesianGoal(
+        self, request: ArmCartesianGoal, context: grpc.ServicerContext
+    ) -> Empty:
+        self.bridge_node.publish_target_pose(
+            request.id,
+            pose_from_pos_and_ori(request.target_position, request.target_orientation),
+        )
+
+        return Empty()
 
     # Position and GoTo
     def GoToCartesian(
@@ -175,12 +207,27 @@ class GoToServicer:
             )
 
         elif request.HasField("neck_joint_goal"):
-            # The message contains a neck_joint_goal
-            neck_joint_goal = (
-                request.neck_joint_goal
-            )  # this is a NeckGoal https://github.com/pollen-robotics/reachy2-sdk-api/blob/81-adjust-goto-methods/protos/head.proto
-            self.logger.info(f"neck_joint_goal: {neck_joint_goal}\nTODO IMPLEMENT THIS")
-            return GoToId(id=-1)
+            neck_joint_goal = request.neck_joint_goal  # this is a NeckGoal
+            self.logger.info(
+                f"neck_joint_goal: {neck_joint_goal}\n TODO this is not implemented yet, WIP"
+            )
+            neck = self.get_neck_part_by_part_id(neck_joint_goal.id, context)
+
+            joint_names = self.part_to_list_of_joint_names(neck)
+
+            duration = neck_joint_goal.duration.value
+
+            goal_positions = rotation3d_as_extrinsinc_euler_angles(
+                neck_joint_goal.joints_goal.rotation
+            )
+
+            return self.goto_joints(
+                neck.name,
+                joint_names,
+                goal_positions,
+                duration,
+                mode="minimum_jerk",
+            )
         else:
             self.logger.error(
                 f"{request} is ill formed. Expected arm_joint_goal or neck_joint_goal"
