@@ -79,12 +79,19 @@ class GoToServicer:
     def GetGoToState(
         self, request: GoToId, context: grpc.ServicerContext
     ) -> GoToGoalStatus:
+        # GoalStatus is one of:
+        # STATUS_UNKNOWN, STATUS_ACCEPTED, STATUS_EXECUTING, STATUS_CANCELING, STATUS_SUCCEEDED, STATUS_CANCELED, STATUS_ABORTED
         goal_handle = self.goal_manager.get_goal_handle(request.id)
         if goal_handle is None:
-            self.logger.error(f"Goal with id {request.id} not found.")
-            return GoToGoalStatus(goal_status=GoalStatus.STATUS_UNKNOWN)
+            self.logger.error(
+                f"Goal with id {request.id} not found. Returning:{1+int(GoalStatus.STATUS_UNKNOWN)}"
+            )
+            return GoToGoalStatus(goal_status=(1 + int(GoalStatus.STATUS_UNKNOWN)))
         else:
-            return GoToGoalStatus(goal_status=int(goal_handle.status))
+            self.logger.info(
+                f"Goal with id {request.id} found, status:{goal_handle.status} Returning:{1+int(goal_handle.status)}"
+            )
+            return GoToGoalStatus(goal_status=(1 + int(goal_handle.status)))
 
     # Position and GoTo
     def GoToCartesian(
@@ -196,32 +203,18 @@ class GoToServicer:
             ),
             self.bridge_node.asyncio_loop,
         )
-        if future is None:
-            self.logger.info("GotoGoal was rejected")
-            return GoToId(id=-1)
 
         # Wait for the result and get it => This has to be fast
         goal_handle = future.result()
+
+        if goal_handle is None:
+            self.logger.info("GotoGoal was rejected")
+            return GoToId(id=-1)
 
         goal_id = self.goal_manager.store_goal_handle(goal_handle)
         self.logger.info(f"goal_id: {goal_id}")
 
         return GoToId(id=goal_id)
-
-    def get_status_string_by_goal_id(self, goal_id: int) -> str:
-        """
-        Get the status string based on the goto goal ID.
-        """
-        status_mapping = {
-            GoalStatus.STATUS_UNKNOWN: "Unknown",
-            GoalStatus.STATUS_ACCEPTED: "Accepted",
-            GoalStatus.STATUS_EXECUTING: "Executing",
-            GoalStatus.STATUS_SUCCEEDED: "Succeeded",
-            GoalStatus.STATUS_CANCELED: "Canceled",
-            GoalStatus.STATUS_ABORTED: "Aborted",
-        }
-
-        return status_mapping.get(goal_id, "Unknown")
 
     def cancel_goal_by_goal_id(self, goal_id: int) -> None:
         goal_handle = self.goal_manager.get_goal_handle(goal_id)
