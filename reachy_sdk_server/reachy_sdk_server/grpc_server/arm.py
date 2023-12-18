@@ -144,12 +144,10 @@ class ArmServicer:
         # TODO:
         # We do not take the duration or tolerance into account
         # We will develop a more advanced controller to handles this
-
         self.bridge_node.publish_target_pose(
             request.id,
             pose_from_pos_and_ori(request.target_position, request.target_orientation),
         )
-
         return Empty()
 
     def GoToJointPosition(
@@ -246,10 +244,12 @@ class ArmServicer:
         self.bridge_node.publish_command(cmd)
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
+        self.logger.warning("Turn ON")
         self.set_stiffness(request, torque=True, context=context)
         return Empty()
 
     def TurnOff(self, request: PartId, context: grpc.ServicerContext) -> Empty:
+        self.logger.warning("Turn OFF")
         self.set_stiffness(request, torque=False, context=context)
         return Empty()
 

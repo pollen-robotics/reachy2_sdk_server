@@ -8,6 +8,8 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from pollen_msgs.srv import GetDynamicState
 from reachy2_sdk_api import orbita2d_pb2
 
+from rclpy.callback_groups import ReentrantCallbackGroup, MutuallyExclusiveCallbackGroup
+
 
 def parse_reachy_config(reachy_config_path: str) -> dict:
     with open(reachy_config_path, "r") as f:
@@ -76,14 +78,14 @@ def endless_timer_get_stream(node, func, request, context, period):
     def timer_callback():
         q.put(func(request, context))
 
-    t = node.create_timer(period, timer_callback)
+    t = node.create_timer(period, timer_callback, callback_group = node.mecg)
 
     try:
         while True:
             yield q.get()
     except GeneratorExit:
         node.destroy_timer(t)
-        node.logger.info("Client left stream.")
+        node.logger.info("Client left stream!.")
         raise
 
 
