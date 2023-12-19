@@ -17,8 +17,6 @@ from .conversion import matrix_to_pose, pose_to_matrix
 from .parts import PartsHolder
 from .utils import parse_reachy_config
 
-from rclpy.callback_groups import ReentrantCallbackGroup, MutuallyExclusiveCallbackGroup
-
 
 class AbstractBridgeNode(Node):
     def __init__(self, reachy_config_path: str = None) -> None:
@@ -28,8 +26,6 @@ class AbstractBridgeNode(Node):
 
         self.config = parse_reachy_config(reachy_config_path)
         self.components = ComponentsHolder(self.config)
-        # self.rcg = ReentrantCallbackGroup()  # Suspected collision with other node callbacks
-        self.mecg = MutuallyExclusiveCallbackGroup()
 
         self.got_first_state = Event()
         self.joint_state_ready = Event()

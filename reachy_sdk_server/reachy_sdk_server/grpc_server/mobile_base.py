@@ -193,8 +193,6 @@ class MobileBaseServicer(
         self, request: TargetDirectionCommand, context
     ) -> MobilityServiceAck:
         """Send a speed command for the mobile base expressed in SI units."""
-
-        self.logger.info(f"MB command: {request}")
         twist = Twist()
         twist.linear.x = request.direction.x.value
         twist.linear.y = request.direction.y.value
