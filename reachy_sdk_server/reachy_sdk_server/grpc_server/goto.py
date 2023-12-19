@@ -115,16 +115,6 @@ class GoToServicer:
             )
             return GoToGoalStatus(goal_status=(1 + int(goal_handle.status)))
 
-    # def SendArmCartesianGoal(
-    #     self, request: ArmCartesianGoal, context: grpc.ServicerContext
-    # ) -> Empty:
-    #     self.bridge_node.publish_target_pose(
-    #         request.id,
-    #         pose_from_pos_and_ori(request.target_position, request.target_orientation),
-    #     )
-
-    #     return Empty()
-
     # Position and GoTo
     def GoToCartesian(
         self, request: CartesianGoal, context: grpc.ServicerContext

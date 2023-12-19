@@ -10,6 +10,7 @@ from typing import List, Optional
 
 from reachy2_sdk_api.arm_pb2 import (
     Arm,
+    ArmCartesianGoal,
     ArmDescription,
     ArmFKRequest,
     ArmFKSolution,
@@ -266,4 +267,13 @@ class ArmServicer:
     def ResetDefaultValues(
         self, request: PartId, context: grpc.ServicerContext
     ) -> Empty:
+        return Empty()
+
+    def SendArmCartesianGoal(
+        self, request: ArmCartesianGoal, context: grpc.ServicerContext
+    ) -> Empty:
+        self.bridge_node.publish_target_pose(
+            request.id,
+            pose_from_pos_and_ori(request.target_position, request.target_orientation),
+        )
         return Empty()
