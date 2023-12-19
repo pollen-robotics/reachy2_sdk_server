@@ -90,10 +90,11 @@ class ReachyServicer:
                 params[f"{p.name}_state"] = self.hand_servicer.GetState(
                     PartId(id=p.id), context
                 )
-
+        '''
         params["mobile_base_state"] = self.mobile_base_servicer.GetState(
             Empty(), context
         )
+        '''
 
         return ReachyState(**params)
 
