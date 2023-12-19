@@ -16,6 +16,8 @@ from reachy2_sdk_api.goto_pb2 import (
     GoToId,
     GoToAck,
     GoToGoalStatus,
+    GoToRequest,
+    InterpolationMode,
 )
 
 from action_msgs.msg import GoalStatus
@@ -117,24 +119,41 @@ class GoToServicer:
 
     # Position and GoTo
     def GoToCartesian(
-        self, request: CartesianGoal, context: grpc.ServicerContext
+        self, request: GoToRequest, context: grpc.ServicerContext
     ) -> GoToId:
-        if request.HasField("arm_cartesian_goal"):
+
+        interpolation_mode = self.get_interpolation_mode(request)
+
+        if request.cartesian_goal.HasField("arm_cartesian_goal"):
             # this is an ArmCartesianGoal
-            arm_cartesian_goal = request.arm_cartesian_goal
+            arm_cartesian_goal = request.cartesian_goal.arm_cartesian_goal
 
             arm = self.get_arm_part_by_part_id(arm_cartesian_goal.id, context)
             duration = arm_cartesian_goal.duration.value
 
-            default_q0 = JointState()
+            q0 = JointState()
             for c in arm.components:
-                default_q0.name.extend(c.get_all_joints())
-            default_q0.position = [0.0, 0.0, 0.0, -math.pi / 2, 0.0, 0.0, 0.0]
+                q0.name.extend(c.get_all_joints())
+
+            if arm_cartesian_goal.HasField("q0"):
+                q0_grpc = arm_cartesian_goal.q0
+                q0.position = [
+                    q0_grpc.shoulder_position.axis_1.value,
+                    q0_grpc.shoulder_position.axis_2.value,
+                    q0_grpc.elbow_position.axis_1.value,
+                    q0_grpc.elbow_position.axis_2.value,
+                    q0_grpc.wrist_position.rpy.roll,
+                    q0_grpc.wrist_position.rpy.pitch,
+                    q0_grpc.wrist_position.rpy.yaw,
+                ]
+            else:
+                default_q0_position = [0.0, 0.0, 0.0, -math.pi / 2, 0.0, 0.0, 0.0]
+                q0.position = default_q0_position
 
             success, joint_position = self.bridge_node.compute_inverse(
                 arm_cartesian_goal.id,
                 arm_cartesian_goal.goal_pose.data,
-                default_q0,
+                q0,
             )  # 'joint_position': 'sensor_msgs/JointState'
             if not success:
                 self.logger.error(
@@ -152,7 +171,7 @@ class GoToServicer:
                 joint_names,
                 goal_positions,
                 duration,
-                mode="minimum_jerk",
+                mode=interpolation_mode,
             )
 
         elif request.HasField("neck_cartesian_goal"):
@@ -168,10 +187,16 @@ class GoToServicer:
             )
             return GoToId(id=-1)
 
-    def GoToJoints(self, request: JointsGoal, context: grpc.ServicerContext) -> GoToId:
-        if request.HasField("arm_joint_goal"):
+    def GoToJoints(self, request: GoToRequest, context: grpc.ServicerContext) -> GoToId:
+
+        self.logger.info(f"GoToJoints: {request}")
+        interpolation_mode = self.get_interpolation_mode(request)
+        if not interpolation_mode:
+            return GoToId(id=-1)
+
+        if request.joints_goal.HasField("arm_joint_goal"):
             # The message contains an arm_joint_goal
-            arm_joint_goal = request.arm_joint_goal  # this is an ArmJointGoal
+            arm_joint_goal = request.joints_goal.arm_joint_goal  # this is an ArmJointGoal
             arm = self.get_arm_part_by_part_id(arm_joint_goal.id, context)
 
             joint_names = self.part_to_list_of_joint_names(arm)
@@ -216,7 +241,7 @@ class GoToServicer:
                 joint_names,
                 goal_positions,
                 duration,
-                mode="minimum_jerk",
+                mode=interpolation_mode,
             )
         else:
             self.logger.error(
@@ -252,6 +277,18 @@ class GoToServicer:
         self.logger.info(f"goal_id: {goal_id}")
 
         return GoToId(id=goal_id)
+
+    def get_interpolation_mode(self, request: GoToRequest) -> str:
+        interpolation_mode = request.interpolation_mode.interpolation_type
+        if interpolation_mode == InterpolationMode.LINEAR:
+            return "linear"
+        elif interpolation_mode == InterpolationMode.MINIMUM_JERK:
+            return "minimum_jerk"
+        else:
+            self.logger.error(
+                f"Interpolation mode {interpolation_mode} not supported. Should be one of 'linear' or 'minimum_jerk'."
+            )
+            return None
 
     def cancel_goal_by_goal_id(self, goal_id: int) -> None:
         goal_handle = self.goal_manager.get_goal_handle(goal_id)
