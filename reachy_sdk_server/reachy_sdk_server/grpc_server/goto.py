@@ -63,7 +63,7 @@ class GoToServicer:
 
         return part
 
-    def get_neck_part_by_part_id(
+    def get_head_part_by_part_id(
         self, part_id: PartId, context: grpc.ServicerContext
     ) -> Part:
         part = self.bridge_node.parts.get_by_part_id(part_id)
@@ -71,10 +71,10 @@ class GoToServicer:
         if part is None:
             context.abort(grpc.StatusCode.NOT_FOUND, f"Part not found (id={part_id}).")
 
-        if part.type != "neck":
+        if part.type != "head":
             context.abort(
                 grpc.StatusCode.INVALID_ARGUMENT,
-                f"Part '{part_id}' is not a nack.",
+                f"Part '{part_id}' is not a head.",
             )
 
         return part
@@ -221,15 +221,11 @@ class GoToServicer:
                 mode="minimum_jerk",
             )
 
-        elif request.HasField("neck_joint_goal"):
-            neck_joint_goal = request.neck_joint_goal  # this is a NeckGoal
-            self.logger.info(
-                f"neck_joint_goal: {neck_joint_goal}\n TODO this is not implemented yet, WIP"
-            )
-            neck = self.get_neck_part_by_part_id(neck_joint_goal.id, context)
+        elif request.joints_goal.HasField("neck_joint_goal"):
+            neck_joint_goal = request.joints_goal.neck_joint_goal  # this is a NeckGoal
+            head = self.get_head_part_by_part_id(neck_joint_goal.id, context)
 
-            joint_names = self.part_to_list_of_joint_names(neck)
-
+            joint_names = self.part_to_list_of_joint_names(head)
             duration = neck_joint_goal.duration.value
 
             goal_positions = rotation3d_as_extrinsinc_euler_angles(
@@ -237,7 +233,7 @@ class GoToServicer:
             )
 
             return self.goto_joints(
-                neck.name,
+                head.name,
                 joint_names,
                 goal_positions,
                 duration,
