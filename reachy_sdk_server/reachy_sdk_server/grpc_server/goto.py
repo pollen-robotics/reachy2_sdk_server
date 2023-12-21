@@ -174,12 +174,42 @@ class GoToServicer:
             )
 
         elif request.HasField("neck_cartesian_goal"):
+            self.logger.error("neck_cartesian_goal to be implemented")
+            return GoToId(id=-1)
+
             # this is a NeckCartesianGoal https://github.com/pollen-robotics/reachy2-sdk-api/blob/81-adjust-goto-methods/protos/head.proto
             neck_cartesian_goal = request.neck_cartesian_goal
-            self.logger.info(
-                f"neck_cartesian_goal: {neck_cartesian_goal}\nTODO IMPLEMENT THIS"
+            head = self.get_head_part_by_part_id(neck_cartesian_goal.id, context)
+
+            # joint_names = self.part_to_list_of_joint_names(head)
+
+            duration = neck_cartesian_goal.duration.value
+            x = neck_cartesian_goal.point.x
+            y = neck_cartesian_goal.point.y
+            z = neck_cartesian_goal.point.z
+
+            # Hum, TODO solve this
+
+            # success, joint_position = self.bridge_node.compute_inverse(
+            #     neck_cartesian_goal.id,
+            #     neck_cartesian_goal.goal_pose.data,
+            # )
+            if not success:
+                self.logger.error(
+                    f"Could not compute inverse kinematics for arm {arm_cartesian_goal.id}"
+                )
+                return GoToId(id=-1)
+
+            joint_names = joint_position.name
+            goal_positions = joint_position.position
+
+            return self.goto_joints(
+                "neck",
+                joint_names,
+                goal_positions,
+                duration,
+                mode=interpolation_mode,
             )
-            return GoToId(id=-1)
         else:
             self.logger.error(
                 f"{request} is ill formed. Expected arm_cartesian_goal or neck_cartesian_goal"
@@ -226,6 +256,7 @@ class GoToServicer:
             head = self.get_head_part_by_part_id(neck_joint_goal.id, context)
 
             joint_names = self.part_to_list_of_joint_names(head)
+
             duration = neck_joint_goal.duration.value
 
             goal_positions = rotation3d_as_extrinsinc_euler_angles(
@@ -233,7 +264,7 @@ class GoToServicer:
             )
 
             return self.goto_joints(
-                head.name,
+                "neck",
                 joint_names,
                 goal_positions,
                 duration,
