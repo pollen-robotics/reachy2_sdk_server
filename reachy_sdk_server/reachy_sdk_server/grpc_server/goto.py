@@ -112,7 +112,7 @@ class GoToServicer:
             )
             return GoToGoalStatus(goal_status=(1 + int(GoalStatus.STATUS_UNKNOWN)))
         else:
-            self.logger.info(
+            self.logger.debug(
                 f"Goal with id {request.id} found, status:{goal_handle.status} Returning:{1+int(goal_handle.status)}"
             )
             return GoToGoalStatus(goal_status=(1 + int(goal_handle.status)))
@@ -121,7 +121,6 @@ class GoToServicer:
     def GoToCartesian(
         self, request: GoToRequest, context: grpc.ServicerContext
     ) -> GoToId:
-
         interpolation_mode = self.get_interpolation_mode(request)
 
         if request.cartesian_goal.HasField("arm_cartesian_goal"):
@@ -188,15 +187,16 @@ class GoToServicer:
             return GoToId(id=-1)
 
     def GoToJoints(self, request: GoToRequest, context: grpc.ServicerContext) -> GoToId:
-
-        self.logger.info(f"GoToJoints: {request}")
+        self.logger.debug(f"GoToJoints: {request}")
         interpolation_mode = self.get_interpolation_mode(request)
         if not interpolation_mode:
             return GoToId(id=-1)
 
         if request.joints_goal.HasField("arm_joint_goal"):
             # The message contains an arm_joint_goal
-            arm_joint_goal = request.joints_goal.arm_joint_goal  # this is an ArmJointGoal
+            arm_joint_goal = (
+                request.joints_goal.arm_joint_goal
+            )  # this is an ArmJointGoal
             arm = self.get_arm_part_by_part_id(arm_joint_goal.id, context)
 
             joint_names = self.part_to_list_of_joint_names(arm)
@@ -218,7 +218,7 @@ class GoToServicer:
                 joint_names,
                 goal_positions,
                 duration,
-                mode="minimum_jerk",
+                mode=interpolation_mode,
             )
 
         elif request.joints_goal.HasField("neck_joint_goal"):
@@ -248,14 +248,13 @@ class GoToServicer:
     def goto_joints(
         self, part_name, joint_names, goal_positions, duration, mode="minimum_jerk"
     ):
-        self.logger.info(f"goto goal_positions: {goal_positions}")
         future = asyncio.run_coroutine_threadsafe(
             self.bridge_node.send_goto_goal(
                 part_name,
                 joint_names,
                 goal_positions,
                 duration,
-                mode="minimum_jerk",
+                mode=mode,
                 feedback_callback=None,
                 return_handle=True,
             ),
@@ -270,7 +269,6 @@ class GoToServicer:
             return GoToId(id=-1)
 
         goal_id = self.goal_manager.store_goal_handle(goal_handle)
-        self.logger.info(f"goal_id: {goal_id}")
 
         return GoToId(id=goal_id)
 
@@ -290,7 +288,6 @@ class GoToServicer:
         goal_handle = self.goal_manager.get_goal_handle(goal_id)
 
         if goal_handle is not None:
-            self.logger.info(f"Cancelling goal with id {goal_id}")
             goal_handle.cancel_goal()
             self.logger.info(f"Goal with id {goal_id} cancelled")
 

@@ -232,7 +232,7 @@ class AbstractBridgeNode(Node):
         self.get_logger().debug("feedback_callback setuped")
 
         if not goal_handle.accepted:
-            self.get_logger().error("Goal rejected!")
+            self.get_logger().warning("Goal rejected!")
             return None
 
         self.get_logger().debug("Goal accepted")
