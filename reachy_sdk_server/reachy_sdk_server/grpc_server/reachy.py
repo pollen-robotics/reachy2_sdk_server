@@ -11,7 +11,7 @@ from reachy2_sdk_api.reachy_pb2 import (
     ReachyState,
     ReachyStreamStateRequest,
 )
-from reachy2_sdk_api.goto_pb2_grpc import add_GoToServiceServicer_to_server
+
 from reachy2_sdk_api.reachy_pb2_grpc import add_ReachyServiceServicer_to_server
 
 
@@ -19,6 +19,7 @@ from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
 from .hand import HandServicer
 from .head import HeadServicer
+from .mobile_base import MobileBaseServicer
 from ..utils import endless_timer_get_stream, get_current_timestamp
 
 
@@ -30,6 +31,7 @@ class ReachyServicer:
         arm_servicer: ArmServicer,
         hand_servicer: HandServicer,
         head_servicer: HeadServicer,
+        mobile_base_servicer: MobileBaseServicer,
     ):
         self.bridge_node = bridge_node
         self.logger = logger
@@ -37,6 +39,7 @@ class ReachyServicer:
         self.arm_servicer = arm_servicer
         self.hand_servicer = hand_servicer
         self.head_servicer = head_servicer
+        self.mobile_base_servicer = mobile_base_servicer
 
         self.reachy_id = ReachyId(id=1, name="reachy")
 
@@ -56,6 +59,8 @@ class ReachyServicer:
                 params[p.name] = self.head_servicer.get_head(p, context)
             elif p.type == "hand":
                 params[p.name] = self.hand_servicer.get_hand(p, context)
+
+        params["mobile_base"] = self.mobile_base_servicer.get_mobile_base(context)
 
         return Reachy(**params)
 
@@ -83,6 +88,11 @@ class ReachyServicer:
                 params[f"{p.name}_state"] = self.hand_servicer.GetState(
                     PartId(id=p.id), context
                 )
+        """
+        params["mobile_base_state"] = self.mobile_base_servicer.GetState(
+            Empty(), context
+        )
+        """
 
         return ReachyState(**params)
 
