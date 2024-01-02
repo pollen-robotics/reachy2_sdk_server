@@ -26,6 +26,7 @@ from reachy2_sdk_api.head_pb2 import (
     NeckFKSolution,
     NeckIKRequest,
     NeckIKSolution,
+    NeckJointGoal,
     NeckOrientation,
     SpeedLimitRequest,
 )
