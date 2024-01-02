@@ -284,6 +284,37 @@ class HeadServicer:
     ) -> Empty:
         return Empty()
 
+    def SendNeckJointGoal(
+        self, request: NeckJointGoal, context: grpc.ServicerContext
+    ) -> Empty:
+        head = self.get_head_part_from_part_id(request.id, context)
+
+        q = rotation3d_as_quat(request.joints_goal.rotation)
+
+        ik_req = NeckIKRequest(
+            id=request.id,
+            target=NeckOrientation(
+                rotation=quat_as_rotation3d(q),
+            ),
+        )
+        resp = self.ComputeNeckIK(ik_req, context)
+
+        if not resp.success:
+            context.abort(grpc.StatusCode.INTERNAL, "Could not compute IK.")
+
+        self.orbita3d_servicer.SendCommand(
+            Orbita3dsCommand(
+                cmd=[
+                    Orbita3dCommand(
+                        id=ComponentId(id=head.components[0].id),
+                        goal_position=resp.position,
+                    ),
+                ]
+            ),
+            context,
+        )
+
+        return Empty()
 
 def _find_neck_quaternion_transform(
     vect_origin: Tuple[float, float, float],
