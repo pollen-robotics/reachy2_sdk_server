@@ -35,7 +35,7 @@ from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import (
     arm_position_to_joint_state,
     joint_state_to_arm_position,
-    pose_from_pos_and_ori,
+    matrix_to_pose,
 )
 from .orbita2d import (
     ComponentId,
@@ -274,6 +274,6 @@ class ArmServicer:
     ) -> Empty:
         self.bridge_node.publish_target_pose(
             request.id,
-            pose_from_pos_and_ori(request.target_position, request.target_orientation),
+            matrix_to_pose(request.goal_pose.data),
         )
         return Empty()
