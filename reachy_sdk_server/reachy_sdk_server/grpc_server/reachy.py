@@ -42,6 +42,11 @@ class ReachyServicer:
         self.mobile_base_servicer = mobile_base_servicer
 
         self.reachy_id = ReachyId(id=1, name="reachy")
+        self.active_calls = 0
+        self.timer = self.bridge_node.create_timer(0.2, self.print_active_calls)
+
+    def print_active_calls(self):
+        self.logger.info(f"self.active_calls={self.active_calls}")
 
     def register_to_server(self, server: grpc.Server):
         self.logger.info("Registering 'ArmServiceServicer' to server.")
@@ -60,13 +65,15 @@ class ReachyServicer:
             elif p.type == "hand":
                 params[p.name] = self.hand_servicer.get_hand(p, context)
 
-        params["mobile_base"] = self.mobile_base_servicer.get_mobile_base(context)
+        if self.mobile_base_servicer.get_mobile_base(context) is not None:
+            params["mobile_base"] = self.mobile_base_servicer.get_mobile_base(context)
 
         return Reachy(**params)
 
     def GetReachyState(
         self, request: ReachyId, context: grpc.ServicerContext
     ) -> ReachyState:
+        self.active_calls+=1 
         if request.id != self.reachy_id.id and request.name != self.reachy_id.name:
             context.abort(grpc.StatusCode.NOT_FOUND, "Reachy not found.")
 
@@ -93,7 +100,7 @@ class ReachyServicer:
             Empty(), context
         )
         """
-
+        self.active_calls-=1
         return ReachyState(**params)
 
     def StreamReachyState(
