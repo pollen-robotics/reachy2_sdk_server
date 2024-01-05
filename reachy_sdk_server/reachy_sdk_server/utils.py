@@ -83,7 +83,17 @@ def endless_timer_get_stream(node, func, request, context, period):
             yield q.get()
     except GeneratorExit:
         node.destroy_timer(t)
-        node.logger.info("Client left stream.")
+        node.logger.info("Client left stream!! Version with timer")
+        raise
+
+def endless_timer_get_stream_works(node, func, request, context, period):
+    try:
+        while True:
+            yield func(request, context)
+            time.sleep(period)
+    except GeneratorExit:
+        node.destroy_timer(t)
+        node.logger.info("Client left stream!! Version with time.sleep()")
         raise
 
 
