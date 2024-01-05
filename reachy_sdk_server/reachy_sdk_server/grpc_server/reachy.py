@@ -106,7 +106,7 @@ class ReachyServicer:
     def StreamReachyState(
         self, request: ReachyStreamStateRequest, context: grpc.ServicerContext
     ) -> Iterator[ReachyState]:
-        return endless_timer_get_stream(
+        return endless_timer_get_stream_works(
             self.bridge_node,
             self.GetReachyState,
             request.id,
