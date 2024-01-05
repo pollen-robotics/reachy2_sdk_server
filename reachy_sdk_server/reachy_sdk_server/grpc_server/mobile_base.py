@@ -87,7 +87,8 @@ class MobileBaseServicer(
         Send commands through the GoToXYTheta or SetSpeed services or by publishing to cmd_vel topic.
         """
         self.logger = logger
-
+        self.mobile_base_enabled = True # Keep track of mobile base status in order to return None for teleop
+        
         config = parse_reachy_config(reachy_config_path)
         self.info = {
             "serial_number": config["mobile_base"]["serial_number"],
@@ -97,6 +98,7 @@ class MobileBaseServicer(
 
         if not config["mobile_base"]["serial_number"]:
             self.logger.info("No mobile base found in the config file. Mobile base server not initialized.")
+            self.mobile_base_enabled = False
             return
 
         super().__init__(node_name="mobile_base_server")
@@ -157,13 +159,16 @@ class MobileBaseServicer(
 
     def get_mobile_base(self, context: grpc.ServicerContext) -> MobileBase:
         """Get mobile base basic info."""
-        return MobileBase(
-            info=MobileBaseInfo(
-                serial_number=self.info["serial_number"],
-                version_hard=str(self.info["version_hard"]),
-                version_soft=str(self.info["version_soft"]),
-            ),
-        )
+        if self.mobile_base_enabled:
+            return MobileBase(
+                info=MobileBaseInfo(
+                    serial_number=self.info["serial_number"],
+                    version_hard=str(self.info["version_hard"]),
+                    version_soft=str(self.info["version_soft"]),
+                ),
+            )
+        else:
+            return None
 
     def get_lidar_img(self, msg):
         self.lidar_img = self.bridge.imgmsg_to_cv2(msg)

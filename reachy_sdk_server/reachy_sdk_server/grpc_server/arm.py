@@ -1,9 +1,12 @@
 import grpc
 import rclpy
 
+
 from control_msgs.msg import DynamicJointState, InterfaceValue
 
 from google.protobuf.empty_pb2 import Empty
+from typing import List, Optional
+
 
 from reachy2_sdk_api.arm_pb2 import (
     Arm,
@@ -13,7 +16,6 @@ from reachy2_sdk_api.arm_pb2 import (
     ArmFKSolution,
     ArmIKRequest,
     ArmIKSolution,
-    ArmJointGoal,
     ArmPosition,
     ArmState,
     ArmStatus,
@@ -22,9 +24,9 @@ from reachy2_sdk_api.arm_pb2 import (
     ListOfArm,
     SpeedLimitRequest,
 )
-from reachy2_sdk_api.arm_pb2_grpc import (
-    add_ArmServiceServicer_to_server,
-)
+
+from reachy2_sdk_api.arm_pb2_grpc import add_ArmServiceServicer_to_server
+
 from reachy2_sdk_api.part_pb2 import PartId
 from reachy2_sdk_api.kinematics_pb2 import Matrix4x4
 
@@ -33,7 +35,7 @@ from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import (
     arm_position_to_joint_state,
     joint_state_to_arm_position,
-    pose_from_pos_and_ori,
+    matrix_to_pose,
 )
 from .orbita2d import (
     ComponentId,
@@ -136,60 +138,6 @@ class ArmServicer:
                 context,
             ),
         )
-
-    # Position and GoTo
-    def GoToCartesianPosition(
-        self, request: ArmCartesianGoal, context: grpc.ServicerContext
-    ) -> Empty:
-        # TODO:
-        # We do not take the duration or tolerance into account
-        # We will develop a more advanced controller to handles this
-
-        self.bridge_node.publish_target_pose(
-            request.id,
-            pose_from_pos_and_ori(request.target_position, request.target_orientation),
-        )
-
-        return Empty()
-
-    def GoToJointPosition(
-        self, request: ArmJointGoal, context: grpc.ServicerContext
-    ) -> Empty:
-        arm = self.get_arm_part_by_part_id(request.id, context)
-
-        # TODO:
-        # We do not take the duration into account
-        # We will develop a more advanced controller to handles this
-
-        # TODO: Use Orbita2dsCommand
-        self.orbita2d_servicer.SendCommand(
-            Orbita2dsCommand(
-                cmd=[
-                    Orbita2dCommand(
-                        id=ComponentId(id=arm.components[0].id),
-                        goal_position=request.position.shoulder_position,
-                    ),
-                    Orbita2dCommand(
-                        id=ComponentId(id=arm.components[1].id),
-                        goal_position=request.position.elbow_position,
-                    ),
-                ]
-            ),
-            context,
-        )
-        self.orbita3d_servicer.SendCommand(
-            Orbita3dsCommand(
-                cmd=[
-                    Orbita3dCommand(
-                        id=ComponentId(id=arm.components[2].id),
-                        goal_position=request.position.wrist_position,
-                    ),
-                ]
-            ),
-            context,
-        )
-
-        return Empty()
 
     def GetCartesianPosition(
         self, request: PartId, context: grpc.ServicerContext
@@ -319,4 +267,13 @@ class ArmServicer:
     def ResetDefaultValues(
         self, request: PartId, context: grpc.ServicerContext
     ) -> Empty:
+        return Empty()
+
+    def SendArmCartesianGoal(
+        self, request: ArmCartesianGoal, context: grpc.ServicerContext
+    ) -> Empty:
+        self.bridge_node.publish_target_pose(
+            request.id,
+            matrix_to_pose(request.goal_pose.data),
+        )
         return Empty()

@@ -16,7 +16,6 @@ from reachy2_sdk_api.head_pb2_grpc import (
 from reachy2_sdk_api.head_pb2 import (
     Head,
     HeadDescription,
-    HeadLookAtGoal,
     HeadPosition,
     HeadStatus,
     HeadTemperatures,
@@ -25,9 +24,9 @@ from reachy2_sdk_api.head_pb2 import (
     JointsLimits,
     NeckFKRequest,
     NeckFKSolution,
-    NeckGoal,
     NeckIKRequest,
     NeckIKSolution,
+    NeckJointGoal,
     NeckOrientation,
     SpeedLimitRequest,
 )
@@ -189,38 +188,6 @@ class HeadServicer:
 
         return sol
 
-    def GoToOrientation(
-        self, request: NeckGoal, context: grpc.ServicerContext
-    ) -> Empty:
-        head = self.get_head_part_from_part_id(request.id, context)
-
-        q = rotation3d_as_quat(request.rotation)
-
-        ik_req = NeckIKRequest(
-            id=request.id,
-            target=NeckOrientation(
-                rotation=quat_as_rotation3d(q),
-            ),
-        )
-        resp = self.ComputeNeckIK(ik_req, context)
-
-        if not resp.success:
-            context.abort(grpc.StatusCode.INTERNAL, "Could not compute IK.")
-
-        self.orbita3d_servicer.SendCommand(
-            Orbita3dsCommand(
-                cmd=[
-                    Orbita3dCommand(
-                        id=ComponentId(id=head.components[0].id),
-                        goal_position=resp.position,
-                    ),
-                ]
-            ),
-            context,
-        )
-
-        return Empty()
-
     def GetOrientation(
         self, request: PartId, context: grpc.ServicerContext
     ) -> Rotation3d:
@@ -238,20 +205,6 @@ class HeadServicer:
             context.abort(grpc.StatusCode.INTERNAL, "Could not compute FK.")
 
         return resp.orientation.rotation
-
-    def LookAt(self, request: HeadLookAtGoal, context: grpc.ServicerContext) -> Empty:
-        q = _find_neck_quaternion_transform(
-            [1, 0, 0], [request.point.x, request.point.y, request.point.z]
-        )
-
-        return self.GoToOrientation(
-            NeckGoal(
-                id=request.id,
-                rotation=Rotation3d(q=Quaternion(x=q[0], y=q[1], z=q[2], w=q[3])),
-                duration=request.duration,
-            ),
-            context,
-        )
 
     def Audit(self, request: PartId, context: grpc.ServicerContext) -> HeadStatus:
         return HeadStatus()
@@ -332,6 +285,37 @@ class HeadServicer:
     ) -> Empty:
         return Empty()
 
+    def SendNeckJointGoal(
+        self, request: NeckJointGoal, context: grpc.ServicerContext
+    ) -> Empty:
+        head = self.get_head_part_from_part_id(request.id, context)
+
+        q = rotation3d_as_quat(request.joints_goal.rotation)
+
+        ik_req = NeckIKRequest(
+            id=request.id,
+            target=NeckOrientation(
+                rotation=quat_as_rotation3d(q),
+            ),
+        )
+        resp = self.ComputeNeckIK(ik_req, context)
+
+        if not resp.success:
+            context.abort(grpc.StatusCode.INTERNAL, "Could not compute IK.")
+
+        self.orbita3d_servicer.SendCommand(
+            Orbita3dsCommand(
+                cmd=[
+                    Orbita3dCommand(
+                        id=ComponentId(id=head.components[0].id),
+                        goal_position=resp.position,
+                    ),
+                ]
+            ),
+            context,
+        )
+
+        return Empty()
 
 def _find_neck_quaternion_transform(
     vect_origin: Tuple[float, float, float],

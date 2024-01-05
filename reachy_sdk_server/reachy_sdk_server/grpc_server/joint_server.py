@@ -1,10 +1,12 @@
 import grpc
 import rclpy
 import threading
+import asyncio
 
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
+from .goto import GoToServicer
 from .hand import HandServicer
 from .head import HeadServicer
 from .mobile_base import MobileBaseServicer
@@ -16,11 +18,20 @@ from .reachy import ReachyServicer
 class ReachyGRPCJointSDKServicer:
     def __init__(self, reachy_config_path: str = None) -> None:
         rclpy.init()
-        self.bridge_node = AbstractBridgeNode(reachy_config_path=reachy_config_path)
 
-        executor = rclpy.executors.MultiThreadedExecutor()
-        executor.add_node(self.bridge_node)
-        threading.Thread(target=executor.spin).start()
+        # executor = rclpy.executors.MultiThreadedExecutor()
+        # executor.add_node(self.bridge_node)
+        # threading.Thread(target=executor.spin).start()
+
+        # self.asyncio_loop = asyncio.get_event_loop()
+        self.asyncio_loop = asyncio.new_event_loop()
+
+        self.bridge_node = AbstractBridgeNode(
+            reachy_config_path=reachy_config_path, asyncio_loop=self.asyncio_loop
+        )
+
+        self.asyncio_thread = threading.Thread(target=self.spin_asyncio)
+        self.asyncio_thread.start()
 
         self.logger = self.bridge_node.get_logger()
 
@@ -32,13 +43,22 @@ class ReachyGRPCJointSDKServicer:
             orbita2d_servicer,
             orbita3d_servicer,
         )
+        goto_servicer = GoToServicer(self.bridge_node, self.logger)
         hand_servicer = HandServicer(self.bridge_node, self.logger)
         head_servicer = HeadServicer(self.bridge_node, self.logger, orbita3d_servicer)
         mobile_base_servicer = MobileBaseServicer(self.logger, reachy_config_path)
-        reachy_servicer = ReachyServicer(self.bridge_node, self.logger, arm_servicer, hand_servicer, head_servicer, mobile_base_servicer)
+        reachy_servicer = ReachyServicer(
+            self.bridge_node,
+            self.logger,
+            arm_servicer,
+            hand_servicer,
+            head_servicer,
+            mobile_base_servicer,
+        )
 
         self.services = [
             arm_servicer,
+            goto_servicer,
             hand_servicer,
             head_servicer,
             mobile_base_servicer,
@@ -52,6 +72,15 @@ class ReachyGRPCJointSDKServicer:
     def register_all_services(self, server: grpc.Server) -> None:
         for serv in self.services:
             serv.register_to_server(server)
+
+    def spin_asyncio(self) -> None:
+        asyncio.set_event_loop(self.asyncio_loop)
+        self.asyncio_loop.run_until_complete(self.spinning(self.bridge_node))
+
+    async def spinning(self, node):
+        while rclpy.ok():
+            rclpy.spin_once(node, timeout_sec=0.01)
+            await asyncio.sleep(0.001)
 
 
 def main():
