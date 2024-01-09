@@ -173,7 +173,7 @@ class GoToServicer:
                 mode=interpolation_mode,
             )
 
-        elif request.HasField("neck_cartesian_goal"):
+        elif request.cartesian_goal.HasField("neck_cartesian_goal"):
             self.logger.error("neck_cartesian_goal to be implemented")
             return GoToId(id=-1)
 
