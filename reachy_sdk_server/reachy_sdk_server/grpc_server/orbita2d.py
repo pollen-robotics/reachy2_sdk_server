@@ -52,7 +52,7 @@ class Orbita2dServicer:
         Orbita2dField.PRESENT_SPEED,
         Orbita2dField.PRESENT_LOAD,
         Orbita2dField.TEMPERATURE,
-        Orbita2dField.JOINT_LIMIT,
+        Orbita2dField.JOINT_LIMITS,
         Orbita2dField.TORQUE_LIMIT,
         Orbita2dField.SPEED_LIMIT,
         Orbita2dField.PID,
@@ -103,7 +103,7 @@ class Orbita2dServicer:
         )
         state["timestamp"] = get_current_timestamp(self.bridge_node)
         state["temperature"] = Float2d(motor_1=FloatValue(value=40.0), motor_2=FloatValue(value=40.0))
-        state["joint_limit"] = Limits2d(
+        state["joint_limits"] = Limits2d(
             axis_1=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0)),
             axis_2=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0)),
             )

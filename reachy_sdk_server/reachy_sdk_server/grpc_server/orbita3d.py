@@ -51,7 +51,7 @@ class Orbita3dServicer:
         Orbita3dField.PRESENT_SPEED,
         Orbita3dField.PRESENT_LOAD,
         Orbita3dField.TEMPERATURE,
-        Orbita3dField.JOINT_LIMIT,
+        Orbita3dField.JOINT_LIMITS,
         Orbita3dField.TORQUE_LIMIT,
         Orbita3dField.SPEED_LIMIT,
         Orbita3dField.PID,
@@ -99,7 +99,7 @@ class Orbita3dServicer:
         )
         state["timestamp"] = get_current_timestamp(self.bridge_node)
         state["temperature"] = Float3d(motor_1=FloatValue(value=40.0), motor_2=FloatValue(value=40.0), motor_3=FloatValue(value=40.0))
-        state["joint_limit"] = Limits3d(
+        state["joint_limits"] = Limits3d(
             roll=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0)),
             pitch=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0)),
             yaw=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0))
