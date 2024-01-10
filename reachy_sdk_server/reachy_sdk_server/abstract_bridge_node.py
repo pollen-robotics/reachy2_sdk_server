@@ -115,8 +115,7 @@ class AbstractBridgeNode(Node):
             )
 
     def publish_command(self, msg: DynamicJointState) -> None:
-        with self.command_pub_lock:
-            self.joint_command_pub.publish(msg)
+        self.joint_command_pub.publish(msg)
 
     # Misc utils
     def get_component(self, component_id: ComponentId) -> dict:
@@ -159,7 +158,7 @@ class AbstractBridgeNode(Node):
                 depth=1,                                    # Minimal depth, for the latest message
                 # Other QoS settings can be adjusted as needed
             )
-
+        
             self.target_pose_pubs[part.id] = self.create_publisher(
                 msg_type=PoseStamped,
                 topic=f"/{part.name}/target_pose",
@@ -203,7 +202,6 @@ class AbstractBridgeNode(Node):
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.pose = pose
 
-        # with self.command_target_pub_lock:
         self.target_pose_pubs[id].publish(msg)
 
     async def send_goto_goal(
