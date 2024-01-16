@@ -317,6 +317,7 @@ class HeadServicer:
 
         return Empty()
 
+
 def _find_neck_quaternion_transform(
     vect_origin: Tuple[float, float, float],
     vect_target: Tuple[float, float, float],

@@ -24,6 +24,7 @@ from .parts import PartsHolder
 from .utils import parse_reachy_config
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
+
 class AbstractBridgeNode(Node):
     def __init__(
         self, reachy_config_path: str = None, asyncio_loop: AbstractEventLoop = None
@@ -154,11 +155,11 @@ class AbstractBridgeNode(Node):
             # High frequency QoS profile
             high_freq_qos_profile = QoSProfile(
                 reliability=ReliabilityPolicy.BEST_EFFORT,  # Prioritizes speed over guaranteed delivery
-                history=HistoryPolicy.KEEP_LAST,            # Keeps only a fixed number of messages
-                depth=1,                                    # Minimal depth, for the latest message
+                history=HistoryPolicy.KEEP_LAST,  # Keeps only a fixed number of messages
+                depth=1,  # Minimal depth, for the latest message
                 # Other QoS settings can be adjusted as needed
             )
-        
+
             self.target_pose_pubs[part.id] = self.create_publisher(
                 msg_type=PoseStamped,
                 topic=f"/{part.name}/target_pose",

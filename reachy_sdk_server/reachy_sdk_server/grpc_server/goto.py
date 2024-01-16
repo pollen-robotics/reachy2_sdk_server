@@ -141,9 +141,9 @@ class GoToServicer:
                     q0_grpc.shoulder_position.axis_2.value,
                     q0_grpc.elbow_position.axis_1.value,
                     q0_grpc.elbow_position.axis_2.value,
-                    q0_grpc.wrist_position.rpy.roll,
-                    q0_grpc.wrist_position.rpy.pitch,
-                    q0_grpc.wrist_position.rpy.yaw,
+                    q0_grpc.wrist_position.rpy.roll.value,
+                    q0_grpc.wrist_position.rpy.pitch.value,
+                    q0_grpc.wrist_position.rpy.yaw.value,
                 ]
             else:
                 default_q0_position = [0.0, 0.0, 0.0, -math.pi / 2, 0.0, 0.0, 0.0]
@@ -238,9 +238,9 @@ class GoToServicer:
                 arm_joint_goal.joints_goal.shoulder_position.axis_2.value,
                 arm_joint_goal.joints_goal.elbow_position.axis_1.value,
                 arm_joint_goal.joints_goal.elbow_position.axis_2.value,
-                arm_joint_goal.joints_goal.wrist_position.rpy.roll,
-                arm_joint_goal.joints_goal.wrist_position.rpy.pitch,
-                arm_joint_goal.joints_goal.wrist_position.rpy.yaw,
+                arm_joint_goal.joints_goal.wrist_position.rpy.roll.value,
+                arm_joint_goal.joints_goal.wrist_position.rpy.pitch.value,
+                arm_joint_goal.joints_goal.wrist_position.rpy.yaw.value,
             ]
 
             return self.goto_joints(

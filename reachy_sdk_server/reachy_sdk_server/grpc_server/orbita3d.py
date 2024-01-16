@@ -98,12 +98,16 @@ class Orbita3dServicer:
             Orbita3dField, request.fields, conversion_table, orbita2d_components
         )
         state["timestamp"] = get_current_timestamp(self.bridge_node)
-        state["temperature"] = Float3d(motor_1=FloatValue(value=40.0), motor_2=FloatValue(value=40.0), motor_3=FloatValue(value=40.0))
+        state["temperature"] = Float3d(
+            motor_1=FloatValue(value=40.0),
+            motor_2=FloatValue(value=40.0),
+            motor_3=FloatValue(value=40.0),
+        )
         state["joint_limits"] = Limits3d(
             roll=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0)),
             pitch=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0)),
-            yaw=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0))
-            )
+            yaw=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0)),
+        )
         return Orbita3dState(**state)
 
     def GoToOrientation(
@@ -131,9 +135,9 @@ class Orbita3dServicer:
             if not cmd_req.HasField("id"):
                 context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Missing 'id' field.")
 
-            orbita3d_components = self.get_orbita3d_components(cmd_req.id, context=context)
-
-
+            orbita3d_components = self.get_orbita3d_components(
+                cmd_req.id, context=context
+            )
 
             if cmd_req.HasField("compliant"):
                 cmd.joint_names.append(orbita3d_components.actuator.name)
@@ -241,7 +245,9 @@ class Orbita3dServicer:
     def Restart(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
         return Empty()
 
-    def get_orbita3d_components(self, component_id: ComponentId, context: grpc.ServicerContext) -> Orbita3dComponents:
+    def get_orbita3d_components(
+        self, component_id: ComponentId, context: grpc.ServicerContext
+    ) -> Orbita3dComponents:
         if not hasattr(self, "_lazy_components"):
             self._lazy_components = {}
 
@@ -292,9 +298,9 @@ conversion_table = {
     "id": lambda o: ComponentId(id=o.actuator.id, name=o.actuator.name),
     "present_position": lambda o: Rotation3d(
         rpy=ExtEulerAngles(
-            roll=o.roll.state["position"],
-            pitch=o.pitch.state["position"],
-            yaw=o.yaw.state["position"],
+            roll=FloatValue(value=o.roll.state["position"]),
+            pitch=FloatValue(value=o.pitch.state["position"]),
+            yaw=FloatValue(value=o.yaw.state["position"]),
         ),
     ),
     "present_speed": lambda o: Vector3d(
@@ -310,36 +316,66 @@ conversion_table = {
     "compliant": lambda o: BoolValue(value=not o.actuator.state["torque"]),
     "goal_position": lambda o: Rotation3d(
         rpy=ExtEulerAngles(
-            roll=o.roll.state["target_position"],
-            pitch=o.pitch.state["target_position"],
-            yaw=o.yaw.state["target_position"],
+            roll=FloatValue(value=o.roll.state["target_position"]),
+            pitch=FloatValue(value=o.pitch.state["target_position"]),
+            yaw=FloatValue(value=o.yaw.state["target_position"]),
         ),
     ),
     "speed_limit": lambda o: Float3d(
-        motor_1=FloatValue(value=o.raw_motor_1.state["speed_limit"]) if not math.isnan(o.raw_motor_1.state["speed_limit"]) else FloatValue(value=100.0),
-        motor_2=FloatValue(value=o.raw_motor_2.state["speed_limit"]) if not math.isnan(o.raw_motor_2.state["speed_limit"]) else FloatValue(value=100.0),
-        motor_3=FloatValue(value=o.raw_motor_3.state["speed_limit"]) if not math.isnan(o.raw_motor_3.state["speed_limit"]) else FloatValue(value=100.0),
+        motor_1=FloatValue(value=o.raw_motor_1.state["speed_limit"])
+        if not math.isnan(o.raw_motor_1.state["speed_limit"])
+        else FloatValue(value=100.0),
+        motor_2=FloatValue(value=o.raw_motor_2.state["speed_limit"])
+        if not math.isnan(o.raw_motor_2.state["speed_limit"])
+        else FloatValue(value=100.0),
+        motor_3=FloatValue(value=o.raw_motor_3.state["speed_limit"])
+        if not math.isnan(o.raw_motor_3.state["speed_limit"])
+        else FloatValue(value=100.0),
     ),
     "torque_limit": lambda o: Float3d(
-        motor_1=FloatValue(value=o.raw_motor_1.state["torque_limit"]) if not math.isnan(o.raw_motor_1.state["torque_limit"]) else FloatValue(value=100.0),
-        motor_2=FloatValue(value=o.raw_motor_2.state["torque_limit"]) if not math.isnan(o.raw_motor_2.state["torque_limit"]) else FloatValue(value=100.0),
-        motor_3=FloatValue(value=o.raw_motor_3.state["torque_limit"]) if not math.isnan(o.raw_motor_3.state["torque_limit"]) else FloatValue(value=100.0),
+        motor_1=FloatValue(value=o.raw_motor_1.state["torque_limit"])
+        if not math.isnan(o.raw_motor_1.state["torque_limit"])
+        else FloatValue(value=100.0),
+        motor_2=FloatValue(value=o.raw_motor_2.state["torque_limit"])
+        if not math.isnan(o.raw_motor_2.state["torque_limit"])
+        else FloatValue(value=100.0),
+        motor_3=FloatValue(value=o.raw_motor_3.state["torque_limit"])
+        if not math.isnan(o.raw_motor_3.state["torque_limit"])
+        else FloatValue(value=100.0),
     ),
     "pid": lambda o: PID3d(
         motor_1=PIDGains(
-            p=FloatValue(value=o.raw_motor_1.state["p_gain"]) if not math.isnan(o.raw_motor_1.state["p_gain"]) else FloatValue(value=100.0),
-            i=FloatValue(value=o.raw_motor_1.state["i_gain"]) if not math.isnan(o.raw_motor_1.state["i_gain"]) else FloatValue(value=100.0),
-            d=FloatValue(value=o.raw_motor_1.state["d_gain"]) if not math.isnan(o.raw_motor_1.state["d_gain"]) else FloatValue(value=100.0),
+            p=FloatValue(value=o.raw_motor_1.state["p_gain"])
+            if not math.isnan(o.raw_motor_1.state["p_gain"])
+            else FloatValue(value=100.0),
+            i=FloatValue(value=o.raw_motor_1.state["i_gain"])
+            if not math.isnan(o.raw_motor_1.state["i_gain"])
+            else FloatValue(value=100.0),
+            d=FloatValue(value=o.raw_motor_1.state["d_gain"])
+            if not math.isnan(o.raw_motor_1.state["d_gain"])
+            else FloatValue(value=100.0),
         ),
         motor_2=PIDGains(
-            p=FloatValue(value=o.raw_motor_2.state["p_gain"]) if not math.isnan(o.raw_motor_2.state["p_gain"]) else FloatValue(value=100.0),
-            i=FloatValue(value=o.raw_motor_2.state["i_gain"]) if not math.isnan(o.raw_motor_2.state["i_gain"]) else FloatValue(value=100.0),
-            d=FloatValue(value=o.raw_motor_2.state["d_gain"]) if not math.isnan(o.raw_motor_2.state["d_gain"]) else FloatValue(value=100.0),
+            p=FloatValue(value=o.raw_motor_2.state["p_gain"])
+            if not math.isnan(o.raw_motor_2.state["p_gain"])
+            else FloatValue(value=100.0),
+            i=FloatValue(value=o.raw_motor_2.state["i_gain"])
+            if not math.isnan(o.raw_motor_2.state["i_gain"])
+            else FloatValue(value=100.0),
+            d=FloatValue(value=o.raw_motor_2.state["d_gain"])
+            if not math.isnan(o.raw_motor_2.state["d_gain"])
+            else FloatValue(value=100.0),
         ),
         motor_3=PIDGains(
-            p=FloatValue(value=o.raw_motor_3.state["p_gain"]) if not math.isnan(o.raw_motor_3.state["p_gain"]) else FloatValue(value=100.0),
-            i=FloatValue(value=o.raw_motor_3.state["i_gain"]) if not math.isnan(o.raw_motor_3.state["i_gain"]) else FloatValue(value=100.0),
-            d=FloatValue(value=o.raw_motor_3.state["d_gain"]) if not math.isnan(o.raw_motor_3.state["d_gain"]) else FloatValue(value=100.0),
+            p=FloatValue(value=o.raw_motor_3.state["p_gain"])
+            if not math.isnan(o.raw_motor_3.state["p_gain"])
+            else FloatValue(value=100.0),
+            i=FloatValue(value=o.raw_motor_3.state["i_gain"])
+            if not math.isnan(o.raw_motor_3.state["i_gain"])
+            else FloatValue(value=100.0),
+            d=FloatValue(value=o.raw_motor_3.state["d_gain"])
+            if not math.isnan(o.raw_motor_3.state["d_gain"])
+            else FloatValue(value=100.0),
         ),
     ),
 }
