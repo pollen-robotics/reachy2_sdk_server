@@ -19,7 +19,9 @@ def get_uid_from_name(name: str, node: rclpy.node.Node) -> int:
     c = node.create_client(GetDynamicState, f"/get_dynamic_state")
 
     while not c.wait_for_service(timeout_sec=1.0):
-        node.get_logger().info(f"Service '{c.srv_name}' not available, waiting again...")
+        node.get_logger().info(
+            f"Service '{c.srv_name}' not available, waiting again..."
+        )
 
     req = GetDynamicState.Request()
     req.name = name
@@ -36,7 +38,9 @@ def get_component_full_state(component_name: str, node: rclpy.node.Node) -> dict
     c = node.create_client(GetDynamicState, f"/get_dynamic_state")
 
     while not c.wait_for_service(timeout_sec=1.0):
-        node.get_logger().info(f"Service '{c.srv_name}' not available, waiting again...")
+        node.get_logger().info(
+            f"Service '{c.srv_name}' not available, waiting again..."
+        )
 
     req = GetDynamicState.Request()
     req.name = component_name
@@ -108,7 +112,9 @@ def cleanup_fields(FieldEnum, fields):
         cleanup_fields.remove("ALL")
         cleanup_fields.remove("NONE")
     else:
-        cleanup_fields = [FieldEnum.DESCRIPTOR.values_by_number[field].name for field in fields]
+        cleanup_fields = [
+            FieldEnum.DESCRIPTOR.values_by_number[field].name for field in fields
+        ]
 
     cleanup_fields = [f.lower() for f in cleanup_fields]
 

@@ -22,7 +22,9 @@ from .utils import parse_reachy_config
 
 
 class AbstractBridgeNode(Node):
-    def __init__(self, reachy_config_path: str = None, asyncio_loop: AbstractEventLoop = None) -> None:
+    def __init__(
+        self, reachy_config_path: str = None, asyncio_loop: AbstractEventLoop = None
+    ) -> None:
         super().__init__(node_name="reachy_abstract_bridge_node")
 
         self.logger = self.get_logger()
@@ -49,7 +51,9 @@ class AbstractBridgeNode(Node):
         )
 
         self.wait_for_setup()
-        self.logger.info(f"Joint state setup (nb_joints={len(self.components.components)}).")
+        self.logger.info(
+            f"Joint state setup (nb_joints={len(self.components.components)})."
+        )
         for c in self.components.components:
             self.logger.info(f"\t - {c}")
 
@@ -103,7 +107,9 @@ class AbstractBridgeNode(Node):
     # Command updates
     def update_command(self, msg: JointState) -> None:
         for name, target in zip(msg.name, msg.position):
-            self.components.get_by_name(name).update_command({"target_position": target})
+            self.components.get_by_name(name).update_command(
+                {"target_position": target}
+            )
 
     def publish_command(self, msg: DynamicJointState) -> None:
         self.joint_command_pub.publish(msg)
@@ -155,9 +161,13 @@ class AbstractBridgeNode(Node):
                 topic=f"/{part.name}/target_pose",
                 qos_profile=high_freq_qos_profile,
             )
-            self.logger.info(f"Publisher to topic '{self.target_pose_pubs[part.id].topic_name}' ready.")
+            self.logger.info(
+                f"Publisher to topic '{self.target_pose_pubs[part.id].topic_name}' ready."
+            )
 
-    def compute_forward(self, id: PartId, joint_position: JointState) -> Tuple[bool, np.array]:
+    def compute_forward(
+        self, id: PartId, joint_position: JointState
+    ) -> Tuple[bool, np.array]:
         id = self.parts.get_by_part_id(id).id
 
         req = GetForwardKinematics.Request()
@@ -170,7 +180,9 @@ class AbstractBridgeNode(Node):
         else:
             return False, None
 
-    def compute_inverse(self, id: PartId, target: np.array, q0: JointState) -> Tuple[bool, JointState]:
+    def compute_inverse(
+        self, id: PartId, target: np.array, q0: JointState
+    ) -> Tuple[bool, JointState]:
         id = self.parts.get_by_part_id(id).id
 
         req = GetInverseKinematics.Request()
@@ -217,7 +229,9 @@ class AbstractBridgeNode(Node):
 
         self.get_logger().debug("Sending goal request...")
 
-        goal_handle = await self.goto_action_client[part].send_goal_async(goal_msg, feedback_callback=feedback_callback)
+        goal_handle = await self.goto_action_client[part].send_goal_async(
+            goal_msg, feedback_callback=feedback_callback
+        )
         self.get_logger().debug("feedback_callback setuped")
 
         if not goal_handle.accepted:
