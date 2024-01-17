@@ -1,48 +1,36 @@
-from collections import namedtuple
-from control_msgs.msg import DynamicJointState, InterfaceValue
-import grpc
-import rclpy
 import math
+from collections import namedtuple
 from typing import Iterator
 
-
-from ..abstract_bridge_node import AbstractBridgeNode
-from ..utils import (
-    axis_from_str,
-    endless_get_stream,
-    extract_fields,
-    get_current_timestamp,
-)
-
+import grpc
+import rclpy
+from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
-from google.protobuf.wrappers_pb2 import BoolValue,FloatValue
-
-from reachy2_sdk_api.component_pb2 import ComponentId, PIDGains,JointLimits
+from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
+from reachy2_sdk_api.component_pb2 import ComponentId, JointLimits, PIDGains
 from reachy2_sdk_api.orbita2d_pb2 import (
-    PID2d,
-    Pose2d,
     Float2d,
+    Limits2d,
     ListOfOrbita2d,
-    Orbita2dCommand,
-    Orbita2dsCommand,
-    Orbita2dField,
     Orbita2d,
+    Orbita2dCommand,
+    Orbita2dField,
+    Orbita2dsCommand,
     Orbita2dState,
     Orbita2dStateRequest,
     Orbita2dStatus,
     Orbita2dStreamStateRequest,
+    PID2d,
+    Pose2d,
     Vector2d,
-    Limits2d,
 )
 from reachy2_sdk_api.orbita2d_pb2_grpc import add_Orbita2dServiceServicer_to_server
 
-
+from ..abstract_bridge_node import AbstractBridgeNode
 from ..components import Component
+from ..utils import axis_from_str, endless_get_stream, extract_fields, get_current_timestamp
 
-
-Orbita2dComponents = namedtuple(
-    "Orbita2dComponents", ["actuator", "axis1", "axis2", "raw_motor_1", "raw_motor_2"]
-)
+Orbita2dComponents = namedtuple("Orbita2dComponents", ["actuator", "axis1", "axis2", "raw_motor_1", "raw_motor_2"])
 
 
 class Orbita2dServicer:
@@ -82,36 +70,23 @@ class Orbita2dServicer:
             axis_2=axis_from_str(orbita2d.extra["axis2"]),
         )
 
-    def GetAllOrbita2d(
-        self, request: Empty, context: grpc.ServicerContext
-    ) -> ListOfOrbita2d:
-        return ListOfOrbita2d(
-            orbita2d=[
-                self.get_info(o)
-                for o in self.bridge_node.components.get_by_type("orbita2d")
-            ]
-        )
+    def GetAllOrbita2d(self, request: Empty, context: grpc.ServicerContext) -> ListOfOrbita2d:
+        return ListOfOrbita2d(orbita2d=[self.get_info(o) for o in self.bridge_node.components.get_by_type("orbita2d")])
 
     # State
-    def GetState(
-        self, request: Orbita2dStateRequest, context: grpc.ServicerContext
-    ) -> Orbita2dState:
+    def GetState(self, request: Orbita2dStateRequest, context: grpc.ServicerContext) -> Orbita2dState:
         orbita2d_components = self.get_orbita2d_components(request.id, context=context)
 
-        state = extract_fields(
-            Orbita2dField, request.fields, conversion_table, orbita2d_components
-        )
+        state = extract_fields(Orbita2dField, request.fields, conversion_table, orbita2d_components)
         state["timestamp"] = get_current_timestamp(self.bridge_node)
         state["temperature"] = Float2d(motor_1=FloatValue(value=40.0), motor_2=FloatValue(value=40.0))
         state["joint_limits"] = Limits2d(
             axis_1=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0)),
             axis_2=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0)),
-            )
+        )
         return Orbita2dState(**state)
 
-    def StreamState(
-        self, request: Orbita2dStreamStateRequest, context: grpc.ServicerContext
-    ) -> Iterator[Orbita2dState]:
+    def StreamState(self, request: Orbita2dStreamStateRequest, context: grpc.ServicerContext) -> Iterator[Orbita2dState]:
         return endless_get_stream(
             self.GetState,
             request.req,
@@ -120,9 +95,7 @@ class Orbita2dServicer:
         )
 
     # Command
-    def SendCommand(
-        self, request: Orbita2dsCommand, context: grpc.ServicerContext
-    ) -> Empty:
+    def SendCommand(self, request: Orbita2dsCommand, context: grpc.ServicerContext) -> Empty:
         cmd = DynamicJointState()
         cmd.joint_names = []
 
@@ -205,17 +178,13 @@ class Orbita2dServicer:
 
         return Empty()
 
-    def StreamCommand(
-        self, request_stream: Iterator[Orbita2dsCommand], context: grpc.ServicerContext
-    ) -> Empty:
+    def StreamCommand(self, request_stream: Iterator[Orbita2dsCommand], context: grpc.ServicerContext) -> Empty:
         for request in request_stream:
             self.SendCommand(request, context)
         return Empty()
 
     # Doctor
-    def Audit(
-        self, request: ComponentId, context: grpc.ServicerContext
-    ) -> Orbita2dStatus:
+    def Audit(self, request: ComponentId, context: grpc.ServicerContext) -> Orbita2dStatus:
         return Orbita2dStatus()
 
     def HeartBeat(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
@@ -246,18 +215,10 @@ class Orbita2dServicer:
 
         if c.id not in self._lazy_components:
             orbita2d = components.get_by_component_id(component_id)
-            orbita2d_axis1 = components.get_by_name(
-                f"{orbita2d.name}_{orbita2d.extra['axis1']}"
-            )
-            orbita2d_axis2 = components.get_by_name(
-                f"{orbita2d.name}_{orbita2d.extra['axis2']}"
-            )
-            orbita2d_raw_motor_1 = components.get_by_name(
-                f"{orbita2d.name}_raw_motor_1"
-            )
-            orbita2d_raw_motor_2 = components.get_by_name(
-                f"{orbita2d.name}_raw_motor_2"
-            )
+            orbita2d_axis1 = components.get_by_name(f"{orbita2d.name}_{orbita2d.extra['axis1']}")
+            orbita2d_axis2 = components.get_by_name(f"{orbita2d.name}_{orbita2d.extra['axis2']}")
+            orbita2d_raw_motor_1 = components.get_by_name(f"{orbita2d.name}_raw_motor_1")
+            orbita2d_raw_motor_2 = components.get_by_name(f"{orbita2d.name}_raw_motor_2")
 
             self._lazy_components[c.id] = Orbita2dComponents(
                 orbita2d,
@@ -273,16 +234,13 @@ class Orbita2dServicer:
 conversion_table = {
     "id": lambda o: ComponentId(id=o.actuator.id, name=o.actuator.name),
     "present_position": lambda o: Pose2d(
-        axis_1=FloatValue(value=o.axis1.state["position"]),
-        axis_2=FloatValue(value=o.axis2.state["position"])
+        axis_1=FloatValue(value=o.axis1.state["position"]), axis_2=FloatValue(value=o.axis2.state["position"])
     ),
     "present_speed": lambda o: Vector2d(
-        x=FloatValue(value=o.axis1.state["velocity"]),
-        y=FloatValue(value=o.axis2.state["velocity"])
+        x=FloatValue(value=o.axis1.state["velocity"]), y=FloatValue(value=o.axis2.state["velocity"])
     ),
     "present_load": lambda o: Vector2d(
-        x=FloatValue(value=o.axis1.state["effort"]),
-        y=FloatValue(value=o.axis2.state["effort"])
+        x=FloatValue(value=o.axis1.state["effort"]), y=FloatValue(value=o.axis2.state["effort"])
     ),
     "compliant": lambda o: BoolValue(value=not o.actuator.state["torque"]),
     "goal_position": lambda o: Pose2d(
@@ -290,23 +248,43 @@ conversion_table = {
         axis_2=FloatValue(value=o.axis2.state["target_position"]),
     ),
     "speed_limit": lambda o: Float2d(
-        motor_1=FloatValue(value=o.raw_motor_1.state["speed_limit"]) if not math.isnan(o.raw_motor_1.state["speed_limit"]) else FloatValue(value=100.0),
-        motor_2=FloatValue(value=o.raw_motor_2.state["speed_limit"]) if not math.isnan(o.raw_motor_2.state["speed_limit"]) else FloatValue(value=100.0)
+        motor_1=FloatValue(value=o.raw_motor_1.state["speed_limit"])
+        if not math.isnan(o.raw_motor_1.state["speed_limit"])
+        else FloatValue(value=100.0),
+        motor_2=FloatValue(value=o.raw_motor_2.state["speed_limit"])
+        if not math.isnan(o.raw_motor_2.state["speed_limit"])
+        else FloatValue(value=100.0),
     ),
     "torque_limit": lambda o: Float2d(
-        motor_1=FloatValue(value=o.raw_motor_1.state["torque_limit"]) if not math.isnan(o.raw_motor_1.state["torque_limit"]) else FloatValue(value=100.0),
-        motor_2=FloatValue(value=o.raw_motor_2.state["torque_limit"]) if not math.isnan(o.raw_motor_2.state["torque_limit"]) else FloatValue(value=100.0),
+        motor_1=FloatValue(value=o.raw_motor_1.state["torque_limit"])
+        if not math.isnan(o.raw_motor_1.state["torque_limit"])
+        else FloatValue(value=100.0),
+        motor_2=FloatValue(value=o.raw_motor_2.state["torque_limit"])
+        if not math.isnan(o.raw_motor_2.state["torque_limit"])
+        else FloatValue(value=100.0),
     ),
     "pid": lambda o: PID2d(
         motor_1=PIDGains(
-            p=FloatValue(value=o.raw_motor_1.state["p_gain"]) if not math.isnan(o.raw_motor_1.state["p_gain"]) else FloatValue(value=100.0),
-            i=FloatValue(value=o.raw_motor_1.state["i_gain"]) if not math.isnan(o.raw_motor_1.state["i_gain"]) else FloatValue(value=100.0),
-            d=FloatValue(value=o.raw_motor_1.state["d_gain"]) if not math.isnan(o.raw_motor_1.state["d_gain"]) else FloatValue(value=100.0),
+            p=FloatValue(value=o.raw_motor_1.state["p_gain"])
+            if not math.isnan(o.raw_motor_1.state["p_gain"])
+            else FloatValue(value=100.0),
+            i=FloatValue(value=o.raw_motor_1.state["i_gain"])
+            if not math.isnan(o.raw_motor_1.state["i_gain"])
+            else FloatValue(value=100.0),
+            d=FloatValue(value=o.raw_motor_1.state["d_gain"])
+            if not math.isnan(o.raw_motor_1.state["d_gain"])
+            else FloatValue(value=100.0),
         ),
         motor_2=PIDGains(
-            p=FloatValue(value=o.raw_motor_2.state["p_gain"]) if not math.isnan(o.raw_motor_2.state["p_gain"]) else FloatValue(value=100.0),
-            i=FloatValue(value=o.raw_motor_2.state["i_gain"]) if not math.isnan(o.raw_motor_2.state["i_gain"]) else FloatValue(value=100.0),
-            d=FloatValue(value=o.raw_motor_2.state["d_gain"]) if not math.isnan(o.raw_motor_2.state["d_gain"]) else FloatValue(value=100.0),
+            p=FloatValue(value=o.raw_motor_2.state["p_gain"])
+            if not math.isnan(o.raw_motor_2.state["p_gain"])
+            else FloatValue(value=100.0),
+            i=FloatValue(value=o.raw_motor_2.state["i_gain"])
+            if not math.isnan(o.raw_motor_2.state["i_gain"])
+            else FloatValue(value=100.0),
+            d=FloatValue(value=o.raw_motor_2.state["d_gain"])
+            if not math.isnan(o.raw_motor_2.state["d_gain"])
+            else FloatValue(value=100.0),
         ),
     ),
 }

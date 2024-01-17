@@ -1,18 +1,14 @@
+from typing import Tuple
+
 import numpy as np
 from geometry_msgs.msg import Pose
+from google.protobuf.wrappers_pb2 import FloatValue
 from reachy2_sdk_api.arm_pb2 import ArmPosition
 from reachy2_sdk_api.head_pb2 import HeadPosition
-from reachy2_sdk_api.kinematics_pb2 import (
-    ExtEulerAngles,
-    Point,
-    Quaternion,
-    Rotation3d,
-)
+from reachy2_sdk_api.kinematics_pb2 import ExtEulerAngles, Point, Quaternion, Rotation3d
 from reachy2_sdk_api.orbita2d_pb2 import Pose2d
-from google.protobuf.wrappers_pb2 import FloatValue
 from scipy.spatial.transform import Rotation
 from sensor_msgs.msg import JointState
-from typing import Tuple
 
 from .parts import Part
 
@@ -30,9 +26,7 @@ def rotation3d_as_quat(
     if rot.HasField("q"):
         return rot.q.x, rot.q.y, rot.q.z, rot.q.w
     elif rot.HasField("rpy"):
-        return Rotation.from_euler(
-            "xyz", [rot.rpy.roll, rot.rpy.pitch, rot.rpy.yaw], degrees=False
-        ).as_quat()
+        return Rotation.from_euler("xyz", [rot.rpy.roll, rot.rpy.pitch, rot.rpy.yaw], degrees=False).as_quat()
     elif rot.HasField("matrix"):
         return Rotation.from_matrix(np.array(rot.matrix.data).reshape((3, 3))).as_quat()
     else:

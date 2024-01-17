@@ -1,42 +1,36 @@
-from collections import namedtuple
-from control_msgs.msg import DynamicJointState, InterfaceValue
-import grpc
-import rclpy
 import math
+from collections import namedtuple
 from typing import Iterator
 
+import grpc
+import rclpy
+from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
-
-from reachy2_sdk_api.component_pb2 import ComponentId, PIDGains, JointLimits
+from reachy2_sdk_api.component_pb2 import ComponentId, JointLimits, PIDGains
 from reachy2_sdk_api.kinematics_pb2 import ExtEulerAngles, Rotation3d
 from reachy2_sdk_api.orbita3d_pb2 import (
-    PID3d,
     Float3d,
+    Limits3d,
     ListOfOrbita3d,
+    Orbita3d,
     Orbita3dCommand,
-    Orbita3dsCommand,
     Orbita3dField,
     Orbita3dGoal,
-    Orbita3d,
+    Orbita3dsCommand,
     Orbita3dState,
     Orbita3dStateRequest,
     Orbita3dStatus,
     Orbita3dStreamStateRequest,
+    PID3d,
     Vector3d,
-    Limits3d,
 )
 from reachy2_sdk_api.orbita3d_pb2_grpc import add_Orbita3dServiceServicer_to_server
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..conversion import rotation3d_as_extrinsinc_euler_angles
 from ..components import Component
-from ..utils import (
-    endless_get_stream,
-    extract_fields,
-    get_current_timestamp,
-)
-
+from ..conversion import rotation3d_as_extrinsinc_euler_angles
+from ..utils import endless_get_stream, extract_fields, get_current_timestamp
 
 Orbita3dComponents = namedtuple(
     "Orbita3dComponents",
@@ -79,41 +73,28 @@ class Orbita3dServicer:
             ),
         )
 
-    def GetAllOrbita3d(
-        self, request: Empty, context: grpc.ServicerContext
-    ) -> ListOfOrbita3d:
-        return ListOfOrbita3d(
-            info=[
-                self.get_info(o)
-                for o in self.bridge_node.components.get_by_type("orbita3d")
-            ]
-        )
+    def GetAllOrbita3d(self, request: Empty, context: grpc.ServicerContext) -> ListOfOrbita3d:
+        return ListOfOrbita3d(info=[self.get_info(o) for o in self.bridge_node.components.get_by_type("orbita3d")])
 
-    def GetState(
-        self, request: Orbita3dStateRequest, context: grpc.ServicerContext
-    ) -> Orbita3dState:
+    def GetState(self, request: Orbita3dStateRequest, context: grpc.ServicerContext) -> Orbita3dState:
         orbita2d_components = self.get_orbita3d_components(request.id, context=context)
 
-        state = extract_fields(
-            Orbita3dField, request.fields, conversion_table, orbita2d_components
-        )
+        state = extract_fields(Orbita3dField, request.fields, conversion_table, orbita2d_components)
         state["timestamp"] = get_current_timestamp(self.bridge_node)
-        state["temperature"] = Float3d(motor_1=FloatValue(value=40.0), motor_2=FloatValue(value=40.0), motor_3=FloatValue(value=40.0))
+        state["temperature"] = Float3d(
+            motor_1=FloatValue(value=40.0), motor_2=FloatValue(value=40.0), motor_3=FloatValue(value=40.0)
+        )
         state["joint_limits"] = Limits3d(
             roll=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0)),
             pitch=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0)),
-            yaw=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0))
-            )
+            yaw=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0)),
+        )
         return Orbita3dState(**state)
 
-    def GoToOrientation(
-        self, request: Orbita3dGoal, context: grpc.ServicerContext
-    ) -> Empty:
+    def GoToOrientation(self, request: Orbita3dGoal, context: grpc.ServicerContext) -> Empty:
         return Empty()
 
-    def StreamState(
-        self, request: Orbita3dStreamStateRequest, context: grpc.ServicerContext
-    ) -> Iterator[Orbita3dState]:
+    def StreamState(self, request: Orbita3dStreamStateRequest, context: grpc.ServicerContext) -> Iterator[Orbita3dState]:
         return endless_get_stream(
             self.GetState,
             request.req,
@@ -121,9 +102,7 @@ class Orbita3dServicer:
             1 / request.freq,
         )
 
-    def SendCommand(
-        self, request: Orbita3dsCommand, context: grpc.ServicerContext
-    ) -> Empty:
+    def SendCommand(self, request: Orbita3dsCommand, context: grpc.ServicerContext) -> Empty:
         cmd = DynamicJointState()
         cmd.joint_names = []
 
@@ -132,8 +111,6 @@ class Orbita3dServicer:
                 context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Missing 'id' field.")
 
             orbita3d_components = self.get_orbita3d_components(cmd_req.id, context=context)
-
-
 
             if cmd_req.HasField("compliant"):
                 cmd.joint_names.append(orbita3d_components.actuator.name)
@@ -144,9 +121,7 @@ class Orbita3dServicer:
                     )
                 )
             if cmd_req.HasField("goal_position"):
-                roll, pitch, yaw = rotation3d_as_extrinsinc_euler_angles(
-                    cmd_req.goal_position
-                )
+                roll, pitch, yaw = rotation3d_as_extrinsinc_euler_angles(cmd_req.goal_position)
                 cmd.joint_names.extend(
                     [
                         orbita3d_components.roll.name,
@@ -223,16 +198,12 @@ class Orbita3dServicer:
 
         return Empty()
 
-    def StreamCommand(
-        self, request_stream: Iterator[Orbita3dCommand], context: grpc.ServicerContext
-    ) -> Empty:
+    def StreamCommand(self, request_stream: Iterator[Orbita3dCommand], context: grpc.ServicerContext) -> Empty:
         for request in request_stream:
             self.SendCommand(request, context)
         return Empty()
 
-    def Audit(
-        self, request: ComponentId, context: grpc.ServicerContext
-    ) -> Orbita3dStatus:
+    def Audit(self, request: ComponentId, context: grpc.ServicerContext) -> Orbita3dStatus:
         return Orbita3dStatus()
 
     def HeartBeat(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
@@ -265,15 +236,9 @@ class Orbita3dServicer:
             orbita3d_roll = components.get_by_name(f"{orbita3d.name}_roll")
             orbita3d_pitch = components.get_by_name(f"{orbita3d.name}_pitch")
             orbita3d_yaw = components.get_by_name(f"{orbita3d.name}_yaw")
-            orbita3d_raw_motor_1 = components.get_by_name(
-                f"{orbita3d.name}_raw_motor_1"
-            )
-            orbita3d_raw_motor_2 = components.get_by_name(
-                f"{orbita3d.name}_raw_motor_2"
-            )
-            orbita3d_raw_motor_3 = components.get_by_name(
-                f"{orbita3d.name}_raw_motor_3"
-            )
+            orbita3d_raw_motor_1 = components.get_by_name(f"{orbita3d.name}_raw_motor_1")
+            orbita3d_raw_motor_2 = components.get_by_name(f"{orbita3d.name}_raw_motor_2")
+            orbita3d_raw_motor_3 = components.get_by_name(f"{orbita3d.name}_raw_motor_3")
 
             self._lazy_components[c.id] = Orbita3dComponents(
                 orbita3d,
@@ -316,30 +281,60 @@ conversion_table = {
         ),
     ),
     "speed_limit": lambda o: Float3d(
-        motor_1=FloatValue(value=o.raw_motor_1.state["speed_limit"]) if not math.isnan(o.raw_motor_1.state["speed_limit"]) else FloatValue(value=100.0),
-        motor_2=FloatValue(value=o.raw_motor_2.state["speed_limit"]) if not math.isnan(o.raw_motor_2.state["speed_limit"]) else FloatValue(value=100.0),
-        motor_3=FloatValue(value=o.raw_motor_3.state["speed_limit"]) if not math.isnan(o.raw_motor_3.state["speed_limit"]) else FloatValue(value=100.0),
+        motor_1=FloatValue(value=o.raw_motor_1.state["speed_limit"])
+        if not math.isnan(o.raw_motor_1.state["speed_limit"])
+        else FloatValue(value=100.0),
+        motor_2=FloatValue(value=o.raw_motor_2.state["speed_limit"])
+        if not math.isnan(o.raw_motor_2.state["speed_limit"])
+        else FloatValue(value=100.0),
+        motor_3=FloatValue(value=o.raw_motor_3.state["speed_limit"])
+        if not math.isnan(o.raw_motor_3.state["speed_limit"])
+        else FloatValue(value=100.0),
     ),
     "torque_limit": lambda o: Float3d(
-        motor_1=FloatValue(value=o.raw_motor_1.state["torque_limit"]) if not math.isnan(o.raw_motor_1.state["torque_limit"]) else FloatValue(value=100.0),
-        motor_2=FloatValue(value=o.raw_motor_2.state["torque_limit"]) if not math.isnan(o.raw_motor_2.state["torque_limit"]) else FloatValue(value=100.0),
-        motor_3=FloatValue(value=o.raw_motor_3.state["torque_limit"]) if not math.isnan(o.raw_motor_3.state["torque_limit"]) else FloatValue(value=100.0),
+        motor_1=FloatValue(value=o.raw_motor_1.state["torque_limit"])
+        if not math.isnan(o.raw_motor_1.state["torque_limit"])
+        else FloatValue(value=100.0),
+        motor_2=FloatValue(value=o.raw_motor_2.state["torque_limit"])
+        if not math.isnan(o.raw_motor_2.state["torque_limit"])
+        else FloatValue(value=100.0),
+        motor_3=FloatValue(value=o.raw_motor_3.state["torque_limit"])
+        if not math.isnan(o.raw_motor_3.state["torque_limit"])
+        else FloatValue(value=100.0),
     ),
     "pid": lambda o: PID3d(
         motor_1=PIDGains(
-            p=FloatValue(value=o.raw_motor_1.state["p_gain"]) if not math.isnan(o.raw_motor_1.state["p_gain"]) else FloatValue(value=100.0),
-            i=FloatValue(value=o.raw_motor_1.state["i_gain"]) if not math.isnan(o.raw_motor_1.state["i_gain"]) else FloatValue(value=100.0),
-            d=FloatValue(value=o.raw_motor_1.state["d_gain"]) if not math.isnan(o.raw_motor_1.state["d_gain"]) else FloatValue(value=100.0),
+            p=FloatValue(value=o.raw_motor_1.state["p_gain"])
+            if not math.isnan(o.raw_motor_1.state["p_gain"])
+            else FloatValue(value=100.0),
+            i=FloatValue(value=o.raw_motor_1.state["i_gain"])
+            if not math.isnan(o.raw_motor_1.state["i_gain"])
+            else FloatValue(value=100.0),
+            d=FloatValue(value=o.raw_motor_1.state["d_gain"])
+            if not math.isnan(o.raw_motor_1.state["d_gain"])
+            else FloatValue(value=100.0),
         ),
         motor_2=PIDGains(
-            p=FloatValue(value=o.raw_motor_2.state["p_gain"]) if not math.isnan(o.raw_motor_2.state["p_gain"]) else FloatValue(value=100.0),
-            i=FloatValue(value=o.raw_motor_2.state["i_gain"]) if not math.isnan(o.raw_motor_2.state["i_gain"]) else FloatValue(value=100.0),
-            d=FloatValue(value=o.raw_motor_2.state["d_gain"]) if not math.isnan(o.raw_motor_2.state["d_gain"]) else FloatValue(value=100.0),
+            p=FloatValue(value=o.raw_motor_2.state["p_gain"])
+            if not math.isnan(o.raw_motor_2.state["p_gain"])
+            else FloatValue(value=100.0),
+            i=FloatValue(value=o.raw_motor_2.state["i_gain"])
+            if not math.isnan(o.raw_motor_2.state["i_gain"])
+            else FloatValue(value=100.0),
+            d=FloatValue(value=o.raw_motor_2.state["d_gain"])
+            if not math.isnan(o.raw_motor_2.state["d_gain"])
+            else FloatValue(value=100.0),
         ),
         motor_3=PIDGains(
-            p=FloatValue(value=o.raw_motor_3.state["p_gain"]) if not math.isnan(o.raw_motor_3.state["p_gain"]) else FloatValue(value=100.0),
-            i=FloatValue(value=o.raw_motor_3.state["i_gain"]) if not math.isnan(o.raw_motor_3.state["i_gain"]) else FloatValue(value=100.0),
-            d=FloatValue(value=o.raw_motor_3.state["d_gain"]) if not math.isnan(o.raw_motor_3.state["d_gain"]) else FloatValue(value=100.0),
+            p=FloatValue(value=o.raw_motor_3.state["p_gain"])
+            if not math.isnan(o.raw_motor_3.state["p_gain"])
+            else FloatValue(value=100.0),
+            i=FloatValue(value=o.raw_motor_3.state["i_gain"])
+            if not math.isnan(o.raw_motor_3.state["i_gain"])
+            else FloatValue(value=100.0),
+            d=FloatValue(value=o.raw_motor_3.state["d_gain"])
+            if not math.isnan(o.raw_motor_3.state["d_gain"])
+            else FloatValue(value=100.0),
         ),
     ),
 }

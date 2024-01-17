@@ -1,10 +1,9 @@
 from collections import defaultdict, namedtuple
 from typing import List, Optional
 
-from .components import ComponentsHolder
-
 from reachy2_sdk_api.part_pb2 import PartId
 
+from .components import ComponentsHolder
 
 Part = namedtuple("Part", ["name", "id", "type", "components"])
 
@@ -33,10 +32,7 @@ class PartsHolder:
                     name=part,
                     id=part_id,
                     type=self.guess_part_type(part, part_config),
-                    components=[
-                        components.get_by_name(actuator["name"])
-                        for actuator in part_config.values()
-                    ],
+                    components=[components.get_by_name(actuator["name"]) for actuator in part_config.values()],
                 )
 
                 self.parts[part] = p
