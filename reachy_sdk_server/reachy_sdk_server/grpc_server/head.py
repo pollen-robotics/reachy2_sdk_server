@@ -1,27 +1,20 @@
+from typing import Tuple
+
 import grpc
 import numpy as np
 import rclpy
-from typing import Tuple
-
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
-from sensor_msgs.msg import JointState
-
-from reachy2_sdk_api.component_pb2 import (
-    ComponentId,
-)
-from reachy2_sdk_api.head_pb2_grpc import (
-    add_HeadServiceServicer_to_server,
-)
+from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.head_pb2 import (
     Head,
     HeadDescription,
     HeadPosition,
+    HeadState,
     HeadStatus,
     HeadTemperatures,
-    HeadState,
-    ListOfHead,
     JointsLimits,
+    ListOfHead,
     NeckFKRequest,
     NeckFKSolution,
     NeckIKRequest,
@@ -30,13 +23,10 @@ from reachy2_sdk_api.head_pb2 import (
     NeckOrientation,
     SpeedLimitRequest,
 )
-from reachy2_sdk_api.kinematics_pb2 import (
-    Rotation3d,
-    Quaternion,
-)
-from reachy2_sdk_api.part_pb2 import (
-    PartId,
-)
+from reachy2_sdk_api.head_pb2_grpc import add_HeadServiceServicer_to_server
+from reachy2_sdk_api.kinematics_pb2 import Quaternion, Rotation3d
+from reachy2_sdk_api.part_pb2 import PartId
+from sensor_msgs.msg import JointState
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import (
@@ -44,18 +34,17 @@ from ..conversion import (
     joint_state_to_neck_orientation,
     neck_rotation_to_joint_state,
     pose_matrix_from_rotation3d,
-    neck_rotation_to_joint_state,
     quat_as_rotation3d,
     rotation3d_as_quat,
 )
+from ..parts import Part
+from ..utils import get_current_timestamp
 from .orbita3d import (
     Orbita3dCommand,
     Orbita3dsCommand,
     Orbita3dServicer,
     Orbita3dStateRequest,
 )
-from ..parts import Part
-from ..utils import get_current_timestamp
 
 
 class HeadServicer:
@@ -80,9 +69,7 @@ class HeadServicer:
         return Head(
             part_id=PartId(name=head.name, id=head.id),
             description=HeadDescription(
-                neck=Orbita3dServicer.get_info(
-                    self.bridge_node.components.get_by_name(head.components[0].name)
-                ),
+                neck=Orbita3dServicer.get_info(self.bridge_node.components.get_by_name(head.components[0].name)),
                 # l_antenna=DynamixelMotor.get_info(
                 #     self.bridge_node.components.get_by_name(head.components[1].name)
                 # ),
@@ -92,9 +79,7 @@ class HeadServicer:
             ),
         )
 
-    def get_head_part_from_part_id(
-        self, part_id: PartId, context: grpc.ServicerContext
-    ) -> Part:
+    def get_head_part_from_part_id(self, part_id: PartId, context: grpc.ServicerContext) -> Part:
         part = self.bridge_node.parts.get_by_part_id(part_id)
 
         if part is None:
@@ -141,9 +126,7 @@ class HeadServicer:
             # ),
         )
 
-    def ComputeNeckFK(
-        self, request: NeckFKRequest, context: grpc.ServicerContext
-    ) -> NeckFKSolution:
+    def ComputeNeckFK(self, request: NeckFKRequest, context: grpc.ServicerContext) -> NeckFKSolution:
         head = self.get_head_part_from_part_id(request.id, context)
         success, pose = self.bridge_node.compute_forward(
             request.id,
@@ -162,9 +145,7 @@ class HeadServicer:
 
         return sol
 
-    def ComputeNeckIK(
-        self, request: NeckIKRequest, context: grpc.ServicerContext
-    ) -> NeckIKSolution:
+    def ComputeNeckIK(self, request: NeckIKRequest, context: grpc.ServicerContext) -> NeckIKSolution:
         head = self.get_head_part_from_part_id(request.id, context)
 
         M = pose_matrix_from_rotation3d(request.target.rotation)
@@ -188,9 +169,7 @@ class HeadServicer:
 
         return sol
 
-    def GetOrientation(
-        self, request: PartId, context: grpc.ServicerContext
-    ) -> Rotation3d:
+    def GetOrientation(self, request: PartId, context: grpc.ServicerContext) -> Rotation3d:
         rot = self.GetState(request, context).neck_state.present_position
 
         fk_req = NeckFKRequest(
@@ -215,15 +194,11 @@ class HeadServicer:
     def Restart(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         return Empty()
 
-    def ResetDefaultValues(
-        self, request: PartId, context: grpc.ServicerContext
-    ) -> Empty:
+    def ResetDefaultValues(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         return Empty()
 
     # Compliances
-    def set_stiffness(
-        self, request: PartId, torque: bool, context: grpc.ServicerContext
-    ) -> None:
+    def set_stiffness(self, request: PartId, torque: bool, context: grpc.ServicerContext) -> None:
         # TODO: re-write using self.orbita3d_servicer.SendCommand?
         # TODO: check id
         head = self.get_head_part_from_part_id(request, context)
@@ -250,19 +225,13 @@ class HeadServicer:
         self.set_stiffness(request, torque=False, context=context)
         return Empty()
 
-    def GetJointsLimits(
-        self, request: PartId, context: grpc.ServicerContext
-    ) -> JointsLimits:
+    def GetJointsLimits(self, request: PartId, context: grpc.ServicerContext) -> JointsLimits:
         return JointsLimits()
 
-    def GetTemperatures(
-        self, request: PartId, context: grpc.ServicerContext
-    ) -> HeadTemperatures:
+    def GetTemperatures(self, request: PartId, context: grpc.ServicerContext) -> HeadTemperatures:
         return HeadTemperatures()
 
-    def GetJointGoalPosition(
-        self, request: PartId, context: grpc.ServicerContext
-    ) -> Rotation3d:
+    def GetJointGoalPosition(self, request: PartId, context: grpc.ServicerContext) -> Rotation3d:
         rot = self.GetState(request, context).neck_state.goal_position
 
         fk_req = NeckFKRequest(
@@ -280,14 +249,10 @@ class HeadServicer:
             q=resp.orientation.q,
         )
 
-    def SetSpeedLimit(
-        self, request: SpeedLimitRequest, context: grpc.ServicerContext
-    ) -> Empty:
+    def SetSpeedLimit(self, request: SpeedLimitRequest, context: grpc.ServicerContext) -> Empty:
         return Empty()
 
-    def SendNeckJointGoal(
-        self, request: NeckJointGoal, context: grpc.ServicerContext
-    ) -> Empty:
+    def SendNeckJointGoal(self, request: NeckJointGoal, context: grpc.ServicerContext) -> Empty:
         head = self.get_head_part_from_part_id(request.id, context)
 
         q = rotation3d_as_quat(request.joints_goal.rotation)

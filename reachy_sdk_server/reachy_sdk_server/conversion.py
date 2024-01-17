@@ -1,18 +1,14 @@
+from typing import Tuple
+
 import numpy as np
 from geometry_msgs.msg import Pose
+from google.protobuf.wrappers_pb2 import FloatValue
 from reachy2_sdk_api.arm_pb2 import ArmPosition
 from reachy2_sdk_api.head_pb2 import HeadPosition
-from reachy2_sdk_api.kinematics_pb2 import (
-    ExtEulerAngles,
-    Point,
-    Quaternion,
-    Rotation3d,
-)
+from reachy2_sdk_api.kinematics_pb2 import ExtEulerAngles, Point, Quaternion, Rotation3d
 from reachy2_sdk_api.orbita2d_pb2 import Pose2d
-from google.protobuf.wrappers_pb2 import FloatValue
 from scipy.spatial.transform import Rotation
 from sensor_msgs.msg import JointState
-from typing import Tuple
 
 from .parts import Part
 

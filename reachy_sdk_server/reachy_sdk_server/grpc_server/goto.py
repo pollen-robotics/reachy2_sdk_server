@@ -1,35 +1,33 @@
 import asyncio
 import copy
+import math
+import threading
+from typing import List, Optional
+
 import grpc
 import rclpy
-import threading
-import math
-
-from typing import List, Optional
+from action_msgs.msg import GoalStatus
 from google.protobuf.empty_pb2 import Empty
-from reachy2_sdk_api.goto_pb2_grpc import add_GoToServiceServicer_to_server
 from reachy2_sdk_api.arm_pb2 import ArmCartesianGoal
-from reachy2_sdk_api.part_pb2 import PartId
 from reachy2_sdk_api.goto_pb2 import (
     CartesianGoal,
-    JointsGoal,
-    GoToId,
     GoToAck,
     GoToGoalStatus,
+    GoToId,
     GoToRequest,
     InterpolationMode,
+    JointsGoal,
 )
-
-from action_msgs.msg import GoalStatus
+from reachy2_sdk_api.goto_pb2_grpc import add_GoToServiceServicer_to_server
+from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import JointState
 
-
+from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import (
-    pose_from_pos_and_ori,
     arm_position_to_joint_state,
+    pose_from_pos_and_ori,
     rotation3d_as_extrinsinc_euler_angles,
 )
-from ..abstract_bridge_node import AbstractBridgeNode
 from ..parts import Part
 
 
@@ -47,9 +45,7 @@ class GoToServicer:
         self.logger.info("Registering 'GoToServiceServicer' to server.")
         add_GoToServiceServicer_to_server(self, server)
 
-    def get_arm_part_by_part_id(
-        self, part_id: PartId, context: grpc.ServicerContext
-    ) -> Part:
+    def get_arm_part_by_part_id(self, part_id: PartId, context: grpc.ServicerContext) -> Part:
         part = self.bridge_node.parts.get_by_part_id(part_id)
 
         if part is None:
@@ -63,9 +59,7 @@ class GoToServicer:
 
         return part
 
-    def get_head_part_by_part_id(
-        self, part_id: PartId, context: grpc.ServicerContext
-    ) -> Part:
+    def get_head_part_by_part_id(self, part_id: PartId, context: grpc.ServicerContext) -> Part:
         part = self.bridge_node.parts.get_by_part_id(part_id)
 
         if part is None:
@@ -100,16 +94,12 @@ class GoToServicer:
         success = self.cancel_goal_by_goal_id(request.id)
         return GoToAck(ack=success)
 
-    def GetGoToState(
-        self, request: GoToId, context: grpc.ServicerContext
-    ) -> GoToGoalStatus:
+    def GetGoToState(self, request: GoToId, context: grpc.ServicerContext) -> GoToGoalStatus:
         # GoalStatus is one of:
         # STATUS_UNKNOWN, STATUS_ACCEPTED, STATUS_EXECUTING, STATUS_CANCELING, STATUS_SUCCEEDED, STATUS_CANCELED, STATUS_ABORTED
         goal_handle = self.goal_manager.get_goal_handle(request.id)
         if goal_handle is None:
-            self.logger.error(
-                f"Goal with id {request.id} not found. Returning:{1+int(GoalStatus.STATUS_UNKNOWN)}"
-            )
+            self.logger.error(f"Goal with id {request.id} not found. Returning:{1+int(GoalStatus.STATUS_UNKNOWN)}")
             return GoToGoalStatus(goal_status=(1 + int(GoalStatus.STATUS_UNKNOWN)))
         else:
             self.logger.debug(
@@ -118,9 +108,7 @@ class GoToServicer:
             return GoToGoalStatus(goal_status=(1 + int(goal_handle.status)))
 
     # Position and GoTo
-    def GoToCartesian(
-        self, request: GoToRequest, context: grpc.ServicerContext
-    ) -> GoToId:
+    def GoToCartesian(self, request: GoToRequest, context: grpc.ServicerContext) -> GoToId:
         interpolation_mode = self.get_interpolation_mode(request)
 
         if request.cartesian_goal.HasField("arm_cartesian_goal"):
@@ -155,9 +143,7 @@ class GoToServicer:
                 q0,
             )  # 'joint_position': 'sensor_msgs/JointState'
             if not success:
-                self.logger.error(
-                    f"Could not compute inverse kinematics for arm {arm_cartesian_goal.id}"
-                )
+                self.logger.error(f"Could not compute inverse kinematics for arm {arm_cartesian_goal.id}")
                 return GoToId(id=-1)
 
             joint_names = joint_position.name
@@ -195,9 +181,7 @@ class GoToServicer:
             #     neck_cartesian_goal.goal_pose.data,
             # )
             if not success:
-                self.logger.error(
-                    f"Could not compute inverse kinematics for arm {arm_cartesian_goal.id}"
-                )
+                self.logger.error(f"Could not compute inverse kinematics for arm {arm_cartesian_goal.id}")
                 return GoToId(id=-1)
 
             joint_names = joint_position.name
@@ -211,9 +195,7 @@ class GoToServicer:
                 mode=interpolation_mode,
             )
         else:
-            self.logger.error(
-                f"{request} is ill formed. Expected arm_cartesian_goal or neck_cartesian_goal"
-            )
+            self.logger.error(f"{request} is ill formed. Expected arm_cartesian_goal or neck_cartesian_goal")
             return GoToId(id=-1)
 
     def GoToJoints(self, request: GoToRequest, context: grpc.ServicerContext) -> GoToId:
@@ -224,9 +206,7 @@ class GoToServicer:
 
         if request.joints_goal.HasField("arm_joint_goal"):
             # The message contains an arm_joint_goal
-            arm_joint_goal = (
-                request.joints_goal.arm_joint_goal
-            )  # this is an ArmJointGoal
+            arm_joint_goal = request.joints_goal.arm_joint_goal  # this is an ArmJointGoal
             arm = self.get_arm_part_by_part_id(arm_joint_goal.id, context)
 
             joint_names = self.part_to_list_of_joint_names(arm)
@@ -259,9 +239,7 @@ class GoToServicer:
 
             duration = neck_joint_goal.duration.value
 
-            goal_positions = rotation3d_as_extrinsinc_euler_angles(
-                neck_joint_goal.joints_goal.rotation
-            )
+            goal_positions = rotation3d_as_extrinsinc_euler_angles(neck_joint_goal.joints_goal.rotation)
 
             return self.goto_joints(
                 "neck",
@@ -271,14 +249,10 @@ class GoToServicer:
                 mode=interpolation_mode,
             )
         else:
-            self.logger.error(
-                f"{request} is ill formed. Expected arm_joint_goal or neck_joint_goal"
-            )
+            self.logger.error(f"{request} is ill formed. Expected arm_joint_goal or neck_joint_goal")
             return GoToId(id=-1)
 
-    def goto_joints(
-        self, part_name, joint_names, goal_positions, duration, mode="minimum_jerk"
-    ):
+    def goto_joints(self, part_name, joint_names, goal_positions, duration, mode="minimum_jerk"):
         future = asyncio.run_coroutine_threadsafe(
             self.bridge_node.send_goto_goal(
                 part_name,

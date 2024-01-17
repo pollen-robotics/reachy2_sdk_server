@@ -1,42 +1,36 @@
-from collections import namedtuple
-from control_msgs.msg import DynamicJointState, InterfaceValue
-import grpc
-import rclpy
 import math
+from collections import namedtuple
 from typing import Iterator
 
+import grpc
+import rclpy
+from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
-
-from reachy2_sdk_api.component_pb2 import ComponentId, PIDGains, JointLimits
+from reachy2_sdk_api.component_pb2 import ComponentId, JointLimits, PIDGains
 from reachy2_sdk_api.kinematics_pb2 import ExtEulerAngles, Rotation3d
 from reachy2_sdk_api.orbita3d_pb2 import (
-    PID3d,
     Float3d,
+    Limits3d,
     ListOfOrbita3d,
+    Orbita3d,
     Orbita3dCommand,
-    Orbita3dsCommand,
     Orbita3dField,
     Orbita3dGoal,
-    Orbita3d,
+    Orbita3dsCommand,
     Orbita3dState,
     Orbita3dStateRequest,
     Orbita3dStatus,
     Orbita3dStreamStateRequest,
+    PID3d,
     Vector3d,
-    Limits3d,
 )
 from reachy2_sdk_api.orbita3d_pb2_grpc import add_Orbita3dServiceServicer_to_server
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..conversion import rotation3d_as_extrinsinc_euler_angles
 from ..components import Component
-from ..utils import (
-    endless_get_stream,
-    extract_fields,
-    get_current_timestamp,
-)
-
+from ..conversion import rotation3d_as_extrinsinc_euler_angles
+from ..utils import endless_get_stream, extract_fields, get_current_timestamp
 
 Orbita3dComponents = namedtuple(
     "Orbita3dComponents",
@@ -79,24 +73,13 @@ class Orbita3dServicer:
             ),
         )
 
-    def GetAllOrbita3d(
-        self, request: Empty, context: grpc.ServicerContext
-    ) -> ListOfOrbita3d:
-        return ListOfOrbita3d(
-            info=[
-                self.get_info(o)
-                for o in self.bridge_node.components.get_by_type("orbita3d")
-            ]
-        )
+    def GetAllOrbita3d(self, request: Empty, context: grpc.ServicerContext) -> ListOfOrbita3d:
+        return ListOfOrbita3d(info=[self.get_info(o) for o in self.bridge_node.components.get_by_type("orbita3d")])
 
-    def GetState(
-        self, request: Orbita3dStateRequest, context: grpc.ServicerContext
-    ) -> Orbita3dState:
-        orbita2d_components = self.get_orbita3d_components(request.id, context=context)
+    def GetState(self, request: Orbita3dStateRequest, context: grpc.ServicerContext) -> Orbita3dState:
+        orbita3d_components = self.get_orbita3d_components(request.id, context=context)
 
-        state = extract_fields(
-            Orbita3dField, request.fields, conversion_table, orbita2d_components
-        )
+        state = extract_fields(Orbita3dField, request.fields, conversion_table, orbita3d_components)
         state["timestamp"] = get_current_timestamp(self.bridge_node)
         state["temperature"] = Float3d(
             motor_1=FloatValue(value=40.0),
@@ -110,14 +93,10 @@ class Orbita3dServicer:
         )
         return Orbita3dState(**state)
 
-    def GoToOrientation(
-        self, request: Orbita3dGoal, context: grpc.ServicerContext
-    ) -> Empty:
+    def GoToOrientation(self, request: Orbita3dGoal, context: grpc.ServicerContext) -> Empty:
         return Empty()
 
-    def StreamState(
-        self, request: Orbita3dStreamStateRequest, context: grpc.ServicerContext
-    ) -> Iterator[Orbita3dState]:
+    def StreamState(self, request: Orbita3dStreamStateRequest, context: grpc.ServicerContext) -> Iterator[Orbita3dState]:
         return endless_get_stream(
             self.GetState,
             request.req,
@@ -125,9 +104,7 @@ class Orbita3dServicer:
             1 / request.freq,
         )
 
-    def SendCommand(
-        self, request: Orbita3dsCommand, context: grpc.ServicerContext
-    ) -> Empty:
+    def SendCommand(self, request: Orbita3dsCommand, context: grpc.ServicerContext) -> Empty:
         cmd = DynamicJointState()
         cmd.joint_names = []
 
@@ -135,9 +112,7 @@ class Orbita3dServicer:
             if not cmd_req.HasField("id"):
                 context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Missing 'id' field.")
 
-            orbita3d_components = self.get_orbita3d_components(
-                cmd_req.id, context=context
-            )
+            orbita3d_components = self.get_orbita3d_components(cmd_req.id, context=context)
 
             if cmd_req.HasField("compliant"):
                 cmd.joint_names.append(orbita3d_components.actuator.name)
@@ -148,9 +123,35 @@ class Orbita3dServicer:
                     )
                 )
             if cmd_req.HasField("goal_position"):
-                roll, pitch, yaw = rotation3d_as_extrinsinc_euler_angles(
-                    cmd_req.goal_position
-                )
+                if cmd_req.goal_position.HasField("rpy"):
+                    state = extract_fields(
+                        Orbita3dField,
+                        [Orbita3dField.GOAL_POSITION],
+                        conversion_table,
+                        orbita3d_components,
+                    )
+
+                    roll_value = (
+                        cmd_req.goal_position.rpy.roll
+                        if cmd_req.goal_position.rpy.HasField("roll")
+                        else state["goal_position"].rpy.roll
+                    )
+                    pitch_value = (
+                        cmd_req.goal_position.rpy.pitch
+                        if cmd_req.goal_position.rpy.HasField("pitch")
+                        else state["goal_position"].rpy.pitch
+                    )
+                    yaw_value = (
+                        cmd_req.goal_position.rpy.yaw
+                        if cmd_req.goal_position.rpy.HasField("yaw")
+                        else state["goal_position"].rpy.yaw
+                    )
+
+                    cmd_req = Orbita3dCommand(
+                        goal_position=Rotation3d(rpy=ExtEulerAngles(roll=roll_value, pitch=pitch_value, yaw=yaw_value))
+                    )
+
+                roll, pitch, yaw = rotation3d_as_extrinsinc_euler_angles(cmd_req.goal_position)
                 cmd.joint_names.extend(
                     [
                         orbita3d_components.roll.name,
@@ -227,16 +228,12 @@ class Orbita3dServicer:
 
         return Empty()
 
-    def StreamCommand(
-        self, request_stream: Iterator[Orbita3dCommand], context: grpc.ServicerContext
-    ) -> Empty:
+    def StreamCommand(self, request_stream: Iterator[Orbita3dCommand], context: grpc.ServicerContext) -> Empty:
         for request in request_stream:
             self.SendCommand(request, context)
         return Empty()
 
-    def Audit(
-        self, request: ComponentId, context: grpc.ServicerContext
-    ) -> Orbita3dStatus:
+    def Audit(self, request: ComponentId, context: grpc.ServicerContext) -> Orbita3dStatus:
         return Orbita3dStatus()
 
     def HeartBeat(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
@@ -245,9 +242,7 @@ class Orbita3dServicer:
     def Restart(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
         return Empty()
 
-    def get_orbita3d_components(
-        self, component_id: ComponentId, context: grpc.ServicerContext
-    ) -> Orbita3dComponents:
+    def get_orbita3d_components(self, component_id: ComponentId, context: grpc.ServicerContext) -> Orbita3dComponents:
         if not hasattr(self, "_lazy_components"):
             self._lazy_components = {}
 
@@ -271,15 +266,9 @@ class Orbita3dServicer:
             orbita3d_roll = components.get_by_name(f"{orbita3d.name}_roll")
             orbita3d_pitch = components.get_by_name(f"{orbita3d.name}_pitch")
             orbita3d_yaw = components.get_by_name(f"{orbita3d.name}_yaw")
-            orbita3d_raw_motor_1 = components.get_by_name(
-                f"{orbita3d.name}_raw_motor_1"
-            )
-            orbita3d_raw_motor_2 = components.get_by_name(
-                f"{orbita3d.name}_raw_motor_2"
-            )
-            orbita3d_raw_motor_3 = components.get_by_name(
-                f"{orbita3d.name}_raw_motor_3"
-            )
+            orbita3d_raw_motor_1 = components.get_by_name(f"{orbita3d.name}_raw_motor_1")
+            orbita3d_raw_motor_2 = components.get_by_name(f"{orbita3d.name}_raw_motor_2")
+            orbita3d_raw_motor_3 = components.get_by_name(f"{orbita3d.name}_raw_motor_3")
 
             self._lazy_components[c.id] = Orbita3dComponents(
                 orbita3d,
