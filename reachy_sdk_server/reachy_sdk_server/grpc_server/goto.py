@@ -243,6 +243,10 @@ class GoToServicer:
                 arm_joint_goal.joints_goal.wrist_position.rpy.yaw,
             ]
 
+            # if duration == 0:
+            #     context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            #     context.set_details('duration cannot be 0.')
+
             return self.goto_joints(
                 arm.name,
                 joint_names,
