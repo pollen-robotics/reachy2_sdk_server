@@ -1,28 +1,25 @@
-from control_msgs.msg import DynamicJointState
-from geometry_msgs.msg import Pose, PoseStamped
+from asyncio.events import AbstractEventLoop
+from threading import Event, Lock
+from typing import List, Tuple
+
 import numpy as np
 import rclpy
-from rclpy.node import Node
-from sensor_msgs.msg import JointState
-from threading import Event, Lock
-from typing import Tuple, List
-
-from rclpy.action import ActionClient
-from asyncio.events import AbstractEventLoop
-
-
+from control_msgs.msg import DynamicJointState
+from geometry_msgs.msg import Pose, PoseStamped
+from pollen_msgs.action import Goto
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
-
+from rclpy.action import ActionClient
+from rclpy.node import Node
+from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.part_pb2 import PartId
-from pollen_msgs.action import Goto
-
+from sensor_msgs.msg import JointState
 
 from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix
 from .parts import PartsHolder
 from .utils import parse_reachy_config
-from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+
 
 class AbstractBridgeNode(Node):
     def __init__(
@@ -154,11 +151,11 @@ class AbstractBridgeNode(Node):
             # High frequency QoS profile
             high_freq_qos_profile = QoSProfile(
                 reliability=ReliabilityPolicy.BEST_EFFORT,  # Prioritizes speed over guaranteed delivery
-                history=HistoryPolicy.KEEP_LAST,            # Keeps only a fixed number of messages
-                depth=1,                                    # Minimal depth, for the latest message
+                history=HistoryPolicy.KEEP_LAST,  # Keeps only a fixed number of messages
+                depth=1,  # Minimal depth, for the latest message
                 # Other QoS settings can be adjusted as needed
             )
-        
+
             self.target_pose_pubs[part.id] = self.create_publisher(
                 msg_type=PoseStamped,
                 topic=f"/{part.name}/target_pose",
