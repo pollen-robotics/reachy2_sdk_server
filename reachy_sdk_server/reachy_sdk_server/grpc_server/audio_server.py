@@ -5,7 +5,8 @@ import rclpy
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue
 from reachy2_sdk_api.component_pb2 import ComponentId
-from reachy_sdk_api_v2.sound_pb2 import (
+from reachy2_sdk_api.sound_pb2_grpc import add_SoundServiceServicer_to_server
+from reachy2_sdk_api.sound_pb2 import (
     ListOfMicrophone,
     ListOfSound,
     ListOfSpeaker,
@@ -18,7 +19,6 @@ from reachy_sdk_api_v2.sound_pb2 import (
     TextRequest,
     VolumeRequest,
 )
-from reachy2_sdk_api.sound_pb2_grpc import add_SoundServiceServicer_to_server
 from sound_play.libsoundplay import SoundClient
 
 from ..utils import get_list_audio_files
@@ -118,6 +118,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=50063)
     parser.add_argument("--max-workers", type=int, default=10)
+    parser.add_argument("--ros-args", action="store_true")
     args = parser.parse_args()
 
     servicer = ReachyGRPCAudioSDKServicer()

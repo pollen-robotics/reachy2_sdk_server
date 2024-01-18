@@ -1,36 +1,30 @@
 import asyncio
-import grpc
-import rclpy
-import threading
 import math
+import threading
+from typing import List, Tuple
+
+import grpc
 import numpy as np
-
-from typing import List
-from typing import Tuple
-
+import rclpy
+from action_msgs.msg import GoalStatus
 from google.protobuf.empty_pb2 import Empty
-from reachy2_sdk_api.goto_pb2_grpc import add_GoToServiceServicer_to_server
-from reachy2_sdk_api.part_pb2 import PartId
 from reachy2_sdk_api.goto_pb2 import (
-    GoToId,
     GoToAck,
     GoToGoalStatus,
+    GoToId,
     GoToRequest,
     InterpolationMode,
 )
-from reachy2_sdk_api.kinematics_pb2 import (
-    Quaternion,
-)
-
-from action_msgs.msg import GoalStatus
+from reachy2_sdk_api.goto_pb2_grpc import add_GoToServiceServicer_to_server
+from reachy2_sdk_api.kinematics_pb2 import Quaternion
+from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import JointState
 
-
+from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import (
     pose_matrix_from_quaternion,
     rotation3d_as_extrinsinc_euler_angles,
 )
-from ..abstract_bridge_node import AbstractBridgeNode
 from ..parts import Part
 
 
@@ -142,9 +136,9 @@ class GoToServicer:
                     q0_grpc.shoulder_position.axis_2.value,
                     q0_grpc.elbow_position.axis_1.value,
                     q0_grpc.elbow_position.axis_2.value,
-                    q0_grpc.wrist_position.rpy.roll,
-                    q0_grpc.wrist_position.rpy.pitch,
-                    q0_grpc.wrist_position.rpy.yaw,
+                    q0_grpc.wrist_position.rpy.roll.value,
+                    q0_grpc.wrist_position.rpy.pitch.value,
+                    q0_grpc.wrist_position.rpy.yaw.value,
                 ]
             else:
                 default_q0_position = [0.0, 0.0, 0.0, -math.pi / 2, 0.0, 0.0, 0.0]
@@ -247,9 +241,9 @@ class GoToServicer:
                 arm_joint_goal.joints_goal.shoulder_position.axis_2.value,
                 arm_joint_goal.joints_goal.elbow_position.axis_1.value,
                 arm_joint_goal.joints_goal.elbow_position.axis_2.value,
-                arm_joint_goal.joints_goal.wrist_position.rpy.roll,
-                arm_joint_goal.joints_goal.wrist_position.rpy.pitch,
-                arm_joint_goal.joints_goal.wrist_position.rpy.yaw,
+                arm_joint_goal.joints_goal.wrist_position.rpy.roll.value,
+                arm_joint_goal.joints_goal.wrist_position.rpy.pitch.value,
+                arm_joint_goal.joints_goal.wrist_position.rpy.yaw.value,
             ]
 
             return self.goto_joints(

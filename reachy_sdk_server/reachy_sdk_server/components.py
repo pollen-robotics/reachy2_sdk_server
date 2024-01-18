@@ -1,8 +1,8 @@
 from collections import defaultdict
-
-from reachy2_sdk_api.component_pb2 import ComponentId
-import rclpy
 from typing import List, Optional
+
+import rclpy
+from reachy2_sdk_api.component_pb2 import ComponentId
 
 from .utils import get_component_full_state
 
