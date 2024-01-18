@@ -1,8 +1,8 @@
+import asyncio
+import threading
+
 import grpc
 import rclpy
-import threading
-import asyncio
-
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer

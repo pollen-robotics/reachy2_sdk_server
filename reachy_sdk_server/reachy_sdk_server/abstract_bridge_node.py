@@ -1,22 +1,19 @@
-from control_msgs.msg import DynamicJointState
-from geometry_msgs.msg import Pose, PoseStamped
+from asyncio.events import AbstractEventLoop
+from threading import Event, Lock
+from typing import List, Tuple
+
 import numpy as np
 import rclpy
-from rclpy.node import Node
-from sensor_msgs.msg import JointState
-from threading import Event, Lock
-from typing import Tuple, List
-
-from rclpy.action import ActionClient
-from asyncio.events import AbstractEventLoop
-
-
+from control_msgs.msg import DynamicJointState
+from geometry_msgs.msg import Pose, PoseStamped
+from pollen_msgs.action import Goto
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
-
+from rclpy.action import ActionClient
+from rclpy.node import Node
+from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.part_pb2 import PartId
-from pollen_msgs.action import Goto
-
+from sensor_msgs.msg import JointState
 
 from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix
@@ -115,8 +112,7 @@ class AbstractBridgeNode(Node):
             )
 
     def publish_command(self, msg: DynamicJointState) -> None:
-        with self.command_pub_lock:
-            self.joint_command_pub.publish(msg)
+        self.joint_command_pub.publish(msg)
 
     # Misc utils
     def get_component(self, component_id: ComponentId) -> dict:
@@ -152,10 +148,18 @@ class AbstractBridgeNode(Node):
             c.wait_for_service()
             self.inverse_kinematics_clients[part.id] = c
 
+            # High frequency QoS profile
+            high_freq_qos_profile = QoSProfile(
+                reliability=ReliabilityPolicy.BEST_EFFORT,  # Prioritizes speed over guaranteed delivery
+                history=HistoryPolicy.KEEP_LAST,  # Keeps only a fixed number of messages
+                depth=1,  # Minimal depth, for the latest message
+                # Other QoS settings can be adjusted as needed
+            )
+
             self.target_pose_pubs[part.id] = self.create_publisher(
                 msg_type=PoseStamped,
                 topic=f"/{part.name}/target_pose",
-                qos_profile=10,
+                qos_profile=high_freq_qos_profile,
             )
             self.logger.info(
                 f"Publisher to topic '{self.target_pose_pubs[part.id].topic_name}' ready."
@@ -195,8 +199,7 @@ class AbstractBridgeNode(Node):
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.pose = pose
 
-        with self.command_target_pub_lock:
-            self.target_pose_pubs[id].publish(msg)
+        self.target_pose_pubs[id].publish(msg)
 
     async def send_goto_goal(
         self,

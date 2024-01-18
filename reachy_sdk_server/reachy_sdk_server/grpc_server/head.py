@@ -1,27 +1,17 @@
 import grpc
-import numpy as np
 import rclpy
-from typing import Tuple
-
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
-from sensor_msgs.msg import JointState
-
-from reachy2_sdk_api.component_pb2 import (
-    ComponentId,
-)
-from reachy2_sdk_api.head_pb2_grpc import (
-    add_HeadServiceServicer_to_server,
-)
+from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.head_pb2 import (
     Head,
     HeadDescription,
     HeadPosition,
+    HeadState,
     HeadStatus,
     HeadTemperatures,
-    HeadState,
-    ListOfHead,
     JointsLimits,
+    ListOfHead,
     NeckFKRequest,
     NeckFKSolution,
     NeckIKRequest,
@@ -30,13 +20,10 @@ from reachy2_sdk_api.head_pb2 import (
     NeckOrientation,
     SpeedLimitRequest,
 )
-from reachy2_sdk_api.kinematics_pb2 import (
-    Rotation3d,
-    Quaternion,
-)
-from reachy2_sdk_api.part_pb2 import (
-    PartId,
-)
+from reachy2_sdk_api.head_pb2_grpc import add_HeadServiceServicer_to_server
+from reachy2_sdk_api.kinematics_pb2 import Quaternion, Rotation3d
+from reachy2_sdk_api.part_pb2 import PartId
+from sensor_msgs.msg import JointState
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import (
@@ -44,18 +31,17 @@ from ..conversion import (
     joint_state_to_neck_orientation,
     neck_rotation_to_joint_state,
     pose_matrix_from_rotation3d,
-    neck_rotation_to_joint_state,
     quat_as_rotation3d,
     rotation3d_as_quat,
 )
+from ..parts import Part
+from ..utils import get_current_timestamp
 from .orbita3d import (
     Orbita3dCommand,
     Orbita3dsCommand,
     Orbita3dServicer,
     Orbita3dStateRequest,
 )
-from ..parts import Part
-from ..utils import get_current_timestamp
 
 
 class HeadServicer:
@@ -316,50 +302,3 @@ class HeadServicer:
         )
 
         return Empty()
-
-def _find_neck_quaternion_transform(
-    vect_origin: Tuple[float, float, float],
-    vect_target: Tuple[float, float, float],
-) -> Tuple[float, float, float, float]:
-    vo = _norm(vect_origin)
-
-    neck_in_torso = (vect_target[0] - 0.015, vect_target[1], vect_target[2] - 0.095)
-    head_in_torso = (
-        neck_in_torso[0] - 0.02,
-        neck_in_torso[1],
-        neck_in_torso[2] - 0.06105,
-    )
-
-    vd = _norm(head_in_torso)
-
-    v = np.cross(vo, vd)
-    v = _norm(v)
-
-    alpha = np.arccos(np.dot(vo, vd))
-    if np.isnan(alpha) or alpha < 1e-6:
-        return (0, 0, 0, 1)
-
-    q = _from_axis_angle(axis=v, angle=alpha)
-    return q
-
-
-def _norm(v):
-    v = np.array(v)
-    if np.any(v):
-        v = v / np.linalg.norm(v)
-    return v
-
-
-def _from_axis_angle(axis, angle):
-    mag_sq = np.dot(axis, axis)
-    if mag_sq == 0.0:
-        raise ValueError("Rotation axis must be non-zero")
-
-    if abs(1.0 - mag_sq) > 1e-12:
-        axis = axis / np.sqrt(mag_sq)
-
-    theta = angle / 2.0
-    r = np.cos(theta)
-    i = axis * np.sin(theta)
-
-    return np.array([i[0], i[1], i[2], r])
