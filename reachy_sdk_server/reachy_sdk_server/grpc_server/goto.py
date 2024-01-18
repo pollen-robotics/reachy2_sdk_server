@@ -169,9 +169,6 @@ class GoToServicer:
             )
 
         elif request.cartesian_goal.HasField("neck_cartesian_goal"):
-            self.logger.error("neck_cartesian_goal to be implemented")
-            self.logger.error(f"request: {request}")
-
             # this is a NeckCartesianGoal https://github.com/pollen-robotics/reachy2-sdk-api/blob/81-adjust-goto-methods/protos/head.proto
             neck_cartesian_goal = request.cartesian_goal.neck_cartesian_goal
             head = self.get_head_part_by_part_id(neck_cartesian_goal.id, context)
@@ -186,7 +183,6 @@ class GoToServicer:
             q_numpy = _find_neck_quaternion_transform([1, 0, 0], [x, y, z])
             q_quat = Quaternion(x=q_numpy[0], y=q_numpy[1], z=q_numpy[2], w=q_numpy[3])
             M = pose_matrix_from_quaternion(q_quat)
-            self.logger.error(f"M: {M}")
             q0 = JointState()
             q0.position = [0.0, 0.0, 0.0]
 
@@ -195,7 +191,6 @@ class GoToServicer:
                 M,
                 q0,
             )
-            self.logger.error(f"joint_position: {joint_position}")
 
             if not success:
                 self.logger.error(
