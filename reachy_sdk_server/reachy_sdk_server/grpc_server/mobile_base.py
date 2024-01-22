@@ -76,9 +76,7 @@ class MobileBaseServicer(
 ):
     """Mobile base SDK server node."""
 
-    def __init__(
-        self, logger: rclpy.impl.rcutils_logger.RcutilsLogger, reachy_config_path: str
-    ) -> None:
+    def __init__(self, logger: rclpy.impl.rcutils_logger.RcutilsLogger, reachy_config_path: str) -> None:
         """Set up the node.
 
         Get mobile base basic info such as its odometry, battery level, drive mode or control mode
@@ -86,9 +84,7 @@ class MobileBaseServicer(
         Send commands through the GoToXYTheta or SetSpeed services or by publishing to cmd_vel topic.
         """
         self.logger = logger
-        self.mobile_base_enabled = (
-            True  # Keep track of mobile base status in order to return None for teleop
-        )
+        self.mobile_base_enabled = True  # Keep track of mobile base status in order to return None for teleop
 
         config = parse_reachy_config(reachy_config_path)
         self.info = {
@@ -98,9 +94,7 @@ class MobileBaseServicer(
         }
 
         if not config["mobile_base"]["serial_number"]:
-            self.logger.info(
-                "No mobile base found in the config file. Mobile base server not initialized."
-            )
+            self.logger.info("No mobile base found in the config file. Mobile base server not initialized.")
             self.mobile_base_enabled = False
             return
 
@@ -110,9 +104,7 @@ class MobileBaseServicer(
 
         self.bridge = CvBridge()
         # TODO: subscription does not work because the node is not spinned
-        self.lidar_img_subscriber = self.create_subscription(
-            Image, "lidar_image", self.get_lidar_img, 1
-        )
+        self.lidar_img_subscriber = self.create_subscription(Image, "lidar_image", self.get_lidar_img, 1)
 
         self.set_speed_client = self.create_client(SetSpeed, "SetSpeed")
         while not self.set_speed_client.wait_for_service(timeout_sec=1.0):
@@ -122,9 +114,7 @@ class MobileBaseServicer(
         while not self.go_to_client.wait_for_service(timeout_sec=1.0):
             self.logger.info("service GoToXYTheta not available, waiting again...")
 
-        self.distance_to_goal_client = self.create_client(
-            DistanceToGoal, "DistanceToGoal"
-        )
+        self.distance_to_goal_client = self.create_client(DistanceToGoal, "DistanceToGoal")
         while not self.distance_to_goal_client.wait_for_service(timeout_sec=1.0):
             self.logger.info("service DistanceToGoal not available, waiting again...")
 
@@ -136,13 +126,9 @@ class MobileBaseServicer(
         while not self.get_zuuu_mode_client.wait_for_service(timeout_sec=1.0):
             self.logger.info("service GetZuuuMode not available, waiting again...")
 
-        self.get_battery_voltage_client = self.create_client(
-            GetBatteryVoltage, "GetBatteryVoltage"
-        )
+        self.get_battery_voltage_client = self.create_client(GetBatteryVoltage, "GetBatteryVoltage")
         while not self.get_battery_voltage_client.wait_for_service(timeout_sec=1.0):
-            self.logger.info(
-                "service GetBatteryVoltage not available, waiting again..."
-            )
+            self.logger.info("service GetBatteryVoltage not available, waiting again...")
 
         self.get_odometry_client = self.create_client(GetOdometry, "GetOdometry")
         while not self.get_odometry_client.wait_for_service(timeout_sec=1.0):
@@ -195,15 +181,11 @@ class MobileBaseServicer(
 
         req = MobileBaseState(
             battery_level=self.GetBatteryLevel(request, context),
-            lidar_obstacle_detection_status=self.GetZuuuSafety(
-                request, context
-            ).obstacle_detection_status,
+            lidar_obstacle_detection_status=self.GetZuuuSafety(request, context).obstacle_detection_status,
         )
         return req
 
-    def SendDirection(
-        self, request: TargetDirectionCommand, context
-    ) -> MobilityServiceAck:
+    def SendDirection(self, request: TargetDirectionCommand, context) -> MobilityServiceAck:
         """Send a speed command for the mobile base expressed in SI units."""
         twist = Twist()
         twist.linear.x = request.direction.x.value
@@ -268,9 +250,7 @@ class MobileBaseServicer(
 
         return response
 
-    def SetControlMode(
-        self, request: ControlModeCommand, context
-    ) -> MobilityServiceAck:
+    def SetControlMode(self, request: ControlModeCommand, context) -> MobilityServiceAck:
         """Set mobile base control mode.
 
         Two valid control modes are available: OPEN_LOOP and PID.
@@ -285,9 +265,7 @@ class MobileBaseServicer(
 
     def GetControlMode(self, request: Empty, context) -> ControlModeCommand:
         """Get mobile base control mode."""
-        output = check_output(
-            ["ros2", "param", "get", "/zuuu_hal", "control_mode"]
-        ).decode()
+        output = check_output(["ros2", "param", "get", "/zuuu_hal", "control_mode"]).decode()
 
         # Response from ros2 looks like: "String value is: MODE"
         mode = output.split(": ")[-1].split()[0]
@@ -388,17 +366,11 @@ class MobileBaseServicer(
 
             ros_obstacle_detection_status = ros_response.obstacle_detection_status
             if ros_obstacle_detection_status == "green":
-                grpc_obstacle_detection_status = (
-                    LidarObstacleDetectionEnum.NO_OBJECT_DETECTED
-                )
+                grpc_obstacle_detection_status = LidarObstacleDetectionEnum.NO_OBJECT_DETECTED
             elif ros_obstacle_detection_status == "orange":
-                grpc_obstacle_detection_status = (
-                    LidarObstacleDetectionEnum.OBJECT_DETECTED_SLOWDOWN
-                )
+                grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_SLOWDOWN
             elif ros_obstacle_detection_status == "red":
-                grpc_obstacle_detection_status = (
-                    LidarObstacleDetectionEnum.OBJECT_DETECTED_STOP
-                )
+                grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_STOP
 
             response.obstacle_detection_status.status = grpc_obstacle_detection_status
 

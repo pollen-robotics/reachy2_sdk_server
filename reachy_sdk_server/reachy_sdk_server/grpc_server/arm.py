@@ -2,13 +2,8 @@ from typing import List, Optional
 
 import grpc
 import rclpy
-
-
 from control_msgs.msg import DynamicJointState, InterfaceValue
-
 from google.protobuf.empty_pb2 import Empty
-
-
 from reachy2_sdk_api.arm_pb2 import (
     Arm,
     ArmCartesianGoal,
@@ -22,40 +17,19 @@ from reachy2_sdk_api.arm_pb2 import (
     ArmState,
     ArmStatus,
     ArmTemperatures,
-    ArmLimits,
     ListOfArm,
     SpeedLimitRequest,
 )
-
 from reachy2_sdk_api.arm_pb2_grpc import add_ArmServiceServicer_to_server
 from reachy2_sdk_api.kinematics_pb2 import Matrix4x4
 from reachy2_sdk_api.part_pb2 import PartId
-from reachy2_sdk_api.kinematics_pb2 import Matrix4x4
-
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..conversion import (
-    arm_position_to_joint_state,
-    joint_state_to_arm_position,
-    matrix_to_pose,
-)
+from ..conversion import arm_position_to_joint_state, joint_state_to_arm_position, matrix_to_pose
 from ..parts import Part
 from ..utils import get_current_timestamp
-from .orbita2d import (
-    ComponentId,
-    Orbita2dCommand,
-    Orbita2dsCommand,
-    Orbita2dServicer,
-    Orbita2dStateRequest,
-)
-from .orbita3d import (
-    Orbita3dCommand,
-    Orbita3dsCommand,
-    Orbita3dServicer,
-    Orbita3dStateRequest,
-)
-from ..parts import Part
-from ..utils import get_current_timestamp
+from .orbita2d import ComponentId, Orbita2dCommand, Orbita2dsCommand, Orbita2dServicer, Orbita2dStateRequest
+from .orbita3d import Orbita3dCommand, Orbita3dsCommand, Orbita3dServicer, Orbita3dStateRequest
 
 
 class ArmServicer:
