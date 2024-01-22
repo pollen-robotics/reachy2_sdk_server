@@ -28,16 +28,9 @@ from reachy2_sdk_api.orbita2d_pb2_grpc import add_Orbita2dServiceServicer_to_ser
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..components import Component
-from ..utils import (
-    axis_from_str,
-    endless_get_stream,
-    extract_fields,
-    get_current_timestamp,
-)
+from ..utils import axis_from_str, endless_get_stream, extract_fields, get_current_timestamp
 
-Orbita2dComponents = namedtuple(
-    "Orbita2dComponents", ["actuator", "axis1", "axis2", "raw_motor_1", "raw_motor_2"]
-)
+Orbita2dComponents = namedtuple("Orbita2dComponents", ["actuator", "axis1", "axis2", "raw_motor_1", "raw_motor_2"])
 
 
 class Orbita2dServicer:
@@ -77,38 +70,23 @@ class Orbita2dServicer:
             axis_2=axis_from_str(orbita2d.extra["axis2"]),
         )
 
-    def GetAllOrbita2d(
-        self, request: Empty, context: grpc.ServicerContext
-    ) -> ListOfOrbita2d:
-        return ListOfOrbita2d(
-            orbita2d=[
-                self.get_info(o)
-                for o in self.bridge_node.components.get_by_type("orbita2d")
-            ]
-        )
+    def GetAllOrbita2d(self, request: Empty, context: grpc.ServicerContext) -> ListOfOrbita2d:
+        return ListOfOrbita2d(orbita2d=[self.get_info(o) for o in self.bridge_node.components.get_by_type("orbita2d")])
 
     # State
-    def GetState(
-        self, request: Orbita2dStateRequest, context: grpc.ServicerContext
-    ) -> Orbita2dState:
+    def GetState(self, request: Orbita2dStateRequest, context: grpc.ServicerContext) -> Orbita2dState:
         orbita2d_components = self.get_orbita2d_components(request.id, context=context)
 
-        state = extract_fields(
-            Orbita2dField, request.fields, conversion_table, orbita2d_components
-        )
+        state = extract_fields(Orbita2dField, request.fields, conversion_table, orbita2d_components)
         state["timestamp"] = get_current_timestamp(self.bridge_node)
-        state["temperature"] = Float2d(
-            motor_1=FloatValue(value=40.0), motor_2=FloatValue(value=40.0)
-        )
+        state["temperature"] = Float2d(motor_1=FloatValue(value=40.0), motor_2=FloatValue(value=40.0))
         state["joint_limits"] = Limits2d(
             axis_1=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0)),
             axis_2=JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0)),
         )
         return Orbita2dState(**state)
 
-    def StreamState(
-        self, request: Orbita2dStreamStateRequest, context: grpc.ServicerContext
-    ) -> Iterator[Orbita2dState]:
+    def StreamState(self, request: Orbita2dStreamStateRequest, context: grpc.ServicerContext) -> Iterator[Orbita2dState]:
         return endless_get_stream(
             self.GetState,
             request.req,
@@ -117,9 +95,7 @@ class Orbita2dServicer:
         )
 
     # Command
-    def SendCommand(
-        self, request: Orbita2dsCommand, context: grpc.ServicerContext
-    ) -> Empty:
+    def SendCommand(self, request: Orbita2dsCommand, context: grpc.ServicerContext) -> Empty:
         cmd = DynamicJointState()
         cmd.joint_names = []
 
@@ -127,9 +103,7 @@ class Orbita2dServicer:
             if not req_cmd.HasField("id"):
                 context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Missing 'id' field.")
 
-            orbita2d_components = self.get_orbita2d_components(
-                req_cmd.id, context=context
-            )
+            orbita2d_components = self.get_orbita2d_components(req_cmd.id, context=context)
 
             if req_cmd.HasField("compliant"):
                 cmd.joint_names.append(orbita2d_components.actuator.name)
@@ -221,17 +195,13 @@ class Orbita2dServicer:
 
         return Empty()
 
-    def StreamCommand(
-        self, request_stream: Iterator[Orbita2dsCommand], context: grpc.ServicerContext
-    ) -> Empty:
+    def StreamCommand(self, request_stream: Iterator[Orbita2dsCommand], context: grpc.ServicerContext) -> Empty:
         for request in request_stream:
             self.SendCommand(request, context)
         return Empty()
 
     # Doctor
-    def Audit(
-        self, request: ComponentId, context: grpc.ServicerContext
-    ) -> Orbita2dStatus:
+    def Audit(self, request: ComponentId, context: grpc.ServicerContext) -> Orbita2dStatus:
         return Orbita2dStatus()
 
     def HeartBeat(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
@@ -241,9 +211,7 @@ class Orbita2dServicer:
         return Empty()
 
     # Setup utils
-    def get_orbita2d_components(
-        self, component_id: ComponentId, context: grpc.ServicerContext
-    ) -> Orbita2dComponents:
+    def get_orbita2d_components(self, component_id: ComponentId, context: grpc.ServicerContext) -> Orbita2dComponents:
         if not hasattr(self, "_lazy_components"):
             self._lazy_components = {}
 
@@ -264,18 +232,10 @@ class Orbita2dServicer:
 
         if c.id not in self._lazy_components:
             orbita2d = components.get_by_component_id(component_id)
-            orbita2d_axis1 = components.get_by_name(
-                f"{orbita2d.name}_{orbita2d.extra['axis1']}"
-            )
-            orbita2d_axis2 = components.get_by_name(
-                f"{orbita2d.name}_{orbita2d.extra['axis2']}"
-            )
-            orbita2d_raw_motor_1 = components.get_by_name(
-                f"{orbita2d.name}_raw_motor_1"
-            )
-            orbita2d_raw_motor_2 = components.get_by_name(
-                f"{orbita2d.name}_raw_motor_2"
-            )
+            orbita2d_axis1 = components.get_by_name(f"{orbita2d.name}_{orbita2d.extra['axis1']}")
+            orbita2d_axis2 = components.get_by_name(f"{orbita2d.name}_{orbita2d.extra['axis2']}")
+            orbita2d_raw_motor_1 = components.get_by_name(f"{orbita2d.name}_raw_motor_1")
+            orbita2d_raw_motor_2 = components.get_by_name(f"{orbita2d.name}_raw_motor_2")
 
             self._lazy_components[c.id] = Orbita2dComponents(
                 orbita2d,
