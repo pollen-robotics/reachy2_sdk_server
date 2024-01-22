@@ -1,7 +1,7 @@
 import asyncio
 import math
 import threading
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import grpc
 import numpy as np
@@ -12,6 +12,7 @@ from reachy2_sdk_api.goto_pb2 import (
     GoToAck,
     GoToGoalStatus,
     GoToId,
+    GoToQueue,
     GoToRequest,
     InterpolationMode,
 )
@@ -41,6 +42,16 @@ class GoToServicer:
     def register_to_server(self, server: grpc.Server) -> None:
         self.logger.info("Registering 'GoToServiceServicer' to server.")
         add_GoToServiceServicer_to_server(self, server)
+
+    def get_part_by_part_id(
+        self, part_id: PartId, context: grpc.ServicerContext
+    ) -> Optional[Part]:
+        part = self.bridge_node.parts.get_by_part_id(part_id)
+
+        if part is None:
+            context.abort(grpc.StatusCode.NOT_FOUND, f"Part not found (id={part_id}).")
+
+        return part
 
     def get_arm_part_by_part_id(
         self, part_id: PartId, context: grpc.ServicerContext
@@ -274,6 +285,22 @@ class GoToServicer:
             )
             return GoToId(id=-1)
 
+    def GetGoToRequest(self, goto_id: GoToId, context: grpc.ServicerContext) -> GoToRequest:
+        pass
+
+    def GetPartGoToPlaying(self, part_id: PartId, context: grpc.ServicerContext) -> GoToId:
+        part_name = self.get_part_by_part_id(part_id, context)
+        return self.get_part_goto_playing(part_name)
+
+    def GetPartGoToQueue(self, part_id: PartId, context: grpc.ServicerContext) -> GoToQueue:
+        part_name = self.get_part_by_part_id(part_id, context)
+        return self.get_part_queue(part_name)
+
+    def CancelPartAllGoTo(self, part_id: PartId, context: grpc.ServicerContext) -> GoToAck:
+        part_name = self.get_part_by_part_id(part_id, context)
+        self.cancel_all_part_goals(part_name)
+        return GoToAck(ack=True)
+
     def goto_joints(
         self, part_name, joint_names, goal_positions, duration, mode="minimum_jerk"
     ):
@@ -297,7 +324,7 @@ class GoToServicer:
             self.logger.info("GotoGoal was rejected")
             return GoToId(id=-1)
 
-        goal_id = self.goal_manager.store_goal_handle(goal_handle)
+        goal_id = self.goal_manager.store_goal_handle(part_name, goal_handle)
 
         return GoToId(id=goal_id)
 
@@ -312,6 +339,17 @@ class GoToServicer:
                 f"Interpolation mode {interpolation_mode} not supported. Should be one of 'linear' or 'minimum_jerk'."
             )
             return None
+    
+    def get_part_queue(self, part_name: str) -> GoToQueue:
+        goal_ids = getattr(self.goal_manager, part_name+"_goal")
+        return GoToQueue(goto_ids=goal_ids)
+    
+    def get_part_goto_playing(self, part_name: str) -> GoToId:
+        goal_ids = getattr(self.goal_manager, part_name+"_goal")
+        for goal_id in goal_ids:
+            if self.goal_manager.goal_handles[goal_id].status == 3:
+                return GoToId(id=goal_id)
+        return GoToId(id=-1)
 
     def cancel_goal_by_goal_id(self, goal_id: int) -> None:
         goal_handle = self.goal_manager.get_goal_handle(goal_id)
@@ -329,6 +367,11 @@ class GoToServicer:
             return True
         else:
             return False
+    
+    def cancel_all_part_goals(self, part_name: str) -> None:
+        part_goal_ids = getattr(self.goal_manager, part_name+"_goal")
+        for goal_id in part_goal_ids:
+            self.cancel_goal_by_goal_id(goal_id)
 
     def cancel_all_goals(self) -> None:
         for goal_id in self.goal_manager.goal_handles.keys():
@@ -339,6 +382,10 @@ class GoalManager:
     # TODO decide how/when to remove goal handles from the dict. Also investigate the bug that appears when spamming gotos.
     def __init__(self):
         self.goal_handles = {}
+        self.goal_request = {}
+        self.r_arm_goal = []
+        self.l_arm_goal = []
+        self.neck_goal = []
         self.goal_id_counter = 0
         self.lock = threading.Lock()
 
@@ -347,9 +394,10 @@ class GoalManager:
             self.goal_id_counter += 1
             return self.goal_id_counter
 
-    def store_goal_handle(self, goal_handle):
+    def store_goal_handle(self, part_name: str, goal_handle):
         goal_id = self.generate_unique_id()
         self.goal_handles[goal_id] = goal_handle
+        getattr(self, part_name+"_goal").append(goal_id)
         return goal_id
 
     def get_goal_handle(self, goal_id):
