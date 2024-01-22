@@ -1,7 +1,4 @@
-from typing import Tuple
-
 import grpc
-import numpy as np
 import rclpy
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
@@ -39,7 +36,12 @@ from ..conversion import (
 )
 from ..parts import Part
 from ..utils import get_current_timestamp
-from .orbita3d import Orbita3dCommand, Orbita3dsCommand, Orbita3dServicer, Orbita3dStateRequest
+from .orbita3d import (
+    Orbita3dCommand,
+    Orbita3dsCommand,
+    Orbita3dServicer,
+    Orbita3dStateRequest,
+)
 
 
 class HeadServicer:
@@ -64,7 +66,9 @@ class HeadServicer:
         return Head(
             part_id=PartId(name=head.name, id=head.id),
             description=HeadDescription(
-                neck=Orbita3dServicer.get_info(self.bridge_node.components.get_by_name(head.components[0].name)),
+                neck=Orbita3dServicer.get_info(
+                    self.bridge_node.components.get_by_name(head.components[0].name)
+                ),
                 # l_antenna=DynamixelMotor.get_info(
                 #     self.bridge_node.components.get_by_name(head.components[1].name)
                 # ),
@@ -74,7 +78,9 @@ class HeadServicer:
             ),
         )
 
-    def get_head_part_from_part_id(self, part_id: PartId, context: grpc.ServicerContext) -> Part:
+    def get_head_part_from_part_id(
+        self, part_id: PartId, context: grpc.ServicerContext
+    ) -> Part:
         part = self.bridge_node.parts.get_by_part_id(part_id)
 
         if part is None:
@@ -121,7 +127,9 @@ class HeadServicer:
             # ),
         )
 
-    def ComputeNeckFK(self, request: NeckFKRequest, context: grpc.ServicerContext) -> NeckFKSolution:
+    def ComputeNeckFK(
+        self, request: NeckFKRequest, context: grpc.ServicerContext
+    ) -> NeckFKSolution:
         head = self.get_head_part_from_part_id(request.id, context)
         success, pose = self.bridge_node.compute_forward(
             request.id,
@@ -140,7 +148,9 @@ class HeadServicer:
 
         return sol
 
-    def ComputeNeckIK(self, request: NeckIKRequest, context: grpc.ServicerContext) -> NeckIKSolution:
+    def ComputeNeckIK(
+        self, request: NeckIKRequest, context: grpc.ServicerContext
+    ) -> NeckIKSolution:
         head = self.get_head_part_from_part_id(request.id, context)
 
         M = pose_matrix_from_rotation3d(request.target.rotation)
@@ -164,7 +174,9 @@ class HeadServicer:
 
         return sol
 
-    def GetOrientation(self, request: PartId, context: grpc.ServicerContext) -> Rotation3d:
+    def GetOrientation(
+        self, request: PartId, context: grpc.ServicerContext
+    ) -> Rotation3d:
         rot = self.GetState(request, context).neck_state.present_position
 
         fk_req = NeckFKRequest(
@@ -189,11 +201,15 @@ class HeadServicer:
     def Restart(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         return Empty()
 
-    def ResetDefaultValues(self, request: PartId, context: grpc.ServicerContext) -> Empty:
+    def ResetDefaultValues(
+        self, request: PartId, context: grpc.ServicerContext
+    ) -> Empty:
         return Empty()
 
     # Compliances
-    def set_stiffness(self, request: PartId, torque: bool, context: grpc.ServicerContext) -> None:
+    def set_stiffness(
+        self, request: PartId, torque: bool, context: grpc.ServicerContext
+    ) -> None:
         # TODO: re-write using self.orbita3d_servicer.SendCommand?
         # TODO: check id
         head = self.get_head_part_from_part_id(request, context)
@@ -220,13 +236,19 @@ class HeadServicer:
         self.set_stiffness(request, torque=False, context=context)
         return Empty()
 
-    def GetJointsLimits(self, request: PartId, context: grpc.ServicerContext) -> JointsLimits:
+    def GetJointsLimits(
+        self, request: PartId, context: grpc.ServicerContext
+    ) -> JointsLimits:
         return JointsLimits()
 
-    def GetTemperatures(self, request: PartId, context: grpc.ServicerContext) -> HeadTemperatures:
+    def GetTemperatures(
+        self, request: PartId, context: grpc.ServicerContext
+    ) -> HeadTemperatures:
         return HeadTemperatures()
 
-    def GetJointGoalPosition(self, request: PartId, context: grpc.ServicerContext) -> Rotation3d:
+    def GetJointGoalPosition(
+        self, request: PartId, context: grpc.ServicerContext
+    ) -> Rotation3d:
         rot = self.GetState(request, context).neck_state.goal_position
 
         fk_req = NeckFKRequest(
@@ -244,10 +266,14 @@ class HeadServicer:
             q=resp.orientation.q,
         )
 
-    def SetSpeedLimit(self, request: SpeedLimitRequest, context: grpc.ServicerContext) -> Empty:
+    def SetSpeedLimit(
+        self, request: SpeedLimitRequest, context: grpc.ServicerContext
+    ) -> Empty:
         return Empty()
 
-    def SendNeckJointGoal(self, request: NeckJointGoal, context: grpc.ServicerContext) -> Empty:
+    def SendNeckJointGoal(
+        self, request: NeckJointGoal, context: grpc.ServicerContext
+    ) -> Empty:
         head = self.get_head_part_from_part_id(request.id, context)
 
         q = rotation3d_as_quat(request.joints_goal.rotation)
@@ -276,51 +302,3 @@ class HeadServicer:
         )
 
         return Empty()
-
-
-def _find_neck_quaternion_transform(
-    vect_origin: Tuple[float, float, float],
-    vect_target: Tuple[float, float, float],
-) -> Tuple[float, float, float, float]:
-    vo = _norm(vect_origin)
-
-    neck_in_torso = (vect_target[0] - 0.015, vect_target[1], vect_target[2] - 0.095)
-    head_in_torso = (
-        neck_in_torso[0] - 0.02,
-        neck_in_torso[1],
-        neck_in_torso[2] - 0.06105,
-    )
-
-    vd = _norm(head_in_torso)
-
-    v = np.cross(vo, vd)
-    v = _norm(v)
-
-    alpha = np.arccos(np.dot(vo, vd))
-    if np.isnan(alpha) or alpha < 1e-6:
-        return (0, 0, 0, 1)
-
-    q = _from_axis_angle(axis=v, angle=alpha)
-    return q
-
-
-def _norm(v):
-    v = np.array(v)
-    if np.any(v):
-        v = v / np.linalg.norm(v)
-    return v
-
-
-def _from_axis_angle(axis, angle):
-    mag_sq = np.dot(axis, axis)
-    if mag_sq == 0.0:
-        raise ValueError("Rotation axis must be non-zero")
-
-    if abs(1.0 - mag_sq) > 1e-12:
-        axis = axis / np.sqrt(mag_sq)
-
-    theta = angle / 2.0
-    r = np.cos(theta)
-    i = axis * np.sin(theta)
-
-    return np.array([i[0], i[1], i[2], r])
