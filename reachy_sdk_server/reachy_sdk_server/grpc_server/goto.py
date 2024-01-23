@@ -328,6 +328,8 @@ class GoToServicer:
             self.logger.info("GotoGoal was rejected")
             return GoToId(id=-1)
 
+        if part_name == "neck":
+            part_name = "head"
         goal_id = self.goal_manager.store_goal_handle(part_name, goal_handle, goal_request)
 
         return GoToId(id=goal_id)
@@ -410,7 +412,7 @@ class GoToServicer:
 
             return request
 
-        if goal_id in self.goal_manager.neck_goal:
+        if goal_id in self.goal_manager.head_goal:
             part = self.bridge_node.parts.get_by_name("head")
         if part is not None:
             part_id = PartId(id=part.id, name=part.name)
@@ -475,7 +477,7 @@ class GoalManager:
         self.goal_requests = {}
         self.r_arm_goal = []
         self.l_arm_goal = []
-        self.neck_goal = []
+        self.head_goal = []
         self.goal_id_counter = 0
         self.lock = threading.Lock()
 
