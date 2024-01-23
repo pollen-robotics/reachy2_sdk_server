@@ -294,11 +294,11 @@ class GoToServicer:
 
     def GetPartGoToQueue(self, part_id: PartId, context: grpc.ServicerContext) -> GoToQueue:
         part_name = self.get_part_by_part_id(part_id, context)
-        return self.get_part_queue(part_name)
+        return self.get_part_queue(part_name.name)
 
     def CancelPartAllGoTo(self, part_id: PartId, context: grpc.ServicerContext) -> GoToAck:
         part_name = self.get_part_by_part_id(part_id, context)
-        self.cancel_all_part_goals(part_name)
+        self.cancel_all_part_goals(part_name.name)
         return GoToAck(ack=True)
 
     def goto_joints(
@@ -347,7 +347,7 @@ class GoToServicer:
     def get_part_goto_playing(self, part_name: str) -> GoToId:
         goal_ids = getattr(self.goal_manager, part_name+"_goal")
         for goal_id in goal_ids:
-            if self.goal_manager.goal_handles[goal_id].status == 3:
+            if self.goal_manager.goal_handles[goal_id].status == 2:
                 return GoToId(id=goal_id)
         return GoToId(id=-1)
 
@@ -367,7 +367,7 @@ class GoToServicer:
             return True
         else:
             return False
-    
+
     def cancel_all_part_goals(self, part_name: str) -> None:
         part_goal_ids = getattr(self.goal_manager, part_name+"_goal")
         for goal_id in part_goal_ids:
