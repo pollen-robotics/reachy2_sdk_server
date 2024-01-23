@@ -374,6 +374,7 @@ class GoToServicer:
         mode = self._get_grpc_interpolation_mode(goal_request["mode"])
         duration = goal_request["duration"]
         joints_goal = goal_request["goal_positions"]
+        part = None
 
         if goal_id in self.goal_manager.r_arm_goal:
             part = self.bridge_node.parts.get_by_name("r_arm")
@@ -435,7 +436,7 @@ class GoToServicer:
                 joints_goal=JointsGoal(
                     neck_joint_goal=neck_joint_goal
                 ),
-                interpolation_mode=mode
+                interpolation_mode=GoToInterpolation(interpolation_type=mode)
             )
 
             return request
