@@ -341,7 +341,8 @@ class GoToServicer:
             return None
 
     def get_part_queue(self, part_name: str) -> GoToQueue:
-        goal_ids = getattr(self.goal_manager, part_name+"_goal")
+        goal_ids_int = getattr(self.goal_manager, part_name+"_goal")
+        goal_ids = [GoToId(id=goal_id_int) for goal_id_int in goal_ids_int if self.goal_manager.goal_handles[goal_id_int].status in [0, 1]]
         return GoToQueue(goto_ids=goal_ids)
 
     def get_part_goto_playing(self, part_name: str) -> GoToId:
