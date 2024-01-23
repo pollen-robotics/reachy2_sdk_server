@@ -1,31 +1,30 @@
 import asyncio
 import math
 import threading
-from typing import List, Tuple, Optional
+from typing import List, Optional, Tuple
 
 import grpc
 import numpy as np
 import rclpy
 from action_msgs.msg import GoalStatus
 from google.protobuf.empty_pb2 import Empty
-from reachy2_sdk_api.goto_pb2 import (
-    GoToAck,
-    GoToGoalStatus,
-    GoToId,
-    GoToQueue,
-    GoToRequest,
-    InterpolationMode,
-)
+from google.protobuf.wrappers_pb2 import FloatValue
+from reachy2_sdk_api.arm_pb2 import ArmJointGoal, ArmPosition
+from reachy2_sdk_api.goto_pb2 import (GoToAck, GoToGoalStatus, GoToId,
+                                      GoToInterpolation, GoToQueue,
+                                      GoToRequest, InterpolationMode,
+                                      JointsGoal)
 from reachy2_sdk_api.goto_pb2_grpc import add_GoToServiceServicer_to_server
-from reachy2_sdk_api.kinematics_pb2 import Quaternion
+from reachy2_sdk_api.head_pb2 import NeckJointGoal, NeckOrientation
+from reachy2_sdk_api.kinematics_pb2 import (ExtEulerAngles, Quaternion,
+                                            Rotation3d)
+from reachy2_sdk_api.orbita2d_pb2 import Pose2d
 from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import JointState
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..conversion import (
-    pose_matrix_from_quaternion,
-    rotation3d_as_extrinsinc_euler_angles,
-)
+from ..conversion import (pose_matrix_from_quaternion,
+                          rotation3d_as_extrinsinc_euler_angles)
 from ..parts import Part
 
 
@@ -286,7 +285,7 @@ class GoToServicer:
             return GoToId(id=-1)
 
     def GetGoToRequest(self, goto_id: GoToId, context: grpc.ServicerContext) -> GoToRequest:
-        pass
+        return self.get_goal_request_by_goal_id(goto_id.id, context)
 
     def GetPartGoToPlaying(self, part_id: PartId, context: grpc.ServicerContext) -> GoToId:
         part_name = self.get_part_by_part_id(part_id, context)
@@ -298,7 +297,7 @@ class GoToServicer:
 
     def CancelPartAllGoTo(self, part_id: PartId, context: grpc.ServicerContext) -> GoToAck:
         part_name = self.get_part_by_part_id(part_id, context)
-        self.cancel_all_part_goals(part_name.name)
+        self.cancel_part_all_goals(part_name.name)
         return GoToAck(ack=True)
 
     def goto_joints(
@@ -320,11 +319,16 @@ class GoToServicer:
         # Wait for the result and get it => This has to be fast
         goal_handle = future.result()
 
+        goal_request = {}
+        goal_request["goal_positions"] = goal_positions
+        goal_request["duration"] = duration
+        goal_request["mode"] = mode
+
         if goal_handle is None:
             self.logger.info("GotoGoal was rejected")
             return GoToId(id=-1)
 
-        goal_id = self.goal_manager.store_goal_handle(part_name, goal_handle)
+        goal_id = self.goal_manager.store_goal_handle(part_name, goal_handle, goal_request)
 
         return GoToId(id=goal_id)
 
@@ -334,6 +338,17 @@ class GoToServicer:
             return "linear"
         elif interpolation_mode == InterpolationMode.MINIMUM_JERK:
             return "minimum_jerk"
+        else:
+            self.logger.error(
+                f"Interpolation mode {interpolation_mode} not supported. Should be one of 'linear' or 'minimum_jerk'."
+            )
+            return None
+
+    def _get_grpc_interpolation_mode(self, interpolation_mode: str) -> InterpolationMode:
+        if interpolation_mode == "linear":
+            return InterpolationMode.LINEAR
+        elif interpolation_mode == "minimum_jerk":
+            return InterpolationMode.MINIMUM_JERK
         else:
             self.logger.error(
                 f"Interpolation mode {interpolation_mode} not supported. Should be one of 'linear' or 'minimum_jerk'."
@@ -352,6 +367,80 @@ class GoToServicer:
                 return GoToId(id=goal_id)
         return GoToId(id=-1)
 
+    def get_goal_request_by_goal_id(self, goal_id: int, context: grpc.ServicerContext) -> GoToRequest:
+        goal_request = self.goal_manager.goal_requests[goal_id]
+        mode = self._get_grpc_interpolation_mode(goal_request["mode"])
+        duration = goal_request["duration"]
+        joints_goal = goal_request["goal_positions"]
+
+        if goal_id in self.goal_manager.r_arm_goal:
+            part = self.bridge_node.parts.get_by_name("r_arm")
+        elif goal_id in self.goal_manager.l_arm_goal:
+            part = self.bridge_node.parts.get_by_name("l_arm")
+        if part is not None:
+            part_id = PartId(id=part.id, name=part.name)
+            arm_joint_goal = ArmJointGoal(
+                id=part_id,
+                joints_goal=ArmPosition(
+                    shoulder_position=Pose2d(
+                        axis_1=FloatValue(value=joints_goal[0]),
+                        axis_2=FloatValue(value=joints_goal[1])
+                    ),
+                    elbow_position=Pose2d(
+                        axis_1=FloatValue(value=joints_goal[2]),
+                        axis_2=FloatValue(value=joints_goal[3])
+                    ),
+                    wrist_position=Rotation3d(
+                        rpy=ExtEulerAngles(
+                            roll=FloatValue(value=joints_goal[4]),
+                            pitch=FloatValue(value=joints_goal[5]),
+                            yaw=FloatValue(value=joints_goal[6]),
+                        )
+                    ),
+                ),
+                duration=FloatValue(value=duration)
+            )
+
+            request = GoToRequest(
+                joints_goal=JointsGoal(
+                    arm_joint_goal=arm_joint_goal
+                ),
+                interpolation_mode=GoToInterpolation(interpolation_type=mode)
+            )
+
+            return request
+
+        if goal_id in self.goal_manager.neck_goal:
+            part = self.bridge_node.parts.get_by_name("head")
+        if part is not None:
+            part_id = PartId(id=part.id, name=part.name)
+            neck_joint_goal = NeckJointGoal(
+                id=part_id,
+                joints_goal=NeckOrientation(
+                    rotation=Rotation3d(
+                        rpy=ExtEulerAngles(
+                            roll=FloatValue(value=joints_goal[0]),
+                            pitch=FloatValue(value=joints_goal[1]),
+                            yaw=FloatValue(value=joints_goal[2]),
+                        )
+                    ),
+
+                ),
+                duration=FloatValue(value=duration)
+            )
+
+            request = GoToRequest(
+                joints_goal=JointsGoal(
+                    neck_joint_goal=neck_joint_goal
+                ),
+                interpolation_mode=mode
+            )
+
+            return request
+
+        else:
+            context.abort(grpc.StatusCode.NOT_FOUND, f"GoalId not found (id={goal_id}).")
+
     def cancel_goal_by_goal_id(self, goal_id: int) -> None:
         goal_handle = self.goal_manager.get_goal_handle(goal_id)
 
@@ -369,7 +458,7 @@ class GoToServicer:
         else:
             return False
 
-    def cancel_all_part_goals(self, part_name: str) -> None:
+    def cancel_part_all_goals(self, part_name: str) -> None:
         part_goal_ids = getattr(self.goal_manager, part_name+"_goal")
         for goal_id in part_goal_ids:
             self.cancel_goal_by_goal_id(goal_id)
@@ -383,7 +472,7 @@ class GoalManager:
     # TODO decide how/when to remove goal handles from the dict. Also investigate the bug that appears when spamming gotos.
     def __init__(self):
         self.goal_handles = {}
-        self.goal_request = {}
+        self.goal_requests = {}
         self.r_arm_goal = []
         self.l_arm_goal = []
         self.neck_goal = []
@@ -395,10 +484,11 @@ class GoalManager:
             self.goal_id_counter += 1
             return self.goal_id_counter
 
-    def store_goal_handle(self, part_name: str, goal_handle):
+    def store_goal_handle(self, part_name: str, goal_handle, goal_request: dict[str, List[float] | float | str]):
         goal_id = self.generate_unique_id()
         self.goal_handles[goal_id] = goal_handle
         getattr(self, part_name+"_goal").append(goal_id)
+        self.goal_requests[goal_id] = goal_request
         return goal_id
 
     def get_goal_handle(self, goal_id):
