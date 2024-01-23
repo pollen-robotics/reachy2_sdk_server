@@ -71,24 +71,16 @@ class ArmServicer:
         return Arm(
             part_id=PartId(name=arm.name, id=arm.id),
             description=ArmDescription(
-                shoulder=Orbita2dServicer.get_info(
-                    self.bridge_node.components.get_by_name(arm.components[0].name)
-                ),
-                elbow=Orbita2dServicer.get_info(
-                    self.bridge_node.components.get_by_name(arm.components[1].name)
-                ),
-                wrist=Orbita3dServicer.get_info(
-                    self.bridge_node.components.get_by_name(arm.components[2].name)
-                ),
+                shoulder=Orbita2dServicer.get_info(self.bridge_node.components.get_by_name(arm.components[0].name)),
+                elbow=Orbita2dServicer.get_info(self.bridge_node.components.get_by_name(arm.components[1].name)),
+                wrist=Orbita3dServicer.get_info(self.bridge_node.components.get_by_name(arm.components[2].name)),
             ),
         )
 
     def GetAllArms(self, request: Empty, context: grpc.ServicerContext) -> ListOfArm:
         return ListOfArm(arm=[self.get_arm(arm, context) for arm in self.arms])
 
-    def get_arm_part_by_part_id(
-        self, part_id: PartId, context: grpc.ServicerContext
-    ) -> Part:
+    def get_arm_part_by_part_id(self, part_id: PartId, context: grpc.ServicerContext) -> Part:
         part = self.bridge_node.parts.get_by_part_id(part_id)
 
         if part is None:
@@ -132,9 +124,7 @@ class ArmServicer:
             ),
         )
 
-    def GetCartesianPosition(
-        self, request: PartId, context: grpc.ServicerContext
-    ) -> Matrix4x4:
+    def GetCartesianPosition(self, request: PartId, context: grpc.ServicerContext) -> Matrix4x4:
         request = ArmFKRequest(
             id=request,
             position=self.GetJointPosition(request, context),
@@ -145,9 +135,7 @@ class ArmServicer:
 
         return sol.end_effector.pose
 
-    def GetJointPosition(
-        self, request: PartId, context: grpc.ServicerContext
-    ) -> ArmPosition:
+    def GetJointPosition(self, request: PartId, context: grpc.ServicerContext) -> ArmPosition:
         state = self.GetState(request, context)
         return ArmPosition(
             shoulder_position=state.shoulder_state.present_position,
@@ -155,9 +143,7 @@ class ArmServicer:
             wrist_position=state.wrist_state.present_position,
         )
 
-    def GetJointGoalPosition(
-        self, request: PartId, context: grpc.ServicerContext
-    ) -> ArmPosition:
+    def GetJointGoalPosition(self, request: PartId, context: grpc.ServicerContext) -> ArmPosition:
         state = self.GetState(request, context)
         return ArmPosition(
             shoulder_position=state.shoulder_state.goal_position,
@@ -166,9 +152,7 @@ class ArmServicer:
         )
 
     # Compliances
-    def set_stiffness(
-        self, request: PartId, torque: bool, context: grpc.ServicerContext
-    ) -> None:
+    def set_stiffness(self, request: PartId, torque: bool, context: grpc.ServicerContext) -> None:
         # TODO: re-write using self.orbita2d_servicer.SendCommand?
         part = self.get_arm_part_by_part_id(request, context)
 
@@ -195,30 +179,20 @@ class ArmServicer:
         return Empty()
 
     # Temperatures
-    def GetTemperatures(
-        self, request: PartId, context: grpc.ServicerContext
-    ) -> ArmTemperatures:
+    def GetTemperatures(self, request: PartId, context: grpc.ServicerContext) -> ArmTemperatures:
         return ArmTemperatures()
 
     # Position and Speed limit
-    def GetJointsLimits(
-        self, request: PartId, context: grpc.ServicerContext
-    ) -> ArmLimits:
+    def GetJointsLimits(self, request: PartId, context: grpc.ServicerContext) -> ArmLimits:
         return ArmLimits()
 
-    def SetSpeedLimit(
-        self, request: SpeedLimitRequest, context: grpc.ServicerContext
-    ) -> Empty:
+    def SetSpeedLimit(self, request: SpeedLimitRequest, context: grpc.ServicerContext) -> Empty:
         return Empty()
 
     # Kinematics
-    def ComputeArmFK(
-        self, request: ArmFKRequest, context: grpc.ServicerContext
-    ) -> ArmFKSolution:
+    def ComputeArmFK(self, request: ArmFKRequest, context: grpc.ServicerContext) -> ArmFKSolution:
         arm = self.get_arm_part_by_part_id(request.id, context)
-        success, pose = self.bridge_node.compute_forward(
-            request.id, arm_position_to_joint_state(request.position, arm)
-        )
+        success, pose = self.bridge_node.compute_forward(request.id, arm_position_to_joint_state(request.position, arm))
 
         sol = ArmFKSolution()
 
@@ -228,9 +202,7 @@ class ArmServicer:
 
         return sol
 
-    def ComputeArmIK(
-        self, request: ArmIKRequest, context: grpc.ServicerContext
-    ) -> ArmIKSolution:
+    def ComputeArmIK(self, request: ArmIKRequest, context: grpc.ServicerContext) -> ArmIKSolution:
         arm = self.get_arm_part_by_part_id(request.id, context)
 
         success, joint_position = self.bridge_node.compute_inverse(
@@ -257,14 +229,10 @@ class ArmServicer:
     def Restart(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         return Empty()
 
-    def ResetDefaultValues(
-        self, request: PartId, context: grpc.ServicerContext
-    ) -> Empty:
+    def ResetDefaultValues(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         return Empty()
 
-    def SendArmCartesianGoal(
-        self, request: ArmCartesianGoal, context: grpc.ServicerContext
-    ) -> Empty:
+    def SendArmCartesianGoal(self, request: ArmCartesianGoal, context: grpc.ServicerContext) -> Empty:
         self.bridge_node.publish_target_pose(
             request.id,
             matrix_to_pose(request.goal_pose.data),

@@ -42,23 +42,13 @@ class ReachyGRPCAudioSDKServicer:
         self.node.get_logger().info("Registering 'SoundServiceServicer' to server.")
         add_SoundServiceServicer_to_server(self, server)
 
-    def GetAllMicrophone(
-        self, request: Empty, context: grpc.ServicerContext
-    ) -> ListOfMicrophone:
-        return ListOfMicrophone(
-            microphone_info=[Microphone(id=ComponentId(id=1, name="microphone_1"))]
-        )
+    def GetAllMicrophone(self, request: Empty, context: grpc.ServicerContext) -> ListOfMicrophone:
+        return ListOfMicrophone(microphone_info=[Microphone(id=ComponentId(id=1, name="microphone_1"))])
 
-    def GetAllSpeaker(
-        self, request: Empty, context: grpc.ServicerContext
-    ) -> ListOfSpeaker:
-        return ListOfSpeaker(
-            speaker_info=[Speaker(id=ComponentId(id=1, name="speaker_1"))]
-        )
+    def GetAllSpeaker(self, request: Empty, context: grpc.ServicerContext) -> ListOfSpeaker:
+        return ListOfSpeaker(speaker_info=[Speaker(id=ComponentId(id=1, name="speaker_1"))])
 
-    def StartRecording(
-        self, request: RecordingRequest, context: grpc.ServicerContext
-    ) -> SoundAck:
+    def StartRecording(self, request: RecordingRequest, context: grpc.ServicerContext) -> SoundAck:
         file_name = request.recording_id.id + ".ogg"
         if not pathlib.Path(file_name).parent.absolute().exists():
             self.node.get_logger().error(f"Path does not exist {file_name}")
@@ -68,9 +58,7 @@ class ReachyGRPCAudioSDKServicer:
         self._audiorecorder.start()
         return RecordingAck(ack=SoundAck(success=BoolValue(value=True)))
 
-    def StopRecording(
-        self, request: ComponentId, context: grpc.ServicerContext
-    ) -> RecordingAck:
+    def StopRecording(self, request: ComponentId, context: grpc.ServicerContext) -> RecordingAck:
         self.node.get_logger().info("Stop recording")
         self._audiorecorder.stop()
         return RecordingAck(ack=SoundAck(success=BoolValue(value=True)))
@@ -79,9 +67,7 @@ class ReachyGRPCAudioSDKServicer:
         self.soundhandle.playWave("say-beep.wav", volume=self._volume)
         return Empty()
 
-    def ChangeVolume(
-        self, request: VolumeRequest, context: grpc.ServicerContext
-    ) -> Empty:
+    def ChangeVolume(self, request: VolumeRequest, context: grpc.ServicerContext) -> Empty:
         self.node.get_logger().info(f"Set volume to {request.volume}")
         self._volume = request.volume
         return Empty()
@@ -97,9 +83,7 @@ class ReachyGRPCAudioSDKServicer:
         self.soundhandle.stopAll()
         return Empty()
 
-    def GetSoundsList(
-        self, request: Empty, context: grpc.ServicerContext
-    ) -> ListOfSound:
+    def GetSoundsList(self, request: Empty, context: grpc.ServicerContext) -> ListOfSound:
         audiofiles = get_list_audio_files("/root/sounds/")
         soundsList = [SoundId(id=sound) for sound in audiofiles]
         return ListOfSound(sounds=soundsList)
