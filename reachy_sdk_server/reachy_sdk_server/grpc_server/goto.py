@@ -290,7 +290,7 @@ class GoToServicer:
 
     def GetPartGoToPlaying(self, part_id: PartId, context: grpc.ServicerContext) -> GoToId:
         part_name = self.get_part_by_part_id(part_id, context)
-        return self.get_part_goto_playing(part_name)
+        return self.get_part_goto_playing(part_name.name)
 
     def GetPartGoToQueue(self, part_id: PartId, context: grpc.ServicerContext) -> GoToQueue:
         part_name = self.get_part_by_part_id(part_id, context)
@@ -339,11 +339,11 @@ class GoToServicer:
                 f"Interpolation mode {interpolation_mode} not supported. Should be one of 'linear' or 'minimum_jerk'."
             )
             return None
-    
+
     def get_part_queue(self, part_name: str) -> GoToQueue:
         goal_ids = getattr(self.goal_manager, part_name+"_goal")
         return GoToQueue(goto_ids=goal_ids)
-    
+
     def get_part_goto_playing(self, part_name: str) -> GoToId:
         goal_ids = getattr(self.goal_manager, part_name+"_goal")
         for goal_id in goal_ids:
