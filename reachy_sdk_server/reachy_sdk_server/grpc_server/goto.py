@@ -10,21 +10,25 @@ from action_msgs.msg import GoalStatus
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import FloatValue
 from reachy2_sdk_api.arm_pb2 import ArmJointGoal, ArmPosition
-from reachy2_sdk_api.goto_pb2 import (GoToAck, GoToGoalStatus, GoToId,
-                                      GoToInterpolation, GoToQueue,
-                                      GoToRequest, InterpolationMode,
-                                      JointsGoal)
+from reachy2_sdk_api.goto_pb2 import (
+    GoToAck,
+    GoToGoalStatus,
+    GoToId,
+    GoToInterpolation,
+    GoToQueue,
+    GoToRequest,
+    InterpolationMode,
+    JointsGoal,
+)
 from reachy2_sdk_api.goto_pb2_grpc import add_GoToServiceServicer_to_server
 from reachy2_sdk_api.head_pb2 import NeckJointGoal, NeckOrientation
-from reachy2_sdk_api.kinematics_pb2 import (ExtEulerAngles, Quaternion,
-                                            Rotation3d)
+from reachy2_sdk_api.kinematics_pb2 import ExtEulerAngles, Quaternion, Rotation3d
 from reachy2_sdk_api.orbita2d_pb2 import Pose2d
 from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import JointState
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..conversion import (pose_matrix_from_quaternion,
-                          rotation3d_as_extrinsinc_euler_angles)
+from ..conversion import pose_matrix_from_quaternion, rotation3d_as_extrinsinc_euler_angles
 from ..parts import Part
 
 
@@ -42,9 +46,7 @@ class GoToServicer:
         self.logger.info("Registering 'GoToServiceServicer' to server.")
         add_GoToServiceServicer_to_server(self, server)
 
-    def get_part_by_part_id(
-        self, part_id: PartId, context: grpc.ServicerContext
-    ) -> Optional[Part]:
+    def get_part_by_part_id(self, part_id: PartId, context: grpc.ServicerContext) -> Optional[Part]:
         part = self.bridge_node.parts.get_by_part_id(part_id)
 
         if part is None:
@@ -52,9 +54,7 @@ class GoToServicer:
 
         return part
 
-    def get_arm_part_by_part_id(
-        self, part_id: PartId, context: grpc.ServicerContext
-    ) -> Part:
+    def get_arm_part_by_part_id(self, part_id: PartId, context: grpc.ServicerContext) -> Part:
         part = self.bridge_node.parts.get_by_part_id(part_id)
 
         if part is None:
@@ -280,9 +280,7 @@ class GoToServicer:
         self.cancel_part_all_goals(part_name.name)
         return GoToAck(ack=True)
 
-    def goto_joints(
-        self, part_name, joint_names, goal_positions, duration, mode="minimum_jerk"
-    ):
+    def goto_joints(self, part_name, joint_names, goal_positions, duration, mode="minimum_jerk"):
         future = asyncio.run_coroutine_threadsafe(
             self.bridge_node.send_goto_goal(
                 part_name,
@@ -338,12 +336,16 @@ class GoToServicer:
             return None
 
     def get_part_queue(self, part_name: str) -> GoToQueue:
-        goal_ids_int = getattr(self.goal_manager, part_name+"_goal")
-        goal_ids = [GoToId(id=goal_id_int) for goal_id_int in goal_ids_int if self.goal_manager.goal_handles[goal_id_int].status in [0, 1]]
+        goal_ids_int = getattr(self.goal_manager, part_name + "_goal")
+        goal_ids = [
+            GoToId(id=goal_id_int)
+            for goal_id_int in goal_ids_int
+            if self.goal_manager.goal_handles[goal_id_int].status in [0, 1]
+        ]
         return GoToQueue(goto_ids=goal_ids)
 
     def get_part_goto_playing(self, part_name: str) -> GoToId:
-        goal_ids = getattr(self.goal_manager, part_name+"_goal")
+        goal_ids = getattr(self.goal_manager, part_name + "_goal")
         for goal_id in goal_ids:
             if self.goal_manager.goal_handles[goal_id].status == 2:
                 return GoToId(id=goal_id)
@@ -365,14 +367,8 @@ class GoToServicer:
             arm_joint_goal = ArmJointGoal(
                 id=part_id,
                 joints_goal=ArmPosition(
-                    shoulder_position=Pose2d(
-                        axis_1=FloatValue(value=joints_goal[0]),
-                        axis_2=FloatValue(value=joints_goal[1])
-                    ),
-                    elbow_position=Pose2d(
-                        axis_1=FloatValue(value=joints_goal[2]),
-                        axis_2=FloatValue(value=joints_goal[3])
-                    ),
+                    shoulder_position=Pose2d(axis_1=FloatValue(value=joints_goal[0]), axis_2=FloatValue(value=joints_goal[1])),
+                    elbow_position=Pose2d(axis_1=FloatValue(value=joints_goal[2]), axis_2=FloatValue(value=joints_goal[3])),
                     wrist_position=Rotation3d(
                         rpy=ExtEulerAngles(
                             roll=FloatValue(value=joints_goal[4]),
@@ -381,14 +377,12 @@ class GoToServicer:
                         )
                     ),
                 ),
-                duration=FloatValue(value=duration)
+                duration=FloatValue(value=duration),
             )
 
             request = GoToRequest(
-                joints_goal=JointsGoal(
-                    arm_joint_goal=arm_joint_goal
-                ),
-                interpolation_mode=GoToInterpolation(interpolation_type=mode)
+                joints_goal=JointsGoal(arm_joint_goal=arm_joint_goal),
+                interpolation_mode=GoToInterpolation(interpolation_type=mode),
             )
 
             return request
@@ -407,16 +401,13 @@ class GoToServicer:
                             yaw=FloatValue(value=joints_goal[2]),
                         )
                     ),
-
                 ),
-                duration=FloatValue(value=duration)
+                duration=FloatValue(value=duration),
             )
 
             request = GoToRequest(
-                joints_goal=JointsGoal(
-                    neck_joint_goal=neck_joint_goal
-                ),
-                interpolation_mode=GoToInterpolation(interpolation_type=mode)
+                joints_goal=JointsGoal(neck_joint_goal=neck_joint_goal),
+                interpolation_mode=GoToInterpolation(interpolation_type=mode),
             )
 
             return request
@@ -442,7 +433,7 @@ class GoToServicer:
             return False
 
     def cancel_part_all_goals(self, part_name: str) -> None:
-        part_goal_ids = getattr(self.goal_manager, part_name+"_goal")
+        part_goal_ids = getattr(self.goal_manager, part_name + "_goal")
         for goal_id in part_goal_ids:
             self.cancel_goal_by_goal_id(goal_id)
 
@@ -470,7 +461,7 @@ class GoalManager:
     def store_goal_handle(self, part_name: str, goal_handle, goal_request: dict[str, List[float] | float | str]):
         goal_id = self.generate_unique_id()
         self.goal_handles[goal_id] = goal_handle
-        getattr(self, part_name+"_goal").append(goal_id)
+        getattr(self, part_name + "_goal").append(goal_id)
         self.goal_requests[goal_id] = goal_request
         return goal_id
 
