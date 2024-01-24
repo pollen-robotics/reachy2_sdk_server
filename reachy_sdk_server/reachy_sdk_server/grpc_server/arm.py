@@ -25,26 +25,11 @@ from reachy2_sdk_api.kinematics_pb2 import Matrix4x4
 from reachy2_sdk_api.part_pb2 import PartId
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..conversion import (
-    arm_position_to_joint_state,
-    joint_state_to_arm_position,
-    matrix_to_pose,
-)
+from ..conversion import arm_position_to_joint_state, joint_state_to_arm_position, matrix_to_pose
 from ..parts import Part
 from ..utils import get_current_timestamp
-from .orbita2d import (
-    ComponentId,
-    Orbita2dCommand,
-    Orbita2dsCommand,
-    Orbita2dServicer,
-    Orbita2dStateRequest,
-)
-from .orbita3d import (
-    Orbita3dCommand,
-    Orbita3dsCommand,
-    Orbita3dServicer,
-    Orbita3dStateRequest,
-)
+from .orbita2d import ComponentId, Orbita2dCommand, Orbita2dsCommand, Orbita2dServicer, Orbita2dStateRequest
+from .orbita3d import Orbita3dCommand, Orbita3dsCommand, Orbita3dServicer, Orbita3dStateRequest
 
 
 class ArmServicer:

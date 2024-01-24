@@ -28,12 +28,7 @@ from reachy2_sdk_api.orbita2d_pb2_grpc import add_Orbita2dServiceServicer_to_ser
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..components import Component
-from ..utils import (
-    axis_from_str,
-    endless_get_stream,
-    extract_fields,
-    get_current_timestamp,
-)
+from ..utils import axis_from_str, endless_get_stream, extract_fields, get_current_timestamp
 
 Orbita2dComponents = namedtuple("Orbita2dComponents", ["actuator", "axis1", "axis2", "raw_motor_1", "raw_motor_2"])
 

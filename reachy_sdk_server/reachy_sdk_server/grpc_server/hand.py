@@ -134,8 +134,8 @@ class HandServicer:
     def SetHandPosition(self, request: HandPositionRequest, context: grpc.ServicerContext) -> Empty:
         hand = self.get_hand_part_from_part_id(request.id, context)
 
+        # This is a % of the opening
         opening = np.clip(request.position.parallel_gripper.position, 0, 1)
-        position = self.opening_to_position(opening)
 
         cmd = DynamicJointState()
         cmd.joint_names = []
@@ -145,7 +145,7 @@ class HandServicer:
             cmd.interface_values.append(
                 InterfaceValue(
                     interface_names=["position"],
-                    values=[position],
+                    values=[opening],
                 )
             )
 
@@ -179,10 +179,6 @@ class HandServicer:
 
     OPEN_POSITION = -1.50
     CLOSE_POSITION = 0.0
-
-    def opening_to_position(self, opening: float) -> float:
-        opening = np.clip(opening, 0, 1)
-        return self.CLOSE_POSITION + opening * (self.OPEN_POSITION - self.CLOSE_POSITION)
 
     def position_to_opening(self, position: float) -> float:
         opening = (position - self.CLOSE_POSITION) / (self.OPEN_POSITION - self.CLOSE_POSITION)

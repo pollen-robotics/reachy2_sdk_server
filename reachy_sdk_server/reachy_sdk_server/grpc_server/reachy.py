@@ -4,20 +4,11 @@ import grpc
 import rclpy
 from google.protobuf.empty_pb2 import Empty
 from reachy2_sdk_api.part_pb2 import PartId
-from reachy2_sdk_api.reachy_pb2 import (
-    Reachy,
-    ReachyId,
-    ReachyState,
-    ReachyStreamStateRequest,
-)
+from reachy2_sdk_api.reachy_pb2 import Reachy, ReachyId, ReachyState, ReachyStreamStateRequest
 from reachy2_sdk_api.reachy_pb2_grpc import add_ReachyServiceServicer_to_server
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..utils import (
-    endless_timer_get_stream,
-    endless_timer_get_stream_works,
-    get_current_timestamp,
-)
+from ..utils import endless_timer_get_stream, endless_timer_get_stream_works, get_current_timestamp
 from .arm import ArmServicer
 from .hand import HandServicer
 from .head import HeadServicer

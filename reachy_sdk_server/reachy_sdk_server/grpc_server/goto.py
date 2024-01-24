@@ -1,33 +1,21 @@
 import asyncio
-import copy
 import math
 import threading
-from typing import List, Optional
+from typing import List, Tuple
 
 import grpc
+import numpy as np
 import rclpy
 from action_msgs.msg import GoalStatus
 from google.protobuf.empty_pb2 import Empty
-from reachy2_sdk_api.arm_pb2 import ArmCartesianGoal
-from reachy2_sdk_api.goto_pb2 import (
-    CartesianGoal,
-    GoToAck,
-    GoToGoalStatus,
-    GoToId,
-    GoToRequest,
-    InterpolationMode,
-    JointsGoal,
-)
+from reachy2_sdk_api.goto_pb2 import GoToAck, GoToGoalStatus, GoToId, GoToRequest, InterpolationMode
 from reachy2_sdk_api.goto_pb2_grpc import add_GoToServiceServicer_to_server
+from reachy2_sdk_api.kinematics_pb2 import Quaternion
 from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import JointState
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..conversion import (
-    arm_position_to_joint_state,
-    pose_from_pos_and_ori,
-    rotation3d_as_extrinsinc_euler_angles,
-)
+from ..conversion import pose_matrix_from_quaternion, rotation3d_as_extrinsinc_euler_angles
 from ..parts import Part
 
 
@@ -160,11 +148,8 @@ class GoToServicer:
             )
 
         elif request.cartesian_goal.HasField("neck_cartesian_goal"):
-            self.logger.error("neck_cartesian_goal to be implemented")
-            return GoToId(id=-1)
-
             # this is a NeckCartesianGoal https://github.com/pollen-robotics/reachy2-sdk-api/blob/81-adjust-goto-methods/protos/head.proto
-            neck_cartesian_goal = request.neck_cartesian_goal
+            neck_cartesian_goal = request.cartesian_goal.neck_cartesian_goal
             head = self.get_head_part_by_part_id(neck_cartesian_goal.id, context)
 
             # joint_names = self.part_to_list_of_joint_names(head)
@@ -174,12 +159,18 @@ class GoToServicer:
             y = neck_cartesian_goal.point.y
             z = neck_cartesian_goal.point.z
 
-            # Hum, TODO solve this
+            q_numpy = _find_neck_quaternion_transform([1, 0, 0], [x, y, z])
+            q_quat = Quaternion(x=q_numpy[0], y=q_numpy[1], z=q_numpy[2], w=q_numpy[3])
+            M = pose_matrix_from_quaternion(q_quat)
+            q0 = JointState()
+            q0.position = [0.0, 0.0, 0.0]
 
-            # success, joint_position = self.bridge_node.compute_inverse(
-            #     neck_cartesian_goal.id,
-            #     neck_cartesian_goal.goal_pose.data,
-            # )
+            success, joint_position = self.bridge_node.compute_inverse(
+                neck_cartesian_goal.id,
+                M,
+                q0,
+            )
+
             if not success:
                 self.logger.error(f"Could not compute inverse kinematics for arm {arm_cartesian_goal.id}")
                 return GoToId(id=-1)
@@ -333,3 +324,53 @@ class GoalManager:
 
     def remove_goal_handle(self, goal_id):
         return self.goal_handles.pop(goal_id, None)
+
+
+def _find_neck_quaternion_transform(
+    vect_origin: Tuple[float, float, float],
+    vect_target: Tuple[float, float, float],
+) -> Tuple[float, float, float, float]:
+    vo = _norm(vect_origin)
+
+    # ad-hoc translation to move in the torso frame (from urdf). TODO do better?
+    neck_in_torso = (vect_target[0] - 0.015, vect_target[1], vect_target[2] - 0.095)
+    # simple approximation, hopefully good enough...
+    head_in_torso = (
+        neck_in_torso[0] - 0.02,
+        neck_in_torso[1],
+        neck_in_torso[2] - 0.06105,
+    )
+
+    vd = _norm(head_in_torso)
+
+    v = np.cross(vo, vd)
+    v = _norm(v)
+
+    alpha = np.arccos(np.dot(vo, vd))
+    if np.isnan(alpha) or alpha < 1e-6:
+        return (0, 0, 0, 1)
+
+    q = _from_axis_angle(axis=v, angle=alpha)
+    return q
+
+
+def _norm(v):
+    v = np.array(v)
+    if np.any(v):
+        v = v / np.linalg.norm(v)
+    return v
+
+
+def _from_axis_angle(axis, angle):
+    mag_sq = np.dot(axis, axis)
+    if mag_sq == 0.0:
+        raise ValueError("Rotation axis must be non-zero")
+
+    if abs(1.0 - mag_sq) > 1e-12:
+        axis = axis / np.sqrt(mag_sq)
+
+    theta = angle / 2.0
+    r = np.cos(theta)
+    i = axis * np.sin(theta)
+
+    return np.array([i[0], i[1], i[2], r])
