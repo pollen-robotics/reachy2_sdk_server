@@ -1,6 +1,7 @@
 import asyncio
 import math
 import threading
+import time
 from typing import List, Optional, Tuple
 
 import grpc
@@ -420,6 +421,7 @@ class GoToServicer:
 
         if goal_handle is not None:
             goal_handle.cancel_goal()
+            self.goal_manager.sideline_goal_handle(goal_id)
             self.logger.info(f"Goal with id {goal_id} cancelled")
 
             # asyncio.run_coroutine_threadsafe(
@@ -445,6 +447,7 @@ class GoToServicer:
 class GoalManager:
     # TODO decide how/when to remove goal handles from the dict. Also investigate the bug that appears when spamming gotos.
     def __init__(self):
+        self.outdated_goal_handles = {}
         self.goal_handles = {}
         self.goal_requests = {}
         self.r_arm_goal = []
@@ -452,6 +455,9 @@ class GoalManager:
         self.head_goal = []
         self.goal_id_counter = 0
         self.lock = threading.Lock()
+        # self._hoarder_collector = threading.Thread(target=self._sort_goal_handles)
+        # self._hoarder_collector.daemon = True
+        # self._hoarder_collector.start()
 
     def generate_unique_id(self):
         with self.lock:
@@ -463,14 +469,23 @@ class GoalManager:
         self.goal_handles[goal_id] = goal_handle
         getattr(self, part_name + "_goal").append(goal_id)
         self.goal_requests[goal_id] = goal_request
+        self._sort_goal_handles()
         return goal_id
 
     def get_goal_handle(self, goal_id):
         return self.goal_handles.get(goal_id, None)
 
+    def sideline_goal_handle(self, goal_id: int) -> None:
+        removed_value = self.remove_goal_handle(goal_id)
+        self.outdated_goal_handles[goal_id] = removed_value
+
     def remove_goal_handle(self, goal_id):
         return self.goal_handles.pop(goal_id, None)
 
+    def _sort_goal_handles(self) -> None:
+        for goal_id, goal_handle in self.goal_handles.items():
+            if int(goal_handle.status) > 3:
+                self.sideline_goal_handle(goal_id)
 
 def _find_neck_quaternion_transform(
     vect_origin: Tuple[float, float, float],
