@@ -415,7 +415,7 @@ class GoToServicer:
         else:
             context.abort(grpc.StatusCode.NOT_FOUND, f"GoalId not found (id={goal_id}).")
 
-    def cancel_goal_by_goal_id(self, goal_id: int) -> None:
+    def cancel_goal_by_goal_id(self, goal_id: int) -> bool:
         goal_handle = self.goal_manager.get_goal_handle(goal_id)
 
         if goal_handle is not None:
