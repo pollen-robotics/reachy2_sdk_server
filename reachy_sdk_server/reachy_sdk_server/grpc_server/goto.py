@@ -324,7 +324,7 @@ class GoToServicer:
             )
             return None
 
-    def _get_grpc_interpolation_mode(self, interpolation_mode: str) -> Optional[InterpolationMode]:
+    def _get_grpc_interpolation_mode(self, interpolation_mode: str) -> InterpolationMode:
         if interpolation_mode == "linear":
             return InterpolationMode.LINEAR
         elif interpolation_mode == "minimum_jerk":
