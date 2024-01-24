@@ -53,6 +53,7 @@ class PartsHolder:
             return self.get_by_id(part_id.id)
         elif part_id.name:
             return self.get_by_name(part_id.name)
+        return None
 
     def get_by_name(self, part_name: str) -> Optional[Part]:
         if part_name in self.by_name:
