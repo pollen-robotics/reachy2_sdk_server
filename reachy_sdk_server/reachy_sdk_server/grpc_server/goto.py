@@ -341,14 +341,14 @@ class GoToServicer:
         goal_ids = [
             GoToId(id=goal_id_int)
             for goal_id_int in goal_ids_int
-            if self.goal_manager.goal_handles[goal_id_int].status in [0, 1]
+            if goal_id_int in self.goal_manager.goal_handles and self.goal_manager.goal_handles[goal_id_int].status in [0, 1]
         ]
         return GoToQueue(goto_ids=goal_ids)
 
     def get_part_goto_playing(self, part_name: str) -> GoToId:
         goal_ids = getattr(self.goal_manager, part_name + "_goal")
         for goal_id in goal_ids:
-            if self.goal_manager.goal_handles[goal_id].status == 2:
+            if goal_id in self.goal_manager.goal_handles and self.goal_manager.goal_handles[goal_id].status == 2:
                 return GoToId(id=goal_id)
         return GoToId(id=-1)
 
@@ -440,7 +440,7 @@ class GoToServicer:
             self.cancel_goal_by_goal_id(goal_id)
 
     def cancel_all_goals(self) -> None:
-        for goal_id in self.goal_manager.goal_handles.keys():
+        for goal_id in list(self.goal_manager.goal_handles.keys()):
             self.cancel_goal_by_goal_id(goal_id)
 
 
@@ -455,9 +455,9 @@ class GoalManager:
         self.head_goal = []
         self.goal_id_counter = 0
         self.lock = threading.Lock()
-        # self._hoarder_collector = threading.Thread(target=self._sort_goal_handles)
-        # self._hoarder_collector.daemon = True
-        # self._hoarder_collector.start()
+        self._hoarder_collector = threading.Thread(target=self._sort_goal_handles)
+        self._hoarder_collector.daemon = True
+        self._hoarder_collector.start()
 
     def generate_unique_id(self):
         with self.lock:
@@ -469,11 +469,13 @@ class GoalManager:
         self.goal_handles[goal_id] = goal_handle
         getattr(self, part_name + "_goal").append(goal_id)
         self.goal_requests[goal_id] = goal_request
-        self._sort_goal_handles()
         return goal_id
 
     def get_goal_handle(self, goal_id):
-        return self.goal_handles.get(goal_id, None)
+        goal_handle = self.goal_handles.get(goal_id, None)
+        if goal_handle is None:
+            goal_handle = self.outdated_goal_handles.get(goal_id, None)
+        return goal_handle
 
     def sideline_goal_handle(self, goal_id: int) -> None:
         removed_value = self.remove_goal_handle(goal_id)
@@ -483,9 +485,13 @@ class GoalManager:
         return self.goal_handles.pop(goal_id, None)
 
     def _sort_goal_handles(self) -> None:
-        for goal_id, goal_handle in self.goal_handles.items():
-            if int(goal_handle.status) > 3:
-                self.sideline_goal_handle(goal_id)
+        while True:
+            with self.lock:
+                for goal_id in list(self.goal_handles.keys()):
+                    if int(self.goal_handles[goal_id].status) > 3:
+                        self.sideline_goal_handle(goal_id)
+            time.sleep(30)
+
 
 def _find_neck_quaternion_transform(
     vect_origin: Tuple[float, float, float],
