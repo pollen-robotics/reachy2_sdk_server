@@ -417,11 +417,11 @@ class GoToServicer:
             context.abort(grpc.StatusCode.NOT_FOUND, f"GoalId not found (id={goal_id}).")
 
     def cancel_goal_by_goal_id(self, goal_id: int) -> bool:
-        goal_handle = self.goal_manager.get_goal_handle(goal_id)
+        goal_handle = self.goal_manager.get_goal_handle(goal_id, False)
 
         if goal_handle is not None:
             goal_handle.cancel_goal()
-            self.goal_manager.sideline_goal_handle(goal_id)
+            # self.goal_manager.sideline_goal_handle(goal_id)
             self.logger.info(f"Goal with id {goal_id} cancelled")
 
             # asyncio.run_coroutine_threadsafe(
@@ -455,8 +455,7 @@ class GoalManager:
         self.head_goal = []
         self.goal_id_counter = 0
         self.lock = threading.Lock()
-        self._hoarder_collector = threading.Thread(target=self._sort_goal_handles)
-        self._hoarder_collector.daemon = True
+        self._hoarder_collector = threading.Thread(target=self._sort_goal_handles, daemon=True)
         self._hoarder_collector.start()
 
     def generate_unique_id(self):
@@ -471,17 +470,17 @@ class GoalManager:
         self.goal_requests[goal_id] = goal_request
         return goal_id
 
-    def get_goal_handle(self, goal_id):
+    def get_goal_handle(self, goal_id, can_be_outdated: bool = True):
         goal_handle = self.goal_handles.get(goal_id, None)
-        if goal_handle is None:
+        if goal_handle is None and can_be_outdated:
             goal_handle = self.outdated_goal_handles.get(goal_id, None)
         return goal_handle
 
-    def sideline_goal_handle(self, goal_id: int) -> None:
-        removed_value = self.remove_goal_handle(goal_id)
+    def _sideline_goal_handle(self, goal_id: int) -> None:
+        removed_value = self._remove_goal_handle(goal_id)
         self.outdated_goal_handles[goal_id] = removed_value
 
-    def remove_goal_handle(self, goal_id):
+    def _remove_goal_handle(self, goal_id):
         return self.goal_handles.pop(goal_id, None)
 
     def _sort_goal_handles(self) -> None:
@@ -489,8 +488,8 @@ class GoalManager:
             with self.lock:
                 for goal_id in list(self.goal_handles.keys()):
                     if int(self.goal_handles[goal_id].status) > 3:
-                        self.sideline_goal_handle(goal_id)
-            time.sleep(30)
+                        self._sideline_goal_handle(goal_id)
+            time.sleep(5)
 
 
 def _find_neck_quaternion_transform(
