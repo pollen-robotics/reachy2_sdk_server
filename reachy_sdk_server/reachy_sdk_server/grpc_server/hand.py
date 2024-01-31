@@ -64,8 +64,6 @@ class HandServicer:
     def GetState(self, request: PartId, context: grpc.ServicerContext) -> HandState:
         hand = self.get_hand_part_from_part_id(request, context)
 
-        self.logger.info(f"{hand.components[0].state}")
-
         position = hand.components[0].state["position"]
         opening = self.position_to_opening(position)
         torque = hand.components[0].state["torque"]
