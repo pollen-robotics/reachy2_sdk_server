@@ -419,7 +419,7 @@ class GoToServicer:
     def cancel_goal_by_goal_id(self, goal_id: int) -> bool:
         goal_handle = self.goal_manager.get_goal_handle(goal_id, False)
 
-        if goal_handle is not None:
+        if goal_handle is not None and int(self.goal_manager.goal_handles[goal_id].status) <= 3:
             goal_handle.cancel_goal()
             # self.goal_manager.sideline_goal_handle(goal_id)
             self.logger.info(f"Goal with id {goal_id} cancelled")
