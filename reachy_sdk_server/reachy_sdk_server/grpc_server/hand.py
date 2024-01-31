@@ -3,7 +3,7 @@ import numpy as np
 import rclpy
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
-from google.protobuf.wrappers_pb2 import FloatValue
+from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
 from reachy2_sdk_api.hand_pb2 import (
     Force,
     Hand,
@@ -64,8 +64,11 @@ class HandServicer:
     def GetState(self, request: PartId, context: grpc.ServicerContext) -> HandState:
         hand = self.get_hand_part_from_part_id(request, context)
 
+        self.logger.info(f"{hand.components[0].state}")
+
         position = hand.components[0].state["position"]
         opening = self.position_to_opening(position)
+        torque = hand.components[0].state["torque"]
 
         return HandState(
             opening=FloatValue(value=opening),
@@ -73,6 +76,7 @@ class HandServicer:
                 parallel_gripper=ParallelGripperPosition(position=position),
             ),
             goal_position=self.GetHandGoalPosition(request, context),
+            compliant=BoolValue(value=not torque),
         )
 
     def OpenHand(self, request: PartId, context: grpc.ServicerContext) -> Empty:
