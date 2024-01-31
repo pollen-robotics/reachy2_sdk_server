@@ -1,6 +1,7 @@
 import asyncio
 import math
 import threading
+import time
 from typing import List, Optional, Tuple
 
 import grpc
@@ -340,14 +341,14 @@ class GoToServicer:
         goal_ids = [
             GoToId(id=goal_id_int)
             for goal_id_int in goal_ids_int
-            if self.goal_manager.goal_handles[goal_id_int].status in [0, 1]
+            if goal_id_int in self.goal_manager.goal_handles and self.goal_manager.goal_handles[goal_id_int].status in [0, 1]
         ]
         return GoToQueue(goto_ids=goal_ids)
 
     def get_part_goto_playing(self, part_name: str) -> GoToId:
         goal_ids = getattr(self.goal_manager, part_name + "_goal")
         for goal_id in goal_ids:
-            if self.goal_manager.goal_handles[goal_id].status == 2:
+            if goal_id in self.goal_manager.goal_handles and self.goal_manager.goal_handles[goal_id].status == 2:
                 return GoToId(id=goal_id)
         return GoToId(id=-1)
 
@@ -416,10 +417,11 @@ class GoToServicer:
             context.abort(grpc.StatusCode.NOT_FOUND, f"GoalId not found (id={goal_id}).")
 
     def cancel_goal_by_goal_id(self, goal_id: int) -> bool:
-        goal_handle = self.goal_manager.get_goal_handle(goal_id)
+        goal_handle = self.goal_manager.get_goal_handle(goal_id, False)
 
-        if goal_handle is not None:
+        if goal_handle is not None and int(self.goal_manager.goal_handles[goal_id].status) <= 3:
             goal_handle.cancel_goal()
+            # self.goal_manager.sideline_goal_handle(goal_id)
             self.logger.info(f"Goal with id {goal_id} cancelled")
 
             # asyncio.run_coroutine_threadsafe(
@@ -438,13 +440,14 @@ class GoToServicer:
             self.cancel_goal_by_goal_id(goal_id)
 
     def cancel_all_goals(self) -> None:
-        for goal_id in self.goal_manager.goal_handles.keys():
+        for goal_id in list(self.goal_manager.goal_handles.keys()):
             self.cancel_goal_by_goal_id(goal_id)
 
 
 class GoalManager:
     # TODO decide how/when to remove goal handles from the dict. Also investigate the bug that appears when spamming gotos.
     def __init__(self):
+        self.outdated_goal_handles = {}
         self.goal_handles = {}
         self.goal_requests = {}
         self.r_arm_goal = []
@@ -452,6 +455,8 @@ class GoalManager:
         self.head_goal = []
         self.goal_id_counter = 0
         self.lock = threading.Lock()
+        self._hoarder_collector = threading.Thread(target=self._sort_goal_handles, daemon=True)
+        self._hoarder_collector.start()
 
     def generate_unique_id(self):
         with self.lock:
@@ -465,11 +470,26 @@ class GoalManager:
         self.goal_requests[goal_id] = goal_request
         return goal_id
 
-    def get_goal_handle(self, goal_id):
-        return self.goal_handles.get(goal_id, None)
+    def get_goal_handle(self, goal_id, can_be_outdated: bool = True):
+        goal_handle = self.goal_handles.get(goal_id, None)
+        if goal_handle is None and can_be_outdated:
+            goal_handle = self.outdated_goal_handles.get(goal_id, None)
+        return goal_handle
 
-    def remove_goal_handle(self, goal_id):
+    def _sideline_goal_handle(self, goal_id: int) -> None:
+        removed_value = self._remove_goal_handle(goal_id)
+        self.outdated_goal_handles[goal_id] = removed_value
+
+    def _remove_goal_handle(self, goal_id):
         return self.goal_handles.pop(goal_id, None)
+
+    def _sort_goal_handles(self) -> None:
+        while True:
+            with self.lock:
+                for goal_id in list(self.goal_handles.keys()):
+                    if int(self.goal_handles[goal_id].status) > 3:
+                        self._sideline_goal_handle(goal_id)
+            time.sleep(5)
 
 
 def _find_neck_quaternion_transform(
