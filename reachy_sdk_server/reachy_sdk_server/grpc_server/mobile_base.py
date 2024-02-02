@@ -12,37 +12,50 @@ from geometry_msgs.msg import Twist
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
 from PIL import Image as PilImage
-from reachy2_sdk_api.mobile_base_lidar_pb2 import (LidarMap,
-                                                   LidarObstacleDetectionEnum,
-                                                   LidarSafety)
+from reachy2_sdk_api.mobile_base_lidar_pb2 import LidarMap, LidarObstacleDetectionEnum, LidarSafety
 from reachy2_sdk_api.mobile_base_lidar_pb2_grpc import (
     MobileBaseLidarServiceServicer,
-    add_MobileBaseLidarServiceServicer_to_server)
-from reachy2_sdk_api.mobile_base_mobility_pb2 import (DistanceToGoalVector,
-                                                      GoToVector,
-                                                      MobilityServiceAck,
-                                                      SetSpeedVector,
-                                                      TargetDirectionCommand)
+    add_MobileBaseLidarServiceServicer_to_server,
+)
+from reachy2_sdk_api.mobile_base_mobility_pb2 import (
+    DistanceToGoalVector,
+    GoToVector,
+    MobilityServiceAck,
+    SetSpeedVector,
+    TargetDirectionCommand,
+)
 from reachy2_sdk_api.mobile_base_mobility_pb2_grpc import (
     MobileBaseMobilityServiceServicer,
-    add_MobileBaseMobilityServiceServicer_to_server)
-from reachy2_sdk_api.mobile_base_utility_pb2 import (BatteryLevel,
-                                                     ControlModeCommand,
-                                                     ControlModePossiblities,
-                                                     MobileBase,
-                                                     MobileBaseInfo,
-                                                     MobileBaseState,
-                                                     OdometryVector,
-                                                     ZuuuModeCommand,
-                                                     ZuuuModePossiblities)
+    add_MobileBaseMobilityServiceServicer_to_server,
+)
+from reachy2_sdk_api.mobile_base_utility_pb2 import (
+    BatteryLevel,
+    ControlModeCommand,
+    ControlModePossiblities,
+    MobileBase,
+    MobileBaseInfo,
+    MobileBaseState,
+    OdometryVector,
+    ZuuuModeCommand,
+    ZuuuModePossiblities,
+)
 from reachy2_sdk_api.mobile_base_utility_pb2_grpc import (
     MobileBaseUtilityServiceServicer,
-    add_MobileBaseUtilityServiceServicer_to_server)
+    add_MobileBaseUtilityServiceServicer_to_server,
+)
 from sensor_msgs.msg import Image
-from zuuu_interfaces.srv import (DistanceToGoal, GetBatteryVoltage,
-                                 GetOdometry, GetZuuuMode, GetZuuuSafety,
-                                 GoToXYTheta, ResetOdometry, SetSpeed,
-                                 SetZuuuMode, SetZuuuSafety)
+from zuuu_interfaces.srv import (
+    DistanceToGoal,
+    GetBatteryVoltage,
+    GetOdometry,
+    GetZuuuMode,
+    GetZuuuSafety,
+    GoToXYTheta,
+    ResetOdometry,
+    SetSpeed,
+    SetZuuuMode,
+    SetZuuuSafety,
+)
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..utils import parse_reachy_config
@@ -55,7 +68,9 @@ class MobileBaseServicer(
 ):
     """Mobile base SDK server node."""
 
-    def __init__(self, bridge_node: AbstractBridgeNode,logger: rclpy.impl.rcutils_logger.RcutilsLogger, reachy_config_path: str) -> None:
+    def __init__(
+        self, bridge_node: AbstractBridgeNode, logger: rclpy.impl.rcutils_logger.RcutilsLogger, reachy_config_path: str
+    ) -> None:
         """Set up the node.
 
         Get mobile base basic info such as its odometry, battery level, drive mode or control mode
@@ -271,7 +286,7 @@ class MobileBaseServicer(
 
         mode = ZuuuModePossiblities.NONE_ZUUU_MODE
         result = self.get_zuuu_mode_client.call(req)
-        
+
         if result is not None:
             mode = result.mode
             mode = getattr(ZuuuModePossiblities, mode)
@@ -285,7 +300,7 @@ class MobileBaseServicer(
         response = BatteryLevel(level=FloatValue(value=0.0))
 
         result = self.get_battery_voltage_client.call(req)
-        
+
         if result is not None:
             ros_response = result
             response.level.value = ros_response.voltage
