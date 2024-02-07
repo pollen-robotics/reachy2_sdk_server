@@ -69,7 +69,7 @@ class ReachyGRPCVideoSDKServicer:
                 self._list_cam.append(ci)
             else:
                 self._logger.error(f"Error opening camera {ack.error}.")
-        self._logger.info(str(self._list_cam))
+
         if len(self._list_cam) == 0:
             return ListOfCameraInfo()
         else:
@@ -85,6 +85,7 @@ class ReachyGRPCVideoSDKServicer:
                     compute_depth=True,
                     rectify=False,
                     mx_id=camera_info.mxid,
+                    jpeg_output=True
                 )
             else:
                 self._logger.info("Opening teleop camera")
@@ -93,6 +94,7 @@ class ReachyGRPCVideoSDKServicer:
                     compute_depth=False,
                     rectify=True,
                     mx_id=camera_info.mxid,
+                    jpeg_output=True
                 )
             self._available_cams[camera_info.mxid] = cam
             return VideoAck(success=BoolValue(value=True))
@@ -115,14 +117,11 @@ class ReachyGRPCVideoSDKServicer:
             return Frame(data=None)
 
         if not request.camera_info.stereo or request.view == View.LEFT:
-            res, frame = cv2.imencode(".png", self._captured_data[request.camera_info.mxid]["left"])
+            frame = self._captured_data[request.camera_info.mxid]["left"]
         else:
-            res, frame = cv2.imencode(".png", self._captured_data[request.camera_info.mxid]["right"])
-        if res:
-            return Frame(data=frame.tobytes())
-        else:
-            self._logger.error("Failed to encode image")
-            return Frame(data=None)
+            frame = self._captured_data[request.camera_info.mxid]["right"]
+       
+        return Frame(data=frame.tobytes())
 
     def GetDepthFrame(self, request: ViewRequest, context: grpc.ServicerContext) -> Frame:
         if request.camera_info.mxid not in self._available_cams:
