@@ -73,11 +73,9 @@ class ReachyServicer:
                 params[f"{p.name}_state"] = self.head_servicer.GetState(PartId(id=p.id), context)
             elif p.type == "hand":
                 params[f"{p.name}_state"] = self.hand_servicer.GetState(PartId(id=p.id), context)
-        """
-        params["mobile_base_state"] = self.mobile_base_servicer.GetState(
-            Empty(), context
-        )
-        """
+
+        params["mobile_base_state"] = self.mobile_base_servicer.GetState(Empty(), context)
+
         return ReachyState(**params)
 
     def StreamReachyState(self, request: ReachyStreamStateRequest, context: grpc.ServicerContext) -> Iterator[ReachyState]:
