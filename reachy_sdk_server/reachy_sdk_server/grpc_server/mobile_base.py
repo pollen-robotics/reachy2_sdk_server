@@ -1,9 +1,7 @@
 """Expose main mobile base ROS services/topics through gRPC allowing remote client SDK."""
 
 import io
-import time
 import zlib
-from concurrent.futures import ThreadPoolExecutor
 from queue import Empty
 from subprocess import PIPE, check_output, run
 
@@ -14,13 +12,7 @@ from geometry_msgs.msg import Twist
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
 from PIL import Image as PilImage
-from rclpy.node import Node
-from reachy2_sdk_api.mobile_base_lidar_pb2 import (
-    LidarMap,
-    LidarObstacleDetectionEnum,
-    LidarObstacleDetectionStatus,
-    LidarSafety,
-)
+from reachy2_sdk_api.mobile_base_lidar_pb2 import LidarMap, LidarObstacleDetectionEnum, LidarSafety
 from reachy2_sdk_api.mobile_base_lidar_pb2_grpc import (
     MobileBaseLidarServiceServicer,
     add_MobileBaseLidarServiceServicer_to_server,
@@ -65,18 +57,20 @@ from zuuu_interfaces.srv import (
     SetZuuuSafety,
 )
 
+from ..abstract_bridge_node import AbstractBridgeNode
 from ..utils import parse_reachy_config
 
 
 class MobileBaseServicer(
-    Node,
     MobileBaseLidarServiceServicer,
     MobileBaseMobilityServiceServicer,
     MobileBaseUtilityServiceServicer,
 ):
     """Mobile base SDK server node."""
 
-    def __init__(self, logger: rclpy.impl.rcutils_logger.RcutilsLogger, reachy_config_path: str) -> None:
+    def __init__(
+        self, bridge_node: AbstractBridgeNode, logger: rclpy.impl.rcutils_logger.RcutilsLogger, reachy_config_path: str
+    ) -> None:
         """Set up the node.
 
         Get mobile base basic info such as its odometry, battery level, drive mode or control mode
@@ -84,6 +78,7 @@ class MobileBaseServicer(
         Send commands through the GoToXYTheta or SetSpeed services or by publishing to cmd_vel topic.
         """
         self.logger = logger
+        self.bridge_node = bridge_node
         self.mobile_base_enabled = True  # Keep track of mobile base status in order to return None for teleop
 
         config = parse_reachy_config(reachy_config_path)
@@ -98,51 +93,48 @@ class MobileBaseServicer(
             self.mobile_base_enabled = False
             return
 
-        super().__init__(node_name="mobile_base_server")
-
-        self.cmd_vel_pub = self.create_publisher(Twist, "cmd_vel", 10)
+        self.cmd_vel_pub = self.bridge_node.create_publisher(Twist, "cmd_vel", 10)
 
         self.bridge = CvBridge()
-        # TODO: subscription does not work because the node is not spinned
-        self.lidar_img_subscriber = self.create_subscription(Image, "lidar_image", self.get_lidar_img, 1)
+        self.lidar_img_subscriber = self.bridge_node.create_subscription(Image, "lidar_image", self.get_lidar_img, 1)
 
-        self.set_speed_client = self.create_client(SetSpeed, "SetSpeed")
+        self.set_speed_client = self.bridge_node.create_client(SetSpeed, "SetSpeed")
         while not self.set_speed_client.wait_for_service(timeout_sec=1.0):
             self.logger.info("service SetSpeed not available, waiting again...")
 
-        self.go_to_client = self.create_client(GoToXYTheta, "GoToXYTheta")
+        self.go_to_client = self.bridge_node.create_client(GoToXYTheta, "GoToXYTheta")
         while not self.go_to_client.wait_for_service(timeout_sec=1.0):
             self.logger.info("service GoToXYTheta not available, waiting again...")
 
-        self.distance_to_goal_client = self.create_client(DistanceToGoal, "DistanceToGoal")
+        self.distance_to_goal_client = self.bridge_node.create_client(DistanceToGoal, "DistanceToGoal")
         while not self.distance_to_goal_client.wait_for_service(timeout_sec=1.0):
             self.logger.info("service DistanceToGoal not available, waiting again...")
 
-        self.set_zuuu_mode_client = self.create_client(SetZuuuMode, "SetZuuuMode")
+        self.set_zuuu_mode_client = self.bridge_node.create_client(SetZuuuMode, "SetZuuuMode")
         while not self.set_zuuu_mode_client.wait_for_service(timeout_sec=1.0):
             self.logger.info("service SetZuuuMode not available, waiting again...")
 
-        self.get_zuuu_mode_client = self.create_client(GetZuuuMode, "GetZuuuMode")
+        self.get_zuuu_mode_client = self.bridge_node.create_client(GetZuuuMode, "GetZuuuMode")
         while not self.get_zuuu_mode_client.wait_for_service(timeout_sec=1.0):
             self.logger.info("service GetZuuuMode not available, waiting again...")
 
-        self.get_battery_voltage_client = self.create_client(GetBatteryVoltage, "GetBatteryVoltage")
+        self.get_battery_voltage_client = self.bridge_node.create_client(GetBatteryVoltage, "GetBatteryVoltage")
         while not self.get_battery_voltage_client.wait_for_service(timeout_sec=1.0):
             self.logger.info("service GetBatteryVoltage not available, waiting again...")
 
-        self.get_odometry_client = self.create_client(GetOdometry, "GetOdometry")
+        self.get_odometry_client = self.bridge_node.create_client(GetOdometry, "GetOdometry")
         while not self.get_odometry_client.wait_for_service(timeout_sec=1.0):
             self.logger.info("service GetOdometry not available, waiting again...")
 
-        self.reset_odometry_client = self.create_client(ResetOdometry, "ResetOdometry")
+        self.reset_odometry_client = self.bridge_node.create_client(ResetOdometry, "ResetOdometry")
         while not self.reset_odometry_client.wait_for_service(timeout_sec=1.0):
             self.logger.info("service ResetOdometry not available, waiting again...")
 
-        self.set_zuuu_safety_client = self.create_client(SetZuuuSafety, "SetZuuuSafety")
+        self.set_zuuu_safety_client = self.bridge_node.create_client(SetZuuuSafety, "SetZuuuSafety")
         while not self.set_zuuu_safety_client.wait_for_service(timeout_sec=1.0):
             self.logger.info("service SetZuuuSafety not available, waiting again...")
 
-        self.get_zuuu_safety_client = self.create_client(GetZuuuSafety, "GetZuuuSafety")
+        self.get_zuuu_safety_client = self.bridge_node.create_client(GetZuuuSafety, "GetZuuuSafety")
         while not self.get_zuuu_safety_client.wait_for_service(timeout_sec=1.0):
             self.logger.info("service GetZuuuSafety not available, waiting again...")
         self.logger.info("Initialized mobile base server.")
@@ -237,11 +229,10 @@ class MobileBaseServicer(
 
         req = DistanceToGoal.Request()
 
-        future = self.distance_to_goal_client.call_async(req)
-        rclpy.spin_until_future_complete(self, future)
+        result = self.distance_to_goal_client.call(req)
 
-        if future.done():
-            ros_response = future.result()
+        if result is not None:
+            ros_response = result
             print(ros_response)
             response.delta_x.value = ros_response.delta_x
             response.delta_y.value = ros_response.delta_y
@@ -260,6 +251,7 @@ class MobileBaseServicer(
         if mode == "NONE_CONTROL_MODE":
             return MobilityServiceAck(success=BoolValue(value=False))
 
+        # TODO there is a better way to do this
         run(f"ros2 param set /zuuu_hal control_mode {mode}", stdout=PIPE, shell=True)
         return MobilityServiceAck(success=BoolValue(value=True))
 
@@ -293,12 +285,10 @@ class MobileBaseServicer(
         req = GetZuuuMode.Request()
 
         mode = ZuuuModePossiblities.NONE_ZUUU_MODE
+        result = self.get_zuuu_mode_client.call(req)
 
-        future = self.get_zuuu_mode_client.call_async(req)
-        rclpy.spin_until_future_complete(self, future)
-
-        if future.done():
-            mode = future.result().mode
+        if result is not None:
+            mode = result.mode
             mode = getattr(ZuuuModePossiblities, mode)
 
         return ZuuuModeCommand(mode=mode)
@@ -309,11 +299,10 @@ class MobileBaseServicer(
 
         response = BatteryLevel(level=FloatValue(value=0.0))
 
-        future = self.get_battery_voltage_client.call_async(req)
-        rclpy.spin_until_future_complete(self, future)
+        result = self.get_battery_voltage_client.call(req)
 
-        if future.done():
-            ros_response = future.result()
+        if result is not None:
+            ros_response = result
             response.level.value = ros_response.voltage
 
         return response
@@ -329,12 +318,10 @@ class MobileBaseServicer(
             y=FloatValue(value=0.0),
             theta=FloatValue(value=0.0),
         )
+        result = self.get_odometry_client.call(req)
 
-        future = self.get_odometry_client.call_async(req)
-        rclpy.spin_until_future_complete(self, future)
-
-        if future.done():
-            ros_response = future.result()
+        if result is not None:
+            ros_response = result
             response.x.value = ros_response.x
             response.y.value = ros_response.y
             response.theta.value = ros_response.theta
@@ -353,13 +340,12 @@ class MobileBaseServicer(
         """Get the anti-collision safety status handled by the mobile base hal along with the safety and critical distances."""
         req = GetZuuuSafety.Request()
 
-        future = self.get_zuuu_safety_client.call_async(req)
-        rclpy.spin_until_future_complete(self, future)
+        result = self.get_zuuu_safety_client.call(req)
 
         response = LidarSafety()
 
-        if future.done():
-            ros_response = future.result()
+        if result is not None:
+            ros_response = result
             response.safety_on.value = ros_response.safety_on
             response.safety_distance.value = ros_response.safety_distance
             response.critical_distance.value = ros_response.critical_distance
