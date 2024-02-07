@@ -23,22 +23,39 @@ class ReachyGRPCVideoSDKServicer:
         self._logger.info("Reachy GRPC Video SDK Servicer initialized.")
 
         self._available_cams: Dict[str, SDKWrapper] = {}
+        self._list_cam: List[CameraInfo] = []
         self._captured_data: Dict[str, Dict[str, npt.NDArray[np.uint8]]] = {}
+
+        self._nb_grpc_client = 0
 
     def register_to_server(self, server: grpc.Server):
         self._logger.info("Registering 'VideoServiceServicer' to server.")
         add_VideoServiceServicer_to_server(self, server)
 
-    def GetAllCameras(self, request: Empty, context: grpc.ServicerContext) -> ListOfCameraInfo:
-        self._logger.info("Fetching camera info...")
+    def GoodBye(self, request: Empty, context: grpc.ServicerContext) -> Empty:
+        self._logger.info(f"Client leaving. Remaining {self._nb_grpc_client}")
+        self._nb_grpc_client -= 1
+        if self._nb_grpc_client < 1:
+            self._logger.info("Not more client. Releasing cameras.")
+            self._available_cams.clear()
+            self._list_cam.clear()
+            self._nb_grpc_client = 0
+        return Empty()
+
+    def InitAllCameras(self, request: CameraInfo, context: grpc.ServicerContext) -> ListOfCameraInfo:
+        self._nb_grpc_client += 1
+        if len(self._available_cams) != 0:
+            self._logger.info("Cameras already initialized")
+            return ListOfCameraInfo(camera_info=self._list_cam)
+
+        self._logger.info("Initializing all cameras...")
         try:
             devices = get_connected_devices()
         except RuntimeError as e:
-            self._logger.error(f"List of camera cannot be retrieved.")
+            self._logger.error(f"List of camera cannot be retrieved {e}.")
             return ListOfCameraInfo()
 
-        self._logger.info(f"List of camera info retrieved {devices}.")
-        list_cam: List[CameraInfo] = []
+        self._list_cam = []
         for mxid, name in devices.items():
             ci = CameraInfo(mxid=mxid, name=name)
             if name == "other":  # hardcoded in pollen-vision
@@ -47,9 +64,42 @@ class ReachyGRPCVideoSDKServicer:
             else:  # teleop otherwise
                 ci.stereo = True
                 ci.depth = False
-            list_cam.append(ci)
+            ack = self._init_camera(ci)
+            if ack.success.value:
+                self._list_cam.append(ci)
+            else:
+                self._logger.error(f"Error opening camera {ack.error}.")
+        self._logger.info(str(self._list_cam))
+        if len(self._list_cam) == 0:
+            return ListOfCameraInfo()
+        else:
+            self._logger.info("send cams")
+            return ListOfCameraInfo(camera_info=self._list_cam)
 
-        return ListOfCameraInfo(camera_info=list_cam)
+    def _init_camera(self, camera_info: CameraInfo) -> VideoAck:
+        try:
+            if camera_info.name == "other":
+                self._logger.info("Opening SR camera")
+                cam = SDKWrapper(
+                    get_config_file_path("CONFIG_SR"),
+                    compute_depth=True,
+                    rectify=False,
+                    mx_id=camera_info.mxid,
+                )
+            else:
+                self._logger.info("Opening teleop camera")
+                cam = SDKWrapper(
+                    get_config_file_path("CONFIG_IMX296"),
+                    compute_depth=False,
+                    rectify=True,
+                    mx_id=camera_info.mxid,
+                )
+            self._available_cams[camera_info.mxid] = cam
+            return VideoAck(success=BoolValue(value=True))
+        except RuntimeError as e:
+            return VideoAck(success=BoolValue(value=False), error=Error(details=str(e)))
+        except Exception as e:
+            return VideoAck(success=BoolValue(value=False), error=Error(details=str(e)))
 
     def GetFrame(self, request: ViewRequest, context: grpc.ServicerContext) -> Frame:
         """
@@ -140,43 +190,6 @@ class ReachyGRPCVideoSDKServicer:
 
         self._captured_data[request.mxid], _, _ = self._available_cams[request.mxid].get_data()
         return VideoAck(success=BoolValue(value=True))
-
-    def InitCamera(self, request: CameraInfo, context: grpc.ServicerContext) -> VideoAck:
-        self._logger.info(f"Opening Camera {request.mxid}")
-        if request.mxid in self._available_cams:
-            self._logger.info(f"Camera {request.mxid} already opened")
-            return VideoAck(success=BoolValue(value=True))
-
-        try:
-            if request.name == "other":
-                self._logger.info("opening SR camera")
-                cam = SDKWrapper(
-                    get_config_file_path("CONFIG_SR"),
-                    compute_depth=True,
-                    rectify=False,
-                    mx_id=request.mxid,
-                )
-            else:
-                self._logger.info("opening teleop camera")
-                cam = SDKWrapper(
-                    get_config_file_path("CONFIG_IMX296"),
-                    compute_depth=False,
-                    rectify=True,
-                    mx_id=request.mxid,
-                )
-            self._available_cams[request.mxid] = cam
-            return VideoAck(success=BoolValue(value=True))
-        except RuntimeError as e:
-            return VideoAck(success=BoolValue(value=False), error=Error(details=str(e)))
-        except Exception as e:
-            return VideoAck(success=BoolValue(value=False), error=Error(details=str(e)))
-
-    def CloseCamera(self, request: CameraInfo, context: grpc.ServicerContext) -> VideoAck:
-        if not self._available_cams.pop(request.mxid, False):
-            return VideoAck(success=BoolValue(value=False), error=Error(details=f"no camera with {request.mxid}"))
-        else:
-            self._logger.info(f"Closing camera {request.mxid}")
-            return VideoAck(success=BoolValue(value=True))
 
 
 def main():
