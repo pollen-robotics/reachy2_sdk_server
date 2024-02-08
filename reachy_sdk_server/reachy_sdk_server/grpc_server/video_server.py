@@ -39,7 +39,7 @@ class ReachyGRPCVideoSDKServicer:
         with self._lock:
             self._nb_grpc_client -= 1
             if self._nb_grpc_client < 1:
-                self._logger.info("Not more client. Releasing cameras.")
+                self._logger.info("No more client. Releasing cameras.")
                 self._available_cams.clear()
                 self._list_cam.clear()
                 self._nb_grpc_client = 0
