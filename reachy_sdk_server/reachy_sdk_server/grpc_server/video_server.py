@@ -1,3 +1,4 @@
+from threading import Lock
 from typing import Dict, List
 
 import cv2
@@ -27,6 +28,7 @@ class ReachyGRPCVideoSDKServicer:
         self._captured_data: Dict[str, Dict[str, npt.NDArray[np.uint8]]] = {}
 
         self._nb_grpc_client = 0
+        self._lock = Lock()
 
     def register_to_server(self, server: grpc.Server):
         self._logger.info("Registering 'VideoServiceServicer' to server.")
@@ -34,46 +36,48 @@ class ReachyGRPCVideoSDKServicer:
 
     def GoodBye(self, request: Empty, context: grpc.ServicerContext) -> Empty:
         self._logger.info(f"Client leaving. Remaining {self._nb_grpc_client}")
-        self._nb_grpc_client -= 1
-        if self._nb_grpc_client < 1:
-            self._logger.info("Not more client. Releasing cameras.")
-            self._available_cams.clear()
-            self._list_cam.clear()
-            self._nb_grpc_client = 0
+        with self._lock:
+            self._nb_grpc_client -= 1
+            if self._nb_grpc_client < 1:
+                self._logger.info("Not more client. Releasing cameras.")
+                self._available_cams.clear()
+                self._list_cam.clear()
+                self._nb_grpc_client = 0
         return Empty()
 
     def InitAllCameras(self, request: CameraInfo, context: grpc.ServicerContext) -> ListOfCameraInfo:
-        self._nb_grpc_client += 1
-        if len(self._available_cams) != 0:
-            self._logger.info("Cameras already initialized")
-            return ListOfCameraInfo(camera_info=self._list_cam)
+        with self._lock:
+            self._nb_grpc_client += 1
+            if len(self._available_cams) != 0:
+                self._logger.info("Cameras already initialized")
+                return ListOfCameraInfo(camera_info=self._list_cam)
 
-        self._logger.info("Initializing all cameras...")
-        try:
-            devices = get_connected_devices()
-        except RuntimeError as e:
-            self._logger.error(f"List of camera cannot be retrieved {e}.")
-            return ListOfCameraInfo()
+            self._logger.info("Initializing all cameras...")
+            try:
+                devices = get_connected_devices()
+            except RuntimeError as e:
+                self._logger.error(f"List of camera cannot be retrieved {e}.")
+                return ListOfCameraInfo()
 
-        self._list_cam = []
-        for mxid, name in devices.items():
-            ci = CameraInfo(mxid=mxid, name=name)
-            if name == "other":  # hardcoded in pollen-vision
-                ci.stereo = False
-                ci.depth = True
-            else:  # teleop otherwise
-                ci.stereo = True
-                ci.depth = False
-            ack = self._init_camera(ci)
-            if ack.success.value:
-                self._list_cam.append(ci)
-            else:
-                self._logger.error(f"Error opening camera {ack.error}.")
+            self._list_cam = []
+            for mxid, name in devices.items():
+                ci = CameraInfo(mxid=mxid, name=name)
+                if name == "other":  # hardcoded in pollen-vision
+                    ci.stereo = False
+                    ci.depth = True
+                else:  # teleop otherwise
+                    ci.stereo = True
+                    ci.depth = False
+                ack = self._init_camera(ci)
+                if ack.success.value:
+                    self._list_cam.append(ci)
+                else:
+                    self._logger.error(f"Error opening camera {ack.error}.")
 
         if len(self._list_cam) == 0:
+            self._logger.debug("List of cam is empty")
             return ListOfCameraInfo()
         else:
-            self._logger.info("send cams")
             return ListOfCameraInfo(camera_info=self._list_cam)
 
     def _init_camera(self, camera_info: CameraInfo) -> VideoAck:
@@ -113,7 +117,7 @@ class ReachyGRPCVideoSDKServicer:
         elif not request.camera_info.stereo and request.view == View.RIGHT:
             self._logger.warning(f"Camera {request.camera_info.mxid} has no stereo feature. Returning mono view")
         elif request.camera_info.mxid not in self._captured_data:
-            self._logger.warning(f"No data captured. Make sure to call capture() first")
+            self._logger.warning("No data captured. Make sure to call capture() first")
             return Frame(data=None)
 
         if not request.camera_info.stereo or request.view == View.LEFT:
@@ -131,7 +135,7 @@ class ReachyGRPCVideoSDKServicer:
             self._logger.warning(f"Camera {request.camera_info.mxid} has no depth feature")
             return Frame(data=None)
         elif request.camera_info.mxid not in self._captured_data:
-            self._logger.warning(f"No data captured. Make sure to call capture() first")
+            self._logger.warning("No data captured. Make sure to call capture() first")
             return Frame(data=None)
 
         res = False
