@@ -25,7 +25,6 @@ from ..utils import get_list_audio_files
 from .audio_recorder import AudioRecorder
 
 
-# ToDo : move this code to actual functions called by grpc
 class ReachyGRPCAudioSDKServicer:
     def __init__(self) -> None:
         rclpy.init()
