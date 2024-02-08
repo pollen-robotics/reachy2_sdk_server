@@ -89,7 +89,7 @@ class ReachyGRPCVideoSDKServicer:
                     compute_depth=True,
                     rectify=False,
                     mx_id=camera_info.mxid,
-                    jpeg_output=True
+                    jpeg_output=True,
                 )
             else:
                 self._logger.info("Opening teleop camera")
@@ -98,7 +98,7 @@ class ReachyGRPCVideoSDKServicer:
                     compute_depth=False,
                     rectify=True,
                     mx_id=camera_info.mxid,
-                    jpeg_output=True
+                    jpeg_output=True,
                 )
             self._available_cams[camera_info.mxid] = cam
             return VideoAck(success=BoolValue(value=True))
@@ -124,7 +124,7 @@ class ReachyGRPCVideoSDKServicer:
             frame = self._captured_data[request.camera_info.mxid]["left"]
         else:
             frame = self._captured_data[request.camera_info.mxid]["right"]
-       
+
         return Frame(data=frame.tobytes())
 
     def GetDepthFrame(self, request: ViewRequest, context: grpc.ServicerContext) -> Frame:
