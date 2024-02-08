@@ -26,6 +26,7 @@ class ReachyGRPCJointSDKServicer:
         # self.asyncio_loop = asyncio.get_event_loop()
         self.asyncio_loop = asyncio.new_event_loop()
 
+        # Should we have separate nodes for each servicer instead?
         self.bridge_node = AbstractBridgeNode(reachy_config_path=reachy_config_path, asyncio_loop=self.asyncio_loop)
 
         self.asyncio_thread = threading.Thread(target=self.spin_asyncio)
@@ -44,7 +45,7 @@ class ReachyGRPCJointSDKServicer:
         goto_servicer = GoToServicer(self.bridge_node, self.logger)
         hand_servicer = HandServicer(self.bridge_node, self.logger)
         head_servicer = HeadServicer(self.bridge_node, self.logger, orbita3d_servicer)
-        mobile_base_servicer = MobileBaseServicer(self.logger, reachy_config_path)
+        mobile_base_servicer = MobileBaseServicer(self.bridge_node, self.logger, reachy_config_path)
         reachy_servicer = ReachyServicer(
             self.bridge_node,
             self.logger,
