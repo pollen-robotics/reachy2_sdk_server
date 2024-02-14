@@ -179,7 +179,7 @@ class HandServicer:
     def GetForce(self, request: PartId, context: grpc.ServicerContext) -> Force:
         return Force()
 
-    OPEN_POSITION = -1.50
+    OPEN_POSITION = np.deg2rad(130)
     CLOSE_POSITION = 0.0
 
     def position_to_opening(self, position: float) -> float:
