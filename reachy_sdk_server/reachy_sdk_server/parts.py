@@ -27,6 +27,8 @@ class PartsHolder:
         for part in ("r_arm", "l_arm", "head", "l_hand", "r_hand"):
             if part in config:
                 part_config = config[part]
+                self.logger.info("\n\n")
+                self.logger.info(str(part_config))
 
                 p = Part(
                     name=part,
