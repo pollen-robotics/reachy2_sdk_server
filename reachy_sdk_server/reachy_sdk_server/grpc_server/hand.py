@@ -155,7 +155,6 @@ class HandServicer:
                     values=[opening],
                 )
             )
-        self.logger.info(str(cmd))
         self.bridge_node.publish_command(cmd)
 
         return Empty()
