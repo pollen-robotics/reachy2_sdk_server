@@ -19,6 +19,7 @@ from reachy2_sdk_api.head_pb2 import (
     NeckJointGoal,
     NeckOrientation,
     SpeedLimitRequest,
+    TorqueLimitRequest,
 )
 from reachy2_sdk_api.head_pb2_grpc import add_HeadServiceServicer_to_server
 from reachy2_sdk_api.kinematics_pb2 import Quaternion, Rotation3d
@@ -242,6 +243,9 @@ class HeadServicer:
         )
 
     def SetSpeedLimit(self, request: SpeedLimitRequest, context: grpc.ServicerContext) -> Empty:
+        return Empty()
+
+    def SetTorqueLimit(self, request: TorqueLimitRequest, context: grpc.ServicerContext) -> Empty:
         return Empty()
 
     def SendNeckJointGoal(self, request: NeckJointGoal, context: grpc.ServicerContext) -> Empty:
