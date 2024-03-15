@@ -19,6 +19,7 @@ from reachy2_sdk_api.arm_pb2 import (
     ArmTemperatures,
     ListOfArm,
     SpeedLimitRequest,
+    TorqueLimitRequest,
 )
 from reachy2_sdk_api.arm_pb2_grpc import add_ArmServiceServicer_to_server
 from reachy2_sdk_api.kinematics_pb2 import Matrix4x4
@@ -172,6 +173,9 @@ class ArmServicer:
         return ArmLimits()
 
     def SetSpeedLimit(self, request: SpeedLimitRequest, context: grpc.ServicerContext) -> Empty:
+        return Empty()
+
+    def SetTorqueLimit(self, request: TorqueLimitRequest, context: grpc.ServicerContext) -> Empty:
         return Empty()
 
     # Kinematics
