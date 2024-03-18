@@ -37,7 +37,12 @@ from ..conversion import (
 )
 from ..parts import Part
 from ..utils import get_current_timestamp
-from .orbita3d import Orbita3dCommand, Orbita3dsCommand, Orbita3dServicer, Orbita3dStateRequest
+from .orbita3d import (
+    Orbita3dCommand,
+    Orbita3dsCommand,
+    Orbita3dServicer,
+    Orbita3dStateRequest,
+)
 
 
 class HeadServicer:
@@ -243,9 +248,45 @@ class HeadServicer:
         )
 
     def SetSpeedLimit(self, request: SpeedLimitRequest, context: grpc.ServicerContext) -> Empty:
+        # TODO: re-write using self.orbita2d_servicer.SendCommand?
+        part = self.get_arm_part_by_part_id(request.id, context)
+
+        cmd = DynamicJointState()
+        cmd.joint_names = []
+
+        for c in part.components:
+            for i in range(1, 4):
+                cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
+
+                cmd.interface_values.append(
+                    InterfaceValue(
+                        interface_names=["speed_limit"],
+                        values=[request.limit],
+                    )
+                )
+
+        self.bridge_node.publish_command(cmd)
         return Empty()
 
     def SetTorqueLimit(self, request: TorqueLimitRequest, context: grpc.ServicerContext) -> Empty:
+        # TODO: re-write using self.orbita2d_servicer.SendCommand?
+        part = self.get_arm_part_by_part_id(request.id, context)
+
+        cmd = DynamicJointState()
+        cmd.joint_names = []
+
+        for c in part.components:
+            for i in range(1, 4):
+                cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
+
+                cmd.interface_values.append(
+                    InterfaceValue(
+                        interface_names=["torque_limit"],
+                        values=[request.limit],
+                    )
+                )
+
+        self.bridge_node.publish_command(cmd)
         return Empty()
 
     def SendNeckJointGoal(self, request: NeckJointGoal, context: grpc.ServicerContext) -> Empty:
