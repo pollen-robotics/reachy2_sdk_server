@@ -139,14 +139,14 @@ def get_list_audio_files(directory):
 
 
 BOARD_STATUS = {
-    0 : "Ok",
-    1 : "InitError",
-    2 : "SensorError",
-    3 : "IndexError",
-    4 : "ZeroingError",
-    5 : "OverTemperatureError",
-    6 : "OverCurrentError",
-    7 : "BusVoltageError",
-    100 : "HighTemperatureState",
-    255 : "Unknown",
+    0: "Ok",
+    1: "InitError",
+    2: "SensorError",
+    3: "IndexError",
+    4: "ZeroingError",
+    5: "OverTemperatureError",
+    6: "OverCurrentError",
+    7: "BusVoltageError",
+    100: "HighTemperatureState",
+    255: "Unknown",
 }
