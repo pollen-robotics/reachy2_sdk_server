@@ -261,7 +261,7 @@ class HeadServicer:
                 cmd.interface_values.append(
                     InterfaceValue(
                         interface_names=["speed_limit"],
-                        values=[request.limit],
+                        values=[request.limit/100],
                     )
                 )
 
