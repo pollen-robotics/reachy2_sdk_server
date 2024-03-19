@@ -8,6 +8,7 @@ from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
 from reachy2_sdk_api.component_pb2 import ComponentId, JointLimits, PIDGains
+from reachy2_sdk_api.error_pb2 import Error
 from reachy2_sdk_api.orbita2d_pb2 import (
     Float2d,
     Limits2d,
@@ -28,7 +29,7 @@ from reachy2_sdk_api.orbita2d_pb2_grpc import add_Orbita2dServiceServicer_to_ser
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..components import Component
-from ..utils import axis_from_str, endless_get_stream, extract_fields, get_current_timestamp
+from ..utils import axis_from_str, endless_get_stream, extract_fields, get_current_timestamp, BOARD_STATUS
 
 Orbita2dComponents = namedtuple("Orbita2dComponents", ["actuator", "axis1", "axis2", "raw_motor_1", "raw_motor_2"])
 
@@ -76,8 +77,8 @@ class Orbita2dServicer:
     # State
     def GetState(self, request: Orbita2dStateRequest, context: grpc.ServicerContext) -> Orbita2dState:
         orbita2d_components = self.get_orbita2d_components(request.id, context=context)
-
         state = extract_fields(Orbita2dField, request.fields, conversion_table, orbita2d_components)
+
         state["timestamp"] = get_current_timestamp(self.bridge_node)
         state["temperature"] = Float2d(motor_1=FloatValue(value=40.0), motor_2=FloatValue(value=40.0))
         state["joint_limits"] = Limits2d(
@@ -91,7 +92,8 @@ class Orbita2dServicer:
             self.GetState,
             request.req,
             context,
-            1 / request.freq,
+            1,
+            # 1 / request.freq,
         )
 
     # Command
@@ -202,7 +204,8 @@ class Orbita2dServicer:
 
     # Doctor
     def Audit(self, request: ComponentId, context: grpc.ServicerContext) -> Orbita2dStatus:
-        return Orbita2dStatus()
+        orbita2d_components = self.get_orbita2d_components(request, context=context)
+        return Orbita2dStatus(errors=[Error(details=str(BOARD_STATUS[orbita2d_components.actuator.state["errors"]]))])
 
     def HeartBeat(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
         return Empty()

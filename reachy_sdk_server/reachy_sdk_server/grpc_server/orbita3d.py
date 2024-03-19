@@ -8,6 +8,7 @@ from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
 from reachy2_sdk_api.component_pb2 import ComponentId, JointLimits, PIDGains
+from reachy2_sdk_api.error_pb2 import Error
 from reachy2_sdk_api.kinematics_pb2 import ExtEulerAngles, Rotation3d
 from reachy2_sdk_api.orbita3d_pb2 import (
     Float3d,
@@ -30,7 +31,7 @@ from reachy2_sdk_api.orbita3d_pb2_grpc import add_Orbita3dServiceServicer_to_ser
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..components import Component
 from ..conversion import rotation3d_as_extrinsinc_euler_angles
-from ..utils import endless_get_stream, extract_fields, get_current_timestamp
+from ..utils import endless_get_stream, extract_fields, get_current_timestamp, BOARD_STATUS
 
 Orbita3dComponents = namedtuple(
     "Orbita3dComponents",
@@ -101,7 +102,8 @@ class Orbita3dServicer:
             self.GetState,
             request.req,
             context,
-            1 / request.freq,
+            # 1 / request.freq,
+            1 ,
         )
 
     def SendCommand(self, request: Orbita3dsCommand, context: grpc.ServicerContext) -> Empty:
@@ -234,7 +236,8 @@ class Orbita3dServicer:
         return Empty()
 
     def Audit(self, request: ComponentId, context: grpc.ServicerContext) -> Orbita3dStatus:
-        return Orbita3dStatus()
+        orbita3d_components = self.get_orbita3d_components(request, context=context)
+        return Orbita3dStatus(errors=[Error(details=str(BOARD_STATUS[orbita3d_components.actuator.state["errors"]]))])
 
     def HeartBeat(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
         return Empty()

@@ -23,6 +23,7 @@ from reachy2_sdk_api.head_pb2 import (
 )
 from reachy2_sdk_api.head_pb2_grpc import add_HeadServiceServicer_to_server
 from reachy2_sdk_api.kinematics_pb2 import Quaternion, Rotation3d
+from reachy2_sdk_api.orbita3d_pb2 import Orbita3dStatus
 from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import JointState
 
@@ -184,7 +185,14 @@ class HeadServicer:
         return resp.orientation.rotation
 
     def Audit(self, request: PartId, context: grpc.ServicerContext) -> HeadStatus:
-        return HeadStatus()
+        head = self.get_head_part_from_part_id(request, context)
+
+        return HeadStatus(
+            neck_status=self.orbita3d_servicer.Audit(
+                ComponentId(id=head.components[0].id),
+                context,
+            ),
+        )
 
     def HeartBeat(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         return Empty()

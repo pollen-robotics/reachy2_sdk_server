@@ -23,6 +23,8 @@ from reachy2_sdk_api.arm_pb2 import (
 )
 from reachy2_sdk_api.arm_pb2_grpc import add_ArmServiceServicer_to_server
 from reachy2_sdk_api.kinematics_pb2 import Matrix4x4
+from reachy2_sdk_api.orbita2d_pb2 import Orbita2dStatus
+from reachy2_sdk_api.orbita3d_pb2 import Orbita3dStatus
 from reachy2_sdk_api.part_pb2 import PartId
 
 from ..abstract_bridge_node import AbstractBridgeNode
@@ -267,7 +269,22 @@ class ArmServicer:
 
     # Doctor
     def Audit(self, request: PartId, context: grpc.ServicerContext) -> ArmStatus:
-        return ArmStatus()
+        arm = self.get_arm_part_by_part_id(request, context)
+
+        return ArmStatus(
+            shoulder_status=self.orbita2d_servicer.Audit(
+                ComponentId(id=arm.components[0].id),
+                context,
+            ),
+            elbow_status=self.orbita2d_servicer.Audit(
+                ComponentId(id=arm.components[1].id),
+                context,
+            ),
+            wrist_status=self.orbita3d_servicer.Audit(
+                ComponentId(id=arm.components[2].id),
+                context,
+            ),
+        )
 
     def HeartBeat(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         return Empty()
