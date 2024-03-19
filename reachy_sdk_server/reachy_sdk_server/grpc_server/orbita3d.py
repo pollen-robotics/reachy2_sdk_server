@@ -236,11 +236,11 @@ class Orbita3dServicer:
         return Empty()
 
     def Audit(self, request: ComponentId, context: grpc.ServicerContext) -> Orbita3dStatus:
-        orbita2d_components = self.get_orbita2d_components(request, context=context)
+        orbita3d_components = self.get_orbita3d_components(request, context=context)
         self.logger.info("\nAudit\n")
-        self.logger.info(str(orbita2d_components))
-        self.logger.info(str(orbita2d_components.actuator.state["errors"]))
-        self.logger.info(str(BOARD_STATUS[orbita2d_components.actuator.state["errors"]]))
+        self.logger.info(str(orbita3d_components))
+        self.logger.info(str(orbita3d_components.actuator.state["errors"]))
+        self.logger.info(str(BOARD_STATUS[orbita3d_components.actuator.state["errors"]]))
         return Orbita3dStatus()
 
     def HeartBeat(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
