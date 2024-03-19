@@ -38,12 +38,7 @@ from ..conversion import (
 )
 from ..parts import Part
 from ..utils import get_current_timestamp
-from .orbita3d import (
-    Orbita3dCommand,
-    Orbita3dsCommand,
-    Orbita3dServicer,
-    Orbita3dStateRequest,
-)
+from .orbita3d import Orbita3dCommand, Orbita3dsCommand, Orbita3dServicer, Orbita3dStateRequest
 
 
 class HeadServicer:
@@ -225,6 +220,9 @@ class HeadServicer:
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         self.set_stiffness(request, torque=True, context=context)
+        # Set all goal positions to the current position for safety
+        part = self.get_head_part_from_part_id(request, context)
+        self.bridge_node.set_all_joints_to_current_position(part.name)
         return Empty()
 
     def TurnOff(self, request: PartId, context: grpc.ServicerContext) -> Empty:

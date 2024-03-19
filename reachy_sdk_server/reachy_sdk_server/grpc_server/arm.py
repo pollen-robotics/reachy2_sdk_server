@@ -28,26 +28,11 @@ from reachy2_sdk_api.orbita3d_pb2 import Orbita3dStatus
 from reachy2_sdk_api.part_pb2 import PartId
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..conversion import (
-    arm_position_to_joint_state,
-    joint_state_to_arm_position,
-    matrix_to_pose,
-)
+from ..conversion import arm_position_to_joint_state, joint_state_to_arm_position, matrix_to_pose
 from ..parts import Part
 from ..utils import get_current_timestamp
-from .orbita2d import (
-    ComponentId,
-    Orbita2dCommand,
-    Orbita2dsCommand,
-    Orbita2dServicer,
-    Orbita2dStateRequest,
-)
-from .orbita3d import (
-    Orbita3dCommand,
-    Orbita3dsCommand,
-    Orbita3dServicer,
-    Orbita3dStateRequest,
-)
+from .orbita2d import ComponentId, Orbita2dCommand, Orbita2dsCommand, Orbita2dServicer, Orbita2dStateRequest
+from .orbita3d import Orbita3dCommand, Orbita3dsCommand, Orbita3dServicer, Orbita3dStateRequest
 
 
 class ArmServicer:
@@ -175,6 +160,10 @@ class ArmServicer:
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         self.set_stiffness(request, torque=True, context=context)
+        # Set all goal positions to the current position for safety
+        part = self.get_arm_part_by_part_id(request, context)
+        self.bridge_node.set_all_joints_to_current_position(part.name)
+
         return Empty()
 
     def TurnOff(self, request: PartId, context: grpc.ServicerContext) -> Empty:
@@ -197,7 +186,6 @@ class ArmServicer:
         cmd.joint_names = []
 
         for c in part.components:
-
             nb_rw_motor = 3 if c.type == "orbita3d" else 2
             for i in range(1, nb_rw_motor + 1):
                 # cmd.joint_names.append(c.name)
@@ -221,7 +209,6 @@ class ArmServicer:
         cmd.joint_names = []
 
         for c in part.components:
-
             nb_rw_motor = 3 if c.type == "orbita3d" else 2
             for i in range(1, nb_rw_motor + 1):
                 # cmd.joint_names.append(c.name)

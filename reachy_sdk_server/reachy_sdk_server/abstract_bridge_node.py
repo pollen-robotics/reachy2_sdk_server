@@ -4,7 +4,7 @@ from typing import List, Tuple
 
 import numpy as np
 import rclpy
-from control_msgs.msg import DynamicJointState
+from control_msgs.msg import DynamicJointState, InterfaceValue
 from geometry_msgs.msg import Pose, PoseStamped
 from pollen_msgs.action import Goto
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
@@ -234,3 +234,38 @@ class AbstractBridgeNode(Node):
             status = res.status
             self.get_logger().debug(f"Goto finished. Result: {result.result.status}")
             return result, status
+
+    def set_all_joints_to_current_position(self, part_name: str = "") -> None:
+        """Set all joints to their current position if part_name is an empty string,
+        else only the joints of the given part_name (e.g. r_arm) are set."""
+        if not self.got_first_state.is_set():
+            self.logger.error("No joint state received yet, cannot set all joints to current position.")
+            return
+        self.logger.debug(f"Setting all joints to their current position for part '{part_name}'.")
+
+        joint_prefix = part_name.split("_")[0]
+        if joint_prefix == "head":
+            joint_prefix = "neck"
+
+        cmd = DynamicJointState()
+        cmd.joint_names = []
+
+        for name in self.joint_names:
+            if name.startswith(joint_prefix):
+                # Note: any string starts with the empty string
+                component = self.components.get_by_name(name)
+                if "position" in component.state and "target_position" in component.state:
+                    # These are all the "ROS joints" such as "r_arm_shoulder_pitch"
+                    self.logger.debug(
+                        f"\t Setting -{name} goal_position to its current position: {component.state['position']}"
+                    )
+                    component.state["target_position"] = component.state["position"]
+                    cmd.joint_names.append(name)
+                    cmd.interface_values.append(
+                        InterfaceValue(
+                            interface_names=["position"],
+                            values=[component.state["position"]],
+                        )
+                    )
+
+        self.publish_command(cmd)
