@@ -77,12 +77,7 @@ class Orbita2dServicer:
     # State
     def GetState(self, request: Orbita2dStateRequest, context: grpc.ServicerContext) -> Orbita2dState:
         orbita2d_components = self.get_orbita2d_components(request.id, context=context)
-        self.logger.info("coucou getstate")
         state = extract_fields(Orbita2dField, request.fields, conversion_table, orbita2d_components)
-        # self.logger.info(str(state))
-        # self.logger.info(str(request.fields))
-        # self.logger.info(str(orbita2d_components))
-        self.Audit(request.id, context)
 
         state["timestamp"] = get_current_timestamp(self.bridge_node)
         state["temperature"] = Float2d(motor_1=FloatValue(value=40.0), motor_2=FloatValue(value=40.0))
@@ -210,10 +205,6 @@ class Orbita2dServicer:
     # Doctor
     def Audit(self, request: ComponentId, context: grpc.ServicerContext) -> Orbita2dStatus:
         orbita2d_components = self.get_orbita2d_components(request, context=context)
-        self.logger.info("\nAudit\n")
-        self.logger.info(str(orbita2d_components))
-        self.logger.info(str(orbita2d_components.actuator.state["errors"]))
-        self.logger.info(str(BOARD_STATUS[orbita2d_components.actuator.state["errors"]]))
         return Orbita2dStatus(errors=[Error(details=str(BOARD_STATUS[orbita2d_components.actuator.state["errors"]]))])
 
     def HeartBeat(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
