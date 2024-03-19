@@ -8,6 +8,7 @@ from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
 from reachy2_sdk_api.component_pb2 import ComponentId, JointLimits, PIDGains
+from reachy2_sdk_api.error_pb2 import Error
 from reachy2_sdk_api.orbita2d_pb2 import (
     Float2d,
     Limits2d,
@@ -213,7 +214,7 @@ class Orbita2dServicer:
         self.logger.info(str(orbita2d_components))
         self.logger.info(str(orbita2d_components.actuator.state["errors"]))
         self.logger.info(str(BOARD_STATUS[orbita2d_components.actuator.state["errors"]]))
-        return Orbita2dStatus()
+        return Orbita2dStatus(errors=[Error(details=str(BOARD_STATUS[orbita2d_components.actuator.state["errors"]]))])
 
     def HeartBeat(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
         return Empty()
