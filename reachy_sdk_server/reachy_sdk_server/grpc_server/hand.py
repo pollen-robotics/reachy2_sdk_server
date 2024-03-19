@@ -1,10 +1,12 @@
+from collections import namedtuple
+
 import grpc
 import numpy as np
 import rclpy
-from collections import namedtuple
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
+from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.hand_pb2 import (
     Force,
     Hand,
@@ -20,10 +22,9 @@ from reachy2_sdk_api.hand_pb2 import (
 )
 from reachy2_sdk_api.hand_pb2_grpc import add_HandServiceServicer_to_server
 from reachy2_sdk_api.part_pb2 import PartId
-from reachy2_sdk_api.component_pb2 import ComponentId
+
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..parts import Part
-
 
 HandComponents = namedtuple("HandComponents", ["actuator", "finger", "raw_motor_1"])
 
@@ -68,7 +69,7 @@ class HandServicer:
     def GetState(self, request: PartId, context: grpc.ServicerContext) -> HandState:
         hand = self.get_hand_part_from_part_id(request, context)
         hand_components = self.get_hand_components(hand.components[0], context)
- 
+
         position = hand_components.finger.state["position"]
         opening = self.position_to_opening(position)
         torque = hand_components.actuator.state["torque"]
@@ -131,7 +132,7 @@ class HandServicer:
 
     def GetHandGoalPosition(self, request: PartId, context: grpc.ServicerContext) -> HandPosition:
         hand = self.get_hand_part_from_part_id(request, context)
-        hand_components = self.get_hand_components(hand.components[0], context) 
+        hand_components = self.get_hand_components(hand.components[0], context)
         position = hand_components.finger.state["target_position"]
 
         return HandPosition(
@@ -148,7 +149,7 @@ class HandServicer:
         cmd.joint_names = []
 
         for c in hand.components:
-            cmd.joint_names.append(c.name+"_finger")
+            cmd.joint_names.append(c.name + "_finger")
             cmd.interface_values.append(
                 InterfaceValue(
                     interface_names=["position"],
@@ -190,7 +191,7 @@ class HandServicer:
         opening = (position - self.CLOSE_POSITION) / (self.OPEN_POSITION - self.CLOSE_POSITION)
         opening = np.clip(opening, 0, 1)
         return opening
-    
+
     # Setup utils
     def get_hand_components(self, component_id: ComponentId, context: grpc.ServicerContext) -> HandComponents:
         if not hasattr(self, "_lazy_components"):
