@@ -241,7 +241,7 @@ class Orbita3dServicer:
         self.logger.info(str(orbita3d_components))
         self.logger.info(str(orbita3d_components.actuator.state["errors"]))
         self.logger.info(str(BOARD_STATUS[orbita3d_components.actuator.state["errors"]]))
-        return Orbita3dStatus()
+        return Orbita3dStatus(errors=[Error(details=str(BOARD_STATUS[orbita3d_components.actuator.state["errors"]]))])
 
     def HeartBeat(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
         return Empty()
