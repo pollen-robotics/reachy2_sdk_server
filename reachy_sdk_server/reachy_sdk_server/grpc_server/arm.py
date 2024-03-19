@@ -173,6 +173,10 @@ class ArmServicer:
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         self.set_stiffness(request, torque=True, context=context)
+        # Set all goal positions to the current position for safety
+        part = self.get_arm_part_by_part_id(request, context)
+        self.bridge_node.set_all_joints_to_current_position(part.name)
+
         return Empty()
 
     def TurnOff(self, request: PartId, context: grpc.ServicerContext) -> Empty:
@@ -195,7 +199,6 @@ class ArmServicer:
         cmd.joint_names = []
 
         for c in part.components:
-
             nb_rw_motor = 3 if c.type == "orbita3d" else 2
             for i in range(1, nb_rw_motor + 1):
                 # cmd.joint_names.append(c.name)
@@ -219,7 +222,6 @@ class ArmServicer:
         cmd.joint_names = []
 
         for c in part.components:
-
             nb_rw_motor = 3 if c.type == "orbita3d" else 2
             for i in range(1, nb_rw_motor + 1):
                 # cmd.joint_names.append(c.name)
