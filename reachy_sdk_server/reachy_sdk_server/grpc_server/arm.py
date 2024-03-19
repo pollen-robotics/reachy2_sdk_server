@@ -190,7 +190,7 @@ class ArmServicer:
     def SetSpeedLimit(self, request: SpeedLimitRequest, context: grpc.ServicerContext) -> Empty:
         # TODO: re-write using self.orbita2d_servicer.SendCommand?
         part = self.get_arm_part_by_part_id(request.id, context)
-
+        self.logger.info(f"limit: {request.limit}")
         cmd = DynamicJointState()
         cmd.joint_names = []
 
@@ -204,7 +204,7 @@ class ArmServicer:
                 cmd.interface_values.append(
                     InterfaceValue(
                         interface_names=["speed_limit"],
-                        values=[request.limit],
+                        values=[request.limit/100],
                     )
                 )
 

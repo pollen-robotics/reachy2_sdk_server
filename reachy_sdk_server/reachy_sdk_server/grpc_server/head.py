@@ -249,7 +249,7 @@ class HeadServicer:
 
     def SetSpeedLimit(self, request: SpeedLimitRequest, context: grpc.ServicerContext) -> Empty:
         # TODO: re-write using self.orbita2d_servicer.SendCommand?
-        part = self.get_arm_part_by_part_id(request.id, context)
+        part = self.get_head_part_from_part_id(request.id, context)
 
         cmd = DynamicJointState()
         cmd.joint_names = []
@@ -270,7 +270,7 @@ class HeadServicer:
 
     def SetTorqueLimit(self, request: TorqueLimitRequest, context: grpc.ServicerContext) -> Empty:
         # TODO: re-write using self.orbita2d_servicer.SendCommand?
-        part = self.get_arm_part_by_part_id(request.id, context)
+        part = self.get_head_part_from_part_id(request.id, context)
 
         cmd = DynamicJointState()
         cmd.joint_names = []
