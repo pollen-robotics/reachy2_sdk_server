@@ -79,7 +79,6 @@ class Orbita3dServicer:
 
     def GetState(self, request: Orbita3dStateRequest, context: grpc.ServicerContext) -> Orbita3dState:
         orbita3d_components = self.get_orbita3d_components(request.id, context=context)
-        self.Audit(request.id, context)
 
         state = extract_fields(Orbita3dField, request.fields, conversion_table, orbita3d_components)
         state["timestamp"] = get_current_timestamp(self.bridge_node)
@@ -238,10 +237,6 @@ class Orbita3dServicer:
 
     def Audit(self, request: ComponentId, context: grpc.ServicerContext) -> Orbita3dStatus:
         orbita3d_components = self.get_orbita3d_components(request, context=context)
-        self.logger.info("\nAudit\n")
-        self.logger.info(str(orbita3d_components))
-        self.logger.info(str(orbita3d_components.actuator.state["errors"]))
-        self.logger.info(str(BOARD_STATUS[orbita3d_components.actuator.state["errors"]]))
         return Orbita3dStatus(errors=[Error(details=str(BOARD_STATUS[orbita3d_components.actuator.state["errors"]]))])
 
     def HeartBeat(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
