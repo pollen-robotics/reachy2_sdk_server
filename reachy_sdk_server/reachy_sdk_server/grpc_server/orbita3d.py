@@ -31,7 +31,7 @@ from reachy2_sdk_api.orbita3d_pb2_grpc import add_Orbita3dServiceServicer_to_ser
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..components import Component
 from ..conversion import rotation3d_as_extrinsinc_euler_angles
-from ..utils import endless_get_stream, extract_fields, get_current_timestamp, BOARD_STATUS
+from ..utils import BOARD_STATUS, endless_get_stream, extract_fields, get_current_timestamp
 
 Orbita3dComponents = namedtuple(
     "Orbita3dComponents",
@@ -103,7 +103,7 @@ class Orbita3dServicer:
             request.req,
             context,
             # 1 / request.freq,
-            1 ,
+            1,
         )
 
     def SendCommand(self, request: Orbita3dsCommand, context: grpc.ServicerContext) -> Empty:
