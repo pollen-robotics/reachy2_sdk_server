@@ -78,6 +78,7 @@ class Orbita3dServicer:
 
     def GetState(self, request: Orbita3dStateRequest, context: grpc.ServicerContext) -> Orbita3dState:
         orbita3d_components = self.get_orbita3d_components(request.id, context=context)
+        self.Audit(request.id, context)
 
         state = extract_fields(Orbita3dField, request.fields, conversion_table, orbita3d_components)
         state["timestamp"] = get_current_timestamp(self.bridge_node)
@@ -101,7 +102,8 @@ class Orbita3dServicer:
             self.GetState,
             request.req,
             context,
-            1 / request.freq,
+            # 1 / request.freq,
+            1 ,
         )
 
     def SendCommand(self, request: Orbita3dsCommand, context: grpc.ServicerContext) -> Empty:
