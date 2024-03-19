@@ -30,7 +30,7 @@ from reachy2_sdk_api.orbita3d_pb2_grpc import add_Orbita3dServiceServicer_to_ser
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..components import Component
 from ..conversion import rotation3d_as_extrinsinc_euler_angles
-from ..utils import endless_get_stream, extract_fields, get_current_timestamp
+from ..utils import endless_get_stream, extract_fields, get_current_timestamp, BOARD_STATUS
 
 Orbita3dComponents = namedtuple(
     "Orbita3dComponents",
@@ -234,6 +234,11 @@ class Orbita3dServicer:
         return Empty()
 
     def Audit(self, request: ComponentId, context: grpc.ServicerContext) -> Orbita3dStatus:
+        orbita2d_components = self.get_orbita2d_components(request, context=context)
+        self.logger.info("\nAudit\n")
+        self.logger.info(str(orbita2d_components))
+        self.logger.info(str(orbita2d_components.actuator.state["errors"]))
+        self.logger.info(str(BOARD_STATUS[orbita2d_components.actuator.state["errors"]]))
         return Orbita3dStatus()
 
     def HeartBeat(self, request: ComponentId, context: grpc.ServicerContext) -> Empty:
