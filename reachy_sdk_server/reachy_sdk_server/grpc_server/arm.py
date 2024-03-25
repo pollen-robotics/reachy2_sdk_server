@@ -156,7 +156,7 @@ class ArmServicer:
                 )
             )
 
-        self.bridge_node.publish_command(cmd)
+        self.bridge_node.publish_command(cmd, prio=True)
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         self.set_stiffness(request, torque=True, context=context)
@@ -181,7 +181,6 @@ class ArmServicer:
     def SetSpeedLimit(self, request: SpeedLimitRequest, context: grpc.ServicerContext) -> Empty:
         # TODO: re-write using self.orbita2d_servicer.SendCommand?
         part = self.get_arm_part_by_part_id(request.id, context)
-        self.logger.info(f"limit: {request.limit}")
         cmd = DynamicJointState()
         cmd.joint_names = []
 
@@ -198,7 +197,7 @@ class ArmServicer:
                     )
                 )
 
-        self.bridge_node.publish_command(cmd)
+        self.bridge_node.publish_command(cmd, prio=True)
         return Empty()
 
     def SetTorqueLimit(self, request: TorqueLimitRequest, context: grpc.ServicerContext) -> Empty:
@@ -221,7 +220,7 @@ class ArmServicer:
                     )
                 )
 
-        self.bridge_node.publish_command(cmd)
+        self.bridge_node.publish_command(cmd, prio=True)
         return Empty()
 
     # Kinematics

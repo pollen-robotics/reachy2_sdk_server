@@ -14,7 +14,7 @@ from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import JointState
-
+import time
 from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix
 from .parts import PartsHolder
@@ -43,6 +43,12 @@ class AbstractBridgeNode(Node):
 
         self.command_pub_lock = Lock()
         self.joint_command_pub = self.create_publisher(
+            msg_type=DynamicJointState,
+            topic="/dynamic_joint_commands",
+            qos_profile=10,
+        )
+        
+        self.joint_command_prio_pub = self.create_publisher(
             msg_type=DynamicJointState,
             topic="/dynamic_joint_commands",
             qos_profile=10,
@@ -105,8 +111,15 @@ class AbstractBridgeNode(Node):
         for name, target in zip(msg.name, msg.position):
             self.components.get_by_name(name).update_command({"target_position": target})
 
-    def publish_command(self, msg: DynamicJointState) -> None:
-        self.joint_command_pub.publish(msg)
+    def publish_command(self, msg: DynamicJointState, prio=False) -> None:
+        if prio:
+            self.logger.info("Waiting for prio lock")
+            with self.command_pub_lock:
+                self.logger.info("Prio lock acquired")
+                self.joint_command_prio_pub.publish(msg)
+                # time.sleep(0.5)
+        else:
+            self.joint_command_pub.publish(msg)
 
     # Misc utils
     def get_component(self, component_id: ComponentId) -> dict:

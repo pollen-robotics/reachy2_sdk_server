@@ -216,7 +216,7 @@ class HeadServicer:
                 )
             )
 
-        self.bridge_node.publish_command(cmd)
+        self.bridge_node.publish_command(cmd, prio=True)
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         self.set_stiffness(request, torque=True, context=context)
