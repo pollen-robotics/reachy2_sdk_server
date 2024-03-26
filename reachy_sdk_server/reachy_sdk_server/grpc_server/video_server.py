@@ -6,10 +6,10 @@ import grpc
 import numpy as np
 import numpy.typing as npt
 import rclpy
-from depthai_wrappers.sdk_wrapper import SDKWrapper
-from depthai_wrappers.utils import get_config_file_path, get_connected_devices
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue
+from pollen_vision.camera_wrappers.depthai import SDKWrapper
+from pollen_vision.camera_wrappers.depthai.utils import get_config_file_path, get_connected_devices
 from reachy2_sdk_api.error_pb2 import Error
 from reachy2_sdk_api.video_pb2 import CameraInfo, Frame, ListOfCameraInfo, VideoAck, View, ViewRequest
 from reachy2_sdk_api.video_pb2_grpc import add_VideoServiceServicer_to_server
