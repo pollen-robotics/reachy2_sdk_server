@@ -143,7 +143,7 @@ class ArmServicer:
     def set_stiffness(self, request: PartId, torque: bool, context: grpc.ServicerContext) -> None:
         # TODO: re-write using self.orbita2d_servicer.SendCommand?
         part = self.get_arm_part_by_part_id(request, context)
-
+        
         cmd = DynamicJointState()
         cmd.joint_names = []
 
@@ -183,7 +183,7 @@ class ArmServicer:
         part = self.get_arm_part_by_part_id(request.id, context)
         cmd = DynamicJointState()
         cmd.joint_names = []
-
+        self.logger.info(f"SpeedLimit asked {request.limit}   {request.id}")
         for c in part.components:
             nb_rw_motor = 3 if c.type == "orbita3d" else 2
             for i in range(1, nb_rw_motor + 1):
@@ -203,6 +203,7 @@ class ArmServicer:
     def SetTorqueLimit(self, request: TorqueLimitRequest, context: grpc.ServicerContext) -> Empty:
         # TODO: re-write using self.orbita2d_servicer.SendCommand?
         part = self.get_arm_part_by_part_id(request.id, context)
+        self.logger.info(f"ToruqeLimit asked {request.limit}  {request.id}")
 
         cmd = DynamicJointState()
         cmd.joint_names = []
@@ -216,7 +217,7 @@ class ArmServicer:
                 cmd.interface_values.append(
                     InterfaceValue(
                         interface_names=["torque_limit"],
-                        values=[request.limit],
+                        values=[request.limit / 100],
                     )
                 )
 

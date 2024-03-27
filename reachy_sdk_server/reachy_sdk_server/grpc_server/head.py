@@ -288,7 +288,7 @@ class HeadServicer:
                 cmd.interface_values.append(
                     InterfaceValue(
                         interface_names=["torque_limit"],
-                        values=[request.limit],
+                        values=[request.limit / 100],
                     )
                 )
 
