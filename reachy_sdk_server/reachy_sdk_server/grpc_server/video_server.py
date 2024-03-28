@@ -187,7 +187,7 @@ class ReachyGRPCVideoSDKServicer:
             return Frame(data=None)
 
     def Capture(self, request: CameraInfo, context: grpc.ServicerContext) -> VideoAck:
-        self._logger.info(f"Capturing {request.mxid}")
+        # self._logger.info(f"Capturing {request.mxid}")
         if request.mxid not in self._available_cams:
             return VideoAck(success=BoolValue(value=False), error=Error(details=f"Camera {request.mxid} not opened"))
 
