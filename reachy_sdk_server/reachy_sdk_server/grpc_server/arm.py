@@ -56,6 +56,8 @@ class ArmServicer:
         add_ArmServiceServicer_to_server(self, server)
 
     def get_arm(self, arm: Part, context: grpc.ServicerContext) -> Arm:
+        # self.logger.warn(f'ARM id:{arm.id} name:{arm.name}')
+        # self.logger.warn(f'ARM components:{arm.components}')
         return Arm(
             part_id=PartId(name=arm.name, id=arm.id),
             description=ArmDescription(
@@ -143,7 +145,7 @@ class ArmServicer:
     def set_stiffness(self, request: PartId, torque: bool, context: grpc.ServicerContext) -> None:
         # TODO: re-write using self.orbita2d_servicer.SendCommand?
         part = self.get_arm_part_by_part_id(request, context)
-        
+
         cmd = DynamicJointState()
         cmd.joint_names = []
 

@@ -77,6 +77,7 @@ class Orbita2dServicer:
     # State
     def GetState(self, request: Orbita2dStateRequest, context: grpc.ServicerContext) -> Orbita2dState:
         orbita2d_components = self.get_orbita2d_components(request.id, context=context)
+
         state = extract_fields(Orbita2dField, request.fields, conversion_table, orbita2d_components)
 
         state["timestamp"] = get_current_timestamp(self.bridge_node)

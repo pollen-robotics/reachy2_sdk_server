@@ -28,8 +28,13 @@ class AbstractBridgeNode(Node):
         self.logger = self.get_logger()
 
         self.asyncio_loop = asyncio_loop
+
         self.config = parse_reachy_config(reachy_config_path)
         self.components = ComponentsHolder(self.config)
+        self.logger.info(f"config_path: {reachy_config_path}")
+        self.logger.info(f"config: {self.config}")
+        self.logger.info(f"components: {self.components}")
+
 
         self.got_first_state = Event()
         self.joint_state_ready = Event()
@@ -82,6 +87,7 @@ class AbstractBridgeNode(Node):
 
         # call service to get all value for each joint
         for name in self.joint_names:
+            self.logger.info(f"Adding component: {name}")
             self.components.add_component(name, node_delegate=self)
 
         self.joint_state_ready.set()

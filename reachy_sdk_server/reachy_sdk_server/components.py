@@ -63,6 +63,8 @@ class ComponentsHolder:
         # We shift the id by one to avoid having an id of 0.
         id = int(state.pop("uid")) + 1
 
+
+
         c = Component(
             name=name,
             id=id,
