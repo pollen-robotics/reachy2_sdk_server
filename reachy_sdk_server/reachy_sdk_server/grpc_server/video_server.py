@@ -11,7 +11,7 @@ from depthai_wrappers.utils import get_config_file_path, get_connected_devices
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue
 from reachy2_sdk_api.error_pb2 import Error
-from reachy2_sdk_api.video_pb2 import CameraInfo, Frame, ListOfCameraInfo, VideoAck, View, ViewRequest
+from reachy2_sdk_api.video_pb2 import CameraInfo, Frame, ListOfCameraInfo, VideoAck, View, ViewRequest, IntrinsicMatrix
 from reachy2_sdk_api.video_pb2_grpc import add_VideoServiceServicer_to_server
 
 
@@ -26,6 +26,7 @@ class ReachyGRPCVideoSDKServicer:
         self._available_cams: Dict[str, SDKWrapper] = {}
         self._list_cam: List[CameraInfo] = []
         self._captured_data: Dict[str, Dict[str, npt.NDArray[np.uint8]]] = {}
+        self._K: Dict[str, Dict[str, npt.NDArray[np.float32]]] = {}
 
         self._nb_grpc_client = 0
         self._lock = Lock()
@@ -127,6 +128,24 @@ class ReachyGRPCVideoSDKServicer:
 
         return Frame(data=frame.tobytes())
 
+    def GetIntrinsicMatrix(self, request: ViewRequest, context: grpc.ServicerContext) -> IntrinsicMatrix:
+        if request.camera_info.mxid not in self._available_cams:
+            self._logger.warning(f"Camera {request.camera_info.mxid} not opened")
+            return IntrinsicMatrix(fx=None, fy=None, cx=None, cy=None)
+
+        elif request.camera_info.mxid not in self._K:
+            self._logger.warning("No data captured. Make sure to call capture() first")
+
+            return IntrinsicMatrix(fx=None, fy=None, cx=None, cy=None)
+        if not request.camera_info.stereo or request.view == View.LEFT:
+            intrinsic = self._K[request.camera_info.mxid]
+        else:
+            intrinsic = self._K[request.camera_info.mxid]
+
+        intrinsic = intrinsic.reshape((3, 3))
+
+        return IntrinsicMatrix(fx=intrinsic[0][0], fy=intrinsic[1][1], cx=intrinsic[0][2], cy=intrinsic[1][2])
+
     def GetDepthFrame(self, request: ViewRequest, context: grpc.ServicerContext) -> Frame:
         if request.camera_info.mxid not in self._available_cams:
             self._logger.warning(f"Camera {request.camera_info.mxid} not opened")
@@ -192,6 +211,7 @@ class ReachyGRPCVideoSDKServicer:
             return VideoAck(success=BoolValue(value=False), error=Error(details=f"Camera {request.mxid} not opened"))
 
         self._captured_data[request.mxid], _, _ = self._available_cams[request.mxid].get_data()
+        self._K[request.mxid] = self._available_cams[request.mxid].get_K()  # fixme left-right?
         return VideoAck(success=BoolValue(value=True))
 
 

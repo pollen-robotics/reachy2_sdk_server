@@ -33,7 +33,7 @@ class ReachyGRPCJointSDKServicer:
         self.asyncio_thread.start()
 
         self.logger = self.bridge_node.get_logger()
-        self.logger.warn(f'joint servicer: config path: {reachy_config_path}')
+        self.logger.warn(f"joint servicer: config path: {reachy_config_path}")
 
         orbita2d_servicer = Orbita2dServicer(self.bridge_node, self.logger)
         orbita3d_servicer = Orbita3dServicer(self.bridge_node, self.logger)
@@ -53,7 +53,7 @@ class ReachyGRPCJointSDKServicer:
             arm_servicer,
             hand_servicer,
             head_servicer,
-             mobile_base_servicer,
+            mobile_base_servicer,
         )
 
         self.services = [
