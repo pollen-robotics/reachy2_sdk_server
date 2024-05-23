@@ -35,7 +35,6 @@ class AbstractBridgeNode(Node):
         self.logger.info(f"config: {self.config}")
         self.logger.info(f"components: {self.components}")
 
-
         self.got_first_state = Event()
         self.joint_state_ready = Event()
 

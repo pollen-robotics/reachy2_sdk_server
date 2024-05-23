@@ -6,8 +6,14 @@ import grpc
 import numpy as np
 import numpy.typing as npt
 import rclpy
-from depthai_wrappers.sdk_wrapper import SDKWrapper
-from depthai_wrappers.utils import get_config_file_path, get_connected_devices
+
+# from depthai_wrappers.sdk_wrapper import SDKWrapper
+# from depthai_wrappers.utils import get_config_file_path, get_connected_devices
+
+# "new" pollen_vision api
+from pollen_vision.camera_wrappers.depthai import SDKWrapper
+from pollen_vision.camera_wrappers.depthai.utils import get_config_file_path, get_connected_devices
+
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue
 from reachy2_sdk_api.error_pb2 import Error
@@ -56,6 +62,7 @@ class ReachyGRPCVideoSDKServicer:
             self._logger.info("Initializing all cameras...")
             try:
                 devices = get_connected_devices()
+                self._logger.info(f"Detected cameras: {devices}")
             except RuntimeError as e:
                 self._logger.error(f"List of camera cannot be retrieved {e}.")
                 return ListOfCameraInfo()
@@ -85,6 +92,7 @@ class ReachyGRPCVideoSDKServicer:
         try:
             if camera_info.name == "other":
                 self._logger.info("Opening SR camera")
+                self._logger.info(f'config path: {get_config_file_path("CONFIG_SR")}')
                 cam = SDKWrapper(
                     get_config_file_path("CONFIG_SR"),
                     compute_depth=True,
@@ -138,10 +146,31 @@ class ReachyGRPCVideoSDKServicer:
 
             return IntrinsicMatrix(fx=None, fy=None, cx=None, cy=None)
         if not request.camera_info.stereo or request.view == View.LEFT:
-            intrinsic = self._K[request.camera_info.mxid]
+            intrinsic = self._K[request.camera_info.mxid]["left"]
         else:
-            intrinsic = self._K[request.camera_info.mxid]
+            intrinsic = self._K[request.camera_info.mxid]["right"]
 
+        intrinsic = intrinsic.reshape((3, 3))
+
+        return IntrinsicMatrix(fx=intrinsic[0][0], fy=intrinsic[1][1], cx=intrinsic[0][2], cy=intrinsic[1][2])
+
+    def GetDepthIntrinsicMatrix(self, request: CameraInfo, context: grpc.ServicerContext) -> IntrinsicMatrix:
+        """
+        Get the intrinsic matrix K for the depth camera
+        """
+        if request.mxid not in self._available_cams:
+            self._logger.warning(f"Camera {request.mxid} not opened")
+            return IntrinsicMatrix(fx=None, fy=None, cx=None, cy=None)
+
+        elif not request.depth:
+            self._logger.warning(f"Camera {request.mxid} has no depth feature")
+            return IntrinsicMatrix(fx=None, fy=None, cx=None, cy=None)
+
+        elif request.mxid not in self._captured_data:
+            self._logger.warning(f"No data captured. Make sure to call capture() first")
+            return IntrinsicMatrix(fx=None, fy=None, cx=None, cy=None)
+
+        intrinsic = self._K[request.mxid]["depth"]
         intrinsic = intrinsic.reshape((3, 3))
 
         return IntrinsicMatrix(fx=intrinsic[0][0], fy=intrinsic[1][1], cx=intrinsic[0][2], cy=intrinsic[1][2])
