@@ -4,9 +4,11 @@ import grpc
 import rclpy
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
+from google.protobuf.wrappers_pb2 import BoolValue
 from reachy2_sdk_api.arm_pb2 import (
     Arm,
     ArmCartesianGoal,
+    ArmCartesianGoalReachability,
     ArmDescription,
     ArmFKRequest,
     ArmFKSolution,
@@ -280,9 +282,13 @@ class ArmServicer:
     def ResetDefaultValues(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         return Empty()
 
-    def SendArmCartesianGoal(self, request: ArmCartesianGoal, context: grpc.ServicerContext) -> Empty:
+    def SendArmCartesianGoal(self, request: ArmCartesianGoal, context: grpc.ServicerContext) -> ArmCartesianGoalReachability:
         self.bridge_node.publish_target_pose(
             request.id,
             matrix_to_pose(request.goal_pose.data),
         )
-        return Empty()
+        #TODO: Remi :), je veux les VRAIES réponses ici :
+        return ArmCartesianGoalReachability(
+            id=request.id,
+            reachable=BoolValue(value=True) 
+        )
