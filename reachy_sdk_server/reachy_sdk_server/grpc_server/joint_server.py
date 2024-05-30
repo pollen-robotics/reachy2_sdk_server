@@ -85,13 +85,13 @@ class ReachyGRPCJointSDKServicer:
         self.asyncio_loop2.run_until_complete(self.spinning2(self.bridge_node))
 
     async def spinning2(self, node):
-        with node.spin_sum2.time():
+        with node.sum_spin2.time():
             await asyncio.sleep(1)
 
 
     async def spinning(self, node):
         while rclpy.ok():
-            with node.spin_sum.time():
+            with node.sum_spin.time():
                 rclpy.spin_once(node, timeout_sec=0.01)
             await asyncio.sleep(0.001)
 

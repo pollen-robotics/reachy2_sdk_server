@@ -79,8 +79,9 @@ class AbstractBridgeNode(Node):
 
         # Start up the server to expose the metrics.
         pc.start_http_server(10000)
-        self.spin_sum = pc.Summary('sdkserver_spin_once_time', 'Time spent during bridge spin_once')
-        self.spin_sum2 = pc.Summary('sdkserver_time_reference_1s', 'Time sleep 1s')
+        self.sum_getreachystate = pc.Summary('sdkserver_GetReachyState_time', 'Time spent during bridge reachy.GetReachyState')
+        self.sum_spin = pc.Summary('sdkserver_spin_once_time', 'Time spent during bridge spin_once')
+        self.sum_spin2 = pc.Summary('sdkserver_time_reference_1s', 'Time sleep 1s')
         self.get_logger().info(f"Setup complete.")
 
     def wait_for_setup(self) -> None:
