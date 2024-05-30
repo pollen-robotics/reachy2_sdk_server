@@ -145,7 +145,7 @@ class ArmServicer:
     def set_stiffness(self, request: PartId, torque: bool, context: grpc.ServicerContext) -> None:
         # TODO: re-write using self.orbita2d_servicer.SendCommand?
         part = self.get_arm_part_by_part_id(request, context)
-        
+
         cmd = DynamicJointState()
         cmd.joint_names = []
 
@@ -287,8 +287,5 @@ class ArmServicer:
             request.id,
             matrix_to_pose(request.goal_pose.data),
         )
-        #TODO: Remi :), je veux les VRAIES réponses ici :
-        return ArmCartesianGoalReachability(
-            id=request.id,
-            reachable=BoolValue(value=True) 
-        )
+        # TODO: Remi :), je veux les VRAIES réponses ici :
+        return ArmCartesianGoalReachability(id=request.id, reachable=BoolValue(value=True))
