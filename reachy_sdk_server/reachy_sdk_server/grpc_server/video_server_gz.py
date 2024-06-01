@@ -144,6 +144,9 @@ class RosCameraNodes(Node):
     def imageDepthCallback(self, data: Image) -> None:
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
+            #convert to uint16 in mm for compatibility with Luxonis SR : This is stupid
+            cv_image*=1000.0
+            cv_image=cv_image.astype(np.uint16)
             self.curr_depth = cv_image
             self.prev_depth_ts = self.curr_depth_ts
             self.curr_depth_ts = Time.from_msg(data.header.stamp)
@@ -346,7 +349,8 @@ class ReachyGRPCVideoSDKServicer:
             return Frame(data=None)
 
         res = False
-        if not request.camera_info.stereo or request.view == View.LEFT:
+        # if not request.camera_info.stereo or request.view == View.LEFT:
+        if request.view == View.LEFT:
             res, frame = cv2.imencode(".png", self._captured_data[request.camera_info.mxid]["left"])
         else:
             res, frame = cv2.imencode(".png", self._captured_data[request.camera_info.mxid]["right"])
