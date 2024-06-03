@@ -281,6 +281,11 @@ class ArmServicer:
         return Empty()
 
     def SendArmCartesianGoal(self, request: ArmCartesianGoal, context: grpc.ServicerContext) -> Empty:
+        #TODO: Remi Here we also want to handle request.mode
+        #if request.mode==reachy2_sdk_api.arm_pb2.IKMode.UNCONSTRAINED -> Top grasp autorisé
+        #if request.mode==reachy2_sdk_api.arm_pb2.IKMode.LOW_ELBOW -> Coude restreint
+        #NOTE: branche de l'API : 112-choose-ik-mode
+        #NOTE 2: dans une branche séparée ça doit retourner la reachability, quelque soit le mode
         self.bridge_node.publish_target_pose(
             request.id,
             matrix_to_pose(request.goal_pose.data),
