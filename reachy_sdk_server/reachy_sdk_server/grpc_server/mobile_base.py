@@ -317,6 +317,9 @@ class MobileBaseServicer(
             x=FloatValue(value=0.0),
             y=FloatValue(value=0.0),
             theta=FloatValue(value=0.0),
+            vx=FloatValue(value=0.0),
+            vy=FloatValue(value=0.0),
+            vtheta=FloatValue(value=0.0),
         )
         result = self.get_odometry_client.call(req)
 
@@ -325,6 +328,9 @@ class MobileBaseServicer(
             response.x.value = ros_response.x
             response.y.value = ros_response.y
             response.theta.value = ros_response.theta
+            response.vx.value = ros_response.vx
+            response.vy.value = ros_response.vy
+            response.vtheta.value = ros_response.vtheta
         return response
 
     def ResetOdometry(self, request: Empty, context) -> MobilityServiceAck:
