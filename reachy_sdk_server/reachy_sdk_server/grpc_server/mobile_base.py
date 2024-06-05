@@ -20,6 +20,7 @@ from reachy2_sdk_api.mobile_base_lidar_pb2_grpc import (
     add_MobileBaseLidarServiceServicer_to_server,
 )
 from reachy2_sdk_api.mobile_base_mobility_pb2 import (
+    DirectionVector,
     DistanceToGoalVector,
     GoToVector,
     MobilityServiceAck,
@@ -99,7 +100,8 @@ class MobileBaseServicer(
 
         self.bridge = CvBridge()
         self.lidar_img_subscriber = self.bridge_node.create_subscription(Image, "lidar_image", self.get_lidar_img, 1)
-        self._last_odom=None
+        self._last_odom = None
+        self._last_direction = TargetDirectionCommand()
 
         self.odometry_subscriber = self.bridge_node.create_subscription(Odometry, "odom", self.odom_cb, 1)
 
@@ -185,6 +187,9 @@ class MobileBaseServicer(
 
     def SendDirection(self, request: TargetDirectionCommand, context) -> MobilityServiceAck:
         """Send a speed command for the mobile base expressed in SI units."""
+        self._last_direction = request
+        self.logger.info(f"Sending direction: {request.direction}")
+
         twist = Twist()
         twist.linear.x = request.direction.x.value
         twist.linear.y = request.direction.y.value
@@ -195,6 +200,16 @@ class MobileBaseServicer(
         self.cmd_vel_pub.publish(twist)
 
         return MobilityServiceAck(success=BoolValue(value=True))
+
+    def GetLastDirection(self, request: Empty, context) -> TargetDirectionCommand:
+        """Get the last direction sent to the mobile base."""
+        return TargetDirectionCommand(
+            direction=DirectionVector(
+                x=self._last_direction.direction.x,
+                y=self._last_direction.direction.y,
+                theta=self._last_direction.direction.theta,
+            )
+        )
 
     def SendSetSpeed(self, request: SetSpeedVector, context) -> MobilityServiceAck:
         """Send a speed command for the mobile base expressed in SI units for a given duration."""
@@ -313,8 +328,8 @@ class MobileBaseServicer(
 
         return response
 
-    def odom_cb(self, odom:Odometry):
-        self._last_odom=odom
+    def odom_cb(self, odom: Odometry):
+        self._last_odom = odom
 
     def GetOdometry(self, request: Empty, context) -> OdometryVector:
         """Get mobile base odometry.
