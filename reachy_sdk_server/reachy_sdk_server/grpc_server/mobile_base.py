@@ -201,14 +201,12 @@ class MobileBaseServicer(
 
         return MobilityServiceAck(success=BoolValue(value=True))
 
-    def GetLastDirection(self, request: Empty, context) -> TargetDirectionCommand:
+    def GetLastDirection(self, request: Empty, context) -> DirectionVector:
         """Get the last direction sent to the mobile base."""
-        return TargetDirectionCommand(
-            direction=DirectionVector(
+        return DirectionVector(
                 x=self._last_direction.direction.x,
                 y=self._last_direction.direction.y,
                 theta=self._last_direction.direction.theta,
-            )
         )
 
     def SendSetSpeed(self, request: SetSpeedVector, context) -> MobilityServiceAck:
