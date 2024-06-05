@@ -346,7 +346,7 @@ class MobileBaseServicer(
 
 
         if self._last_odom is not None:
-            odom=self._last_odom.copy()
+            odom=self._last_odom
             response.x.value=odom.pose.pose.position.x
             response.y.value=odom.pose.pose.position.y
             theta = tf_transformations.euler_from_quaternion([odom.pose.pose.orientation.w,odom.pose.pose.orientation.x,odom.pose.pose.orientation.y,odom.pose.pose.orientation.z])
