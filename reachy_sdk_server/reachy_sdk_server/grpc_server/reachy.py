@@ -113,7 +113,7 @@ class ReachyServicer:
 
         # params["mobile_base_state"] = self.mobile_base_servicer.GetState(Empty(), context)
 
-        return ReachyState(**params)
+        return ReachyStatus(**params)
 
     def StreamAudit(self, request: ReachyStreamAuditRequest, context: grpc.ServicerContext) -> Iterator[ReachyStatus]:
         return endless_timer_get_stream_works(
