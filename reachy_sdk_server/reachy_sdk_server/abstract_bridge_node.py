@@ -20,7 +20,8 @@ from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix
 from .parts import PartsHolder
 from .utils import parse_reachy_config
-        
+
+
 class AbstractBridgeNode(Node):
     def __init__(self, reachy_config_path: str = None, asyncio_loop: AbstractEventLoop = None) -> None:
         super().__init__(node_name="reachy_abstract_bridge_node")
