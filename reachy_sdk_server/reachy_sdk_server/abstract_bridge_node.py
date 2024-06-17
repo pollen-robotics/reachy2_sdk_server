@@ -155,7 +155,6 @@ class AbstractBridgeNode(Node):
     def get_battery_voltage(self) -> float:
         if not self.got_first_battery_voltage.is_set():
             self.logger.error("No battery voltage received yet.")
-            return 0.0
         return self.battery_voltage
 
     # function which is run when the safety status message is received
@@ -180,7 +179,7 @@ class AbstractBridgeNode(Node):
     def get_safety_status(self) -> int:
         if not self.got_first_safety_status.is_set():
             self.logger.error("No safety status received yet.")
-            return 0
+            return 0.0
         return self.lidar_safety["status"]
 
     def publish_command(self, msg: DynamicJointState) -> None:
