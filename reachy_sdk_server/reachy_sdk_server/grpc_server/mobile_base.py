@@ -172,8 +172,8 @@ class MobileBaseServicer(
             return MobileBaseState()
 
         req = MobileBaseState(
-            battery_level=self.GetBatteryLevel(request, context),
-            lidar_obstacle_detection_status=self.GetZuuuSafety(request, context).obstacle_detection_status,
+            battery_level=self.bridge_node.get_battery_voltage(),
+            lidar_obstacle_detection_status=self.abstract_bridge_node.get_safety_status(),
         )
         return req
 
