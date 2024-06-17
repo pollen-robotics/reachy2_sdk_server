@@ -75,7 +75,7 @@ class AbstractBridgeNode(Node):
             msg_type=Float32,
             topic="/mobile_base_battery_voltage",
             callback=self.update_battery_voltage,
-            qos_profile=10, # TODO see if 10 is too long as this topic is called once per second
+            qos_profile=10,  # TODO see if 10 is too long as this topic is called once per second
         )
 
         # create a subscriber to the safety status topic
@@ -93,7 +93,7 @@ class AbstractBridgeNode(Node):
         # "critical_distance":  obstacle critical distance
         # "status":             safety status [0: detection error, 1: no obstacle, 2: obstacle detected slowing down, 3: obstacle detected stopping]
         self.lidar_safety = {"safety_on": False, "safe_distance": 0.0, "critical_distance": 0.0, "status": 0}
-                
+
         # Setup goto action clients
         self.prefixes = ["r_arm", "l_arm", "neck"]
         self.goto_action_client = {}
@@ -154,7 +154,7 @@ class AbstractBridgeNode(Node):
         if not self.got_first_safety_status.is_set():
             self.got_first_safety_status.set()
         # save the safety status value to the class variable
-        # that contains 
+        # that contains
         # 0: safety on/off flag
         # 1: obstacle safety distance
         # 2: obstacle critical distance
@@ -165,7 +165,7 @@ class AbstractBridgeNode(Node):
         self.lidar_safety["status"] = int(msg.data[3])
 
     # getter for the safety status
-    # returns the safety status 
+    # returns the safety status
     # mirroring the `LidarObstacleDetectionEnum` from `mobile_base_lidar.proto`
     # [0: detection error, 1: no obstacle, 2: obstacle detected slowing down, 3: obstacle detected stopping]
     def get_safety_status(self) -> int:
@@ -173,7 +173,6 @@ class AbstractBridgeNode(Node):
             self.logger.error("No safety status received yet.")
             return 0
         return self.lidar_safety["status"]
-
 
     def publish_command(self, msg: DynamicJointState) -> None:
         self.joint_command_pub.publish(msg)
