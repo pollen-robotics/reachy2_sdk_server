@@ -39,6 +39,19 @@ from ..conversion import (
 from ..parts import Part
 from ..utils import get_current_timestamp
 from .orbita3d import Orbita3dCommand, Orbita3dsCommand, Orbita3dServicer, Orbita3dStateRequest
+import time
+class Timer:
+    def __init__(self, name, logger, node):
+        self.name = name
+        self.logger = logger
+        self.node = node
+        self.tic()
+    def tic(self):
+        self.start = time.time()
+        self.start_node = self.node.get_clock().now().nanoseconds/1e9
+    def toc(self):
+        self.logger.info(f"{self.name}: {time.time()-self.start:.6f}s")
+        self.logger.info(f"{self.name}: {self.node.get_clock().now().nanoseconds/1e9-self.start_node:.6f}s (node)")
 
 
 class HeadServicer:
@@ -140,6 +153,9 @@ class HeadServicer:
         return sol
 
     def ComputeNeckIK(self, request: NeckIKRequest, context: grpc.ServicerContext) -> NeckIKSolution:
+        self.logger.info("grpc_server.head.ComputeNeckIK")
+        a = Timer("grpc_server.head.ComputeNeckIK", self.logger, self.bridge_node)
+        a.tic()
         head = self.get_head_part_from_part_id(request.id, context)
 
         M = pose_matrix_from_rotation3d(request.target.rotation)
@@ -161,6 +177,7 @@ class HeadServicer:
             sol.success = True
             sol.position.CopyFrom(joint_state_to_neck_orientation(joint_position, head))
 
+        a.toc()
         return sol
 
     def GetOrientation(self, request: PartId, context: grpc.ServicerContext) -> Rotation3d:
@@ -296,6 +313,9 @@ class HeadServicer:
         return Empty()
 
     def SendNeckJointGoal(self, request: NeckJointGoal, context: grpc.ServicerContext) -> Empty:
+        a = Timer("grpc_server.head.SendNeckJointGoal", self.logger, self.bridge_node)
+        a.tic()
+
         head = self.get_head_part_from_part_id(request.id, context)
 
         q = rotation3d_as_quat(request.joints_goal.rotation)
@@ -323,4 +343,5 @@ class HeadServicer:
             context,
         )
 
+        a.toc()
         return Empty()

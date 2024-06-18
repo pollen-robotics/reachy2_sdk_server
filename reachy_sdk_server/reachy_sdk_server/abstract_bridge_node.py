@@ -22,6 +22,20 @@ from .conversion import matrix_to_pose, pose_to_matrix
 from .parts import PartsHolder
 from .utils import parse_reachy_config
 
+import time
+class Timer:
+    def __init__(self, name, logger, node):
+        self.name = name
+        self.logger = logger
+        self.node = node
+        self.tic()
+    def tic(self):
+        self.start = time.time()
+        self.start_node = self.node.get_clock().now().nanoseconds/1e9
+    def toc(self):
+        self.logger.info(f"{self.name}: {time.time()-self.start:.6f}s")
+        self.logger.info(f"{self.name}: {self.node.get_clock().now().nanoseconds/1e9-self.start_node:.6f}s (node)")
+
 
 class AbstractBridgeNode(Node):
     def __init__(self, reachy_config_path: str = None, asyncio_loop: AbstractEventLoop = None) -> None:
@@ -180,13 +194,19 @@ class AbstractBridgeNode(Node):
             return False, None
 
     def compute_inverse(self, id: PartId, target: np.array, q0: JointState) -> Tuple[bool, JointState]:
+        a = Timer("grpc_server.abstract_bridge_node.compute_inverse", self.logger, self)
+        a.tic()
         id = self.parts.get_by_part_id(id).id
 
         req = GetInverseKinematics.Request()
         req.pose = matrix_to_pose(target)
         req.q0 = q0
 
+        b = Timer("grpc_server.abstract_bridge_node.compute_inverse.RPC", self.logger, self)
+        b.tic()
         resp = self.inverse_kinematics_clients[id].call(req)
+        b.toc()
+        a.toc()
         return resp.success, resp.joint_position
 
     def publish_target_pose(self, id: PartId, pose: Pose) -> None:
