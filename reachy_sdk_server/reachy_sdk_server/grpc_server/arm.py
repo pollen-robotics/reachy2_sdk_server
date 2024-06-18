@@ -3,6 +3,9 @@ from typing import List, Optional
 import grpc
 import rclpy
 from control_msgs.msg import DynamicJointState, InterfaceValue
+from geometry_msgs.msg import Point, Pose, Quaternion
+from std_msgs.msg import Header
+from visualization_msgs.msg import MarkerArray
 from google.protobuf.empty_pb2 import Empty
 from reachy2_sdk_api.arm_pb2 import (
     Arm,
@@ -23,9 +26,12 @@ from reachy2_sdk_api.arm_pb2 import (
 )
 from reachy2_sdk_api.arm_pb2_grpc import add_ArmServiceServicer_to_server
 from reachy2_sdk_api.kinematics_pb2 import Matrix4x4
+from reachy2_sdk_api.marker_pb2 import MarkerArray as MarkerArrayGrpc
 from reachy2_sdk_api.orbita2d_pb2 import Orbita2dStatus
 from reachy2_sdk_api.orbita3d_pb2 import Orbita3dStatus
 from reachy2_sdk_api.part_pb2 import PartId
+
+from pollen_grasping_utils.utils import get_grasp_marker
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import arm_position_to_joint_state, joint_state_to_arm_position, matrix_to_pose
@@ -251,6 +257,52 @@ class ArmServicer:
             sol.arm_position.CopyFrom(joint_state_to_arm_position(joint_position, arm))
 
         return sol
+
+    def PublishMarker(self, request: MarkerArrayGrpc, context: grpc.ServicerContext) -> Empty:
+        grpc_request = request
+
+        # Publish goal pose marker to visualize in RViz
+        marker_array = MarkerArray()
+
+        for marker in grpc_request.markers:
+            marker_pose = marker.pose
+            marker_id = marker.marker_id
+            marker_color = marker.color
+            marker_lifetime = marker.lifetime
+            marker_shape = marker.shape
+
+            if marker_shape != "GRASP_MARKER":
+                continue
+            else:
+                ros_pose = Pose(
+                    position=Point(
+                        x=marker_pose.position.x,
+                        y=marker_pose.position.y,
+                        z=marker_pose.position.z,
+                    ),
+                    orientation=Quaternion(
+                        x=marker_pose.orientation.x,
+                        y=marker_pose.orientation.y,
+                        z=marker_pose.orientation.z,
+                        w=marker_pose.orientation.w,
+                    )
+                )
+                grasp_markers = get_grasp_marker(
+                    header=Header(
+                        frame_id="torso",
+                    ),
+                    grasp_pose=ros_pose,
+                    marker_id=marker_id,
+                    tip_length=0.1,  # GRASP_MARKER_TIP_LEN, taken from simple_grasp_pose.py
+                    width=40,  # GRASP_MARKER_WIDTH, taken from simple_grasp_pose.py
+                    score=1.0,
+                    color=(marker_color.r, marker_color.g, marker_color.b, marker_color.a),
+                    lifetime=marker_lifetime.value,
+                )
+                marker_array.markers.extend(grasp_markers.markers)
+
+        self.bridge_node.publish_markers(marker_array)
+        return Empty()
 
     # Doctor
     def Audit(self, request: PartId, context: grpc.ServicerContext) -> ArmStatus:

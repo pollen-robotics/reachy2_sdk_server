@@ -8,6 +8,7 @@ import numpy as np
 import rclpy
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from geometry_msgs.msg import Pose, PoseStamped
+from visualization_msgs.msg import MarkerArray
 from pollen_msgs.action import Goto
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
 from rclpy.action import ActionClient
@@ -60,6 +61,9 @@ class AbstractBridgeNode(Node):
 
         # Register to services for kinematics
         self.setup_kinematics()
+
+        # Setup markers publication
+        self.setup_markers_publication()
 
         self.create_subscription(
             msg_type=JointState,
@@ -166,6 +170,19 @@ class AbstractBridgeNode(Node):
             )
             self.logger.info(f"Publisher to topic '{self.target_pose_pubs[part.id].topic_name}' ready.")
 
+    def setup_markers_publication(self):
+        self.markers_pubs = {}
+
+        for part in self.parts:
+            if part.type not in ("arm", "head"):
+                continue
+
+            self._markers_pubs = self.create_publisher(
+                msg_type=MarkerArray,
+                topic=f"/{part.name}/markers_grasp_triplet",
+                qos_profile=10
+                )
+
     def compute_forward(self, id: PartId, joint_position: JointState) -> Tuple[bool, np.array]:
         id = self.parts.get_by_part_id(id).id
 
@@ -197,6 +214,14 @@ class AbstractBridgeNode(Node):
         msg.pose = pose
 
         self.target_pose_pubs[id].publish(msg)
+
+    def publish_markers(self, id: PartId, markers: MarkerArray) -> None:
+        id = self.parts.get_by_part_id(id).id
+
+        for marker in markers.markers:
+            marker.header.stamp = self.get_clock().now().to_msg()  # Doing this here as ArmService is not a ROS node
+
+        self._marker_pub.publish(markers)
 
     async def send_goto_goal(
         self,
