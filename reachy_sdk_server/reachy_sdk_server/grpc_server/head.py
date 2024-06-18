@@ -316,9 +316,15 @@ class HeadServicer:
         a = Timer("grpc_server.head.SendNeckJointGoal", self.logger, self.bridge_node)
         a.tic()
 
+        b = Timer("grpc_server.head.SendNeckJointGoal.get_head_part", self.logger, self.bridge_node)
+        b.tic()
         head = self.get_head_part_from_part_id(request.id, context)
+        b.toc()
 
+        c = Timer("grpc_server.head.SendNeckJointGoal.rotation3d_as_quat", self.logger, self.bridge_node)
+        c.tic()
         q = rotation3d_as_quat(request.joints_goal.rotation)
+        c.toc()
 
         ik_req = NeckIKRequest(
             id=request.id,
@@ -331,6 +337,8 @@ class HeadServicer:
         if not resp.success:
             context.abort(grpc.StatusCode.INTERNAL, "Could not compute IK.")
 
+        d = Timer("grpc_server.head.SendNeckJointGoal.orbita3d_servicer", self.logger, self.bridge_node)
+        d.tic()
         self.orbita3d_servicer.SendCommand(
             Orbita3dsCommand(
                 cmd=[
@@ -342,6 +350,7 @@ class HeadServicer:
             ),
             context,
         )
+        d.toc()
 
         a.toc()
         return Empty()
