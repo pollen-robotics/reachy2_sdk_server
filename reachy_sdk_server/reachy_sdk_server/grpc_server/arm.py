@@ -26,7 +26,7 @@ from reachy2_sdk_api.arm_pb2 import (
 )
 from reachy2_sdk_api.arm_pb2_grpc import add_ArmServiceServicer_to_server
 from reachy2_sdk_api.kinematics_pb2 import Matrix4x4
-from reachy2_sdk_api.marker_pb2 import MarkerArray as MarkerArrayGrpc
+from reachy2_sdk_api.marker_pb2 import MarkerPublicationRequest, MarkerShape
 from reachy2_sdk_api.orbita2d_pb2 import Orbita2dStatus
 from reachy2_sdk_api.orbita3d_pb2 import Orbita3dStatus
 from reachy2_sdk_api.part_pb2 import PartId
@@ -258,20 +258,18 @@ class ArmServicer:
 
         return sol
 
-    def PublishMarker(self, request: MarkerArrayGrpc, context: grpc.ServicerContext) -> Empty:
-        grpc_request = request
-
+    def PublishMarker(self, request: MarkerPublicationRequest, context: grpc.ServicerContext) -> Empty:
         # Publish goal pose marker to visualize in RViz
         marker_array = MarkerArray()
 
-        for marker in grpc_request.markers:
+        for marker in request.markers.markers:
             marker_pose = marker.pose
-            marker_id = marker.marker_id
+            marker_id = marker.id
             marker_color = marker.color
             marker_lifetime = marker.lifetime
             marker_shape = marker.shape
 
-            if marker_shape != "GRASP_MARKER":
+            if marker_shape != MarkerShape.GRASP_FORK:
                 continue
             else:
                 ros_pose = Pose(
@@ -296,12 +294,13 @@ class ArmServicer:
                     tip_length=0.1,  # GRASP_MARKER_TIP_LEN, taken from simple_grasp_pose.py
                     width=40,  # GRASP_MARKER_WIDTH, taken from simple_grasp_pose.py
                     score=1.0,
-                    color=(marker_color.r, marker_color.g, marker_color.b, marker_color.a),
+                    color=(marker_color.r.value, marker_color.g.value, marker_color.b.value, marker_color.a.value),
                     lifetime=marker_lifetime.value,
+                    # lifetime=10.0,
                 )
                 marker_array.markers.extend(grasp_markers.markers)
 
-        self.bridge_node.publish_markers(marker_array)
+        self.bridge_node.publish_markers(id=request.part_id, markers=marker_array)
         return Empty()
 
     # Doctor

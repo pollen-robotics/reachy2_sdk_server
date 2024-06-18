@@ -177,7 +177,7 @@ class AbstractBridgeNode(Node):
             if part.type not in ("arm", "head"):
                 continue
 
-            self._markers_pubs = self.create_publisher(
+            self.markers_pubs[part.id] = self.create_publisher(
                 msg_type=MarkerArray,
                 topic=f"/{part.name}/markers_grasp_triplet",
                 qos_profile=10
@@ -221,7 +221,8 @@ class AbstractBridgeNode(Node):
         for marker in markers.markers:
             marker.header.stamp = self.get_clock().now().to_msg()  # Doing this here as ArmService is not a ROS node
 
-        self._marker_pub.publish(markers)
+        self.logger.info(str(list(self.markers_pubs.keys())))
+        self.markers_pubs[id].publish(markers)
 
     async def send_goto_goal(
         self,
