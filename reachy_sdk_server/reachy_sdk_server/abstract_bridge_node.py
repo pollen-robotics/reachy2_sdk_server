@@ -33,8 +33,8 @@ class Timer:
         self.start = time.time()
         self.start_node = self.node.get_clock().now().nanoseconds/1e9
     def toc(self):
-        self.logger.info(f"{self.name}: {time.time()-self.start:.6f}s")
-        self.logger.info(f"{self.name}: {self.node.get_clock().now().nanoseconds/1e9-self.start_node:.6f}s (node)")
+        self.logger.info(f"{self.name}: {(time.time()-self.start)*1000:.3f}ms")
+        self.logger.info(f"{self.name}: {(self.node.get_clock().now().nanoseconds/1e9-self.start_node)*1000:.3f}ms (node)")
 
 
 class AbstractBridgeNode(Node):
