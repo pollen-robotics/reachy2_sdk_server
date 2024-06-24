@@ -88,7 +88,6 @@ class ReachyGRPCJointSDKServicer:
         with node.sum_spin2.time():
             await asyncio.sleep(1)
 
-
     async def spinning(self, node):
         while rclpy.ok():
             with node.sum_spin.time():
