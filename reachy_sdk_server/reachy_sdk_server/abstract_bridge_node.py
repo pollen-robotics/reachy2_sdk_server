@@ -2,9 +2,8 @@ from asyncio.events import AbstractEventLoop
 from threading import Event, Lock
 from typing import List, Tuple
 
-
-import prometheus_client as pc
 import numpy as np
+import prometheus_client as pc
 import rclpy
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from geometry_msgs.msg import Pose, PoseStamped
@@ -104,12 +103,11 @@ class AbstractBridgeNode(Node):
             self.get_logger().info(f"Waiting for action server {prefix}_goto...")
             self.goto_action_client[prefix].wait_for_server()
 
-
         # Start up the server to expose the metrics.
         pc.start_http_server(10000)
-        self.sum_getreachystate = pc.Summary('sdkserver_GetReachyState_time', 'Time spent during bridge reachy.GetReachyState')
-        self.sum_spin = pc.Summary('sdkserver_spin_once_time', 'Time spent during bridge spin_once')
-        self.sum_spin2 = pc.Summary('sdkserver_time_reference_1s', 'Time sleep 1s')
+        self.sum_getreachystate = pc.Summary("sdkserver_GetReachyState_time", "Time spent during bridge reachy.GetReachyState")
+        self.sum_spin = pc.Summary("sdkserver_spin_once_time", "Time spent during bridge spin_once")
+        self.sum_spin2 = pc.Summary("sdkserver_time_reference_1s", "Time sleep 1s")
         self.get_logger().info(f"Setup complete.")
 
     def wait_for_setup(self) -> None:
