@@ -94,6 +94,7 @@ class AbstractBridgeNode(Node):
         # "critical_distance":  obstacle critical distance
         # "status":             safety status [0: detection error, 1: no obstacle, 2: obstacle detected slowing down, 3: obstacle detected stopping]
         self.lidar_safety = {"safety_on": False, "safe_distance": 0.0, "critical_distance": 0.0, "status": 0}
+        self.battery_voltage = 0.0
 
         # Setup goto action clients
         self.prefixes = ["r_arm", "l_arm", "neck"]
