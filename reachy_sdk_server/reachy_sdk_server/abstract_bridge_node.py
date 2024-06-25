@@ -30,11 +30,18 @@ class Timer:
         self.node = node
         self.tic()
     def tic(self):
-        self.start = time.time()
+        self.start = time.time_ns()/1e9
         self.start_node = self.node.get_clock().now().nanoseconds/1e9
+
     def toc(self):
-        self.logger.info(f"{self.name}: {(time.time()-self.start)*1000:.3f}ms")
-        self.logger.info(f"{self.name}: {(self.node.get_clock().now().nanoseconds/1e9-self.start_node)*1000:.3f}ms (node)")
+        end = time.time_ns()/1e9
+        end_node = self.node.get_clock().now().nanoseconds/1e9
+        start_print = time.time()
+        print(f"{self.name}: {(end-self.start)*1000:.3f}ms")
+        # self.logger.info(f"{self.name}: {(end_node-self.start_node)*1000:.3f}ms (node)")
+        print(f"{self.name}.print_time:{(time.time()-start_print)*1000:.3f}ms")
+        # self.logger.info(f"{self.name}: {(end_node/1e9-self.start_node)*1000:.3f}ms (node)")
+
 
 
 class AbstractBridgeNode(Node):

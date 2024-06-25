@@ -47,11 +47,17 @@ class Timer:
         self.node = node
         self.tic()
     def tic(self):
-        self.start = time.time()
+        self.start = time.time_ns()/1e9
         self.start_node = self.node.get_clock().now().nanoseconds/1e9
+
     def toc(self):
-        self.logger.info(f"{self.name}: {(time.time()-self.start)*1000:.3f}ms")
-        self.logger.info(f"{self.name}: {(self.node.get_clock().now().nanoseconds/1e9-self.start_node)*1000:.3f}ms (node)")
+        end = time.time_ns()/1e9
+        end_node = self.node.get_clock().now().nanoseconds/1e9
+        start_print = time.time()
+        print(f"{self.name}: {(end-self.start)*1000:.3f}ms")
+        # self.logger.info(f"{self.name}: {(end_node-self.start_node)*1000:.3f}ms (node)")
+        print(f"{self.name}.print_time:{(time.time()-start_print)*1000:.3f}ms")
+        # self.logger.info(f"{self.name}: {(end_node/1e9-self.start_node)*1000:.3f}ms (node)")
 
 
 class HeadServicer:
@@ -153,7 +159,6 @@ class HeadServicer:
         return sol
 
     def ComputeNeckIK(self, request: NeckIKRequest, context: grpc.ServicerContext) -> NeckIKSolution:
-        self.logger.info("grpc_server.head.ComputeNeckIK")
         a = Timer("grpc_server.head.ComputeNeckIK", self.logger, self.bridge_node)
         a.tic()
         head = self.get_head_part_from_part_id(request.id, context)
@@ -316,25 +321,25 @@ class HeadServicer:
         a = Timer("grpc_server.head.SendNeckJointGoal", self.logger, self.bridge_node)
         a.tic()
 
-        counter = 0
-        self.logger.info(f"grpc_server.head.SendNeckJointGoal.{counter}: {time.time_ns()/1e6}ms")
-        counter += 1
+        # counter = 0
+        # print(f"grpc_server.head.SendNeckJointGoal.{counter}: {time.time_ns()/1e6}ms")
+        # counter += 1
 
         b = Timer("grpc_server.head.SendNeckJointGoal.get_head_part", self.logger, self.bridge_node)
         b.tic()
         head = self.get_head_part_from_part_id(request.id, context)
         b.toc()
 
-        self.logger.info(f"grpc_server.head.SendNeckJointGoal.{counter}: {time.time_ns()/1e6}ms")
-        counter += 1
+        # print(f"grpc_server.head.SendNeckJointGoal.{counter}: {time.time_ns()/1e6}ms")
+        # counter += 1
 
         c = Timer("grpc_server.head.SendNeckJointGoal.rotation3d_as_quat", self.logger, self.bridge_node)
         c.tic()
         q = rotation3d_as_quat(request.joints_goal.rotation)
         c.toc()
 
-        self.logger.info(f"grpc_server.head.SendNeckJointGoal.{counter}: {time.time_ns()/1e6}ms")
-        counter += 1
+        # print(f"grpc_server.head.SendNeckJointGoal.{counter}: {time.time_ns()/1e6}ms")
+        # counter += 1
 
         e = Timer("grpc_server.head.SendNeckJointGoal.NeckIKRequest", self.logger, self.bridge_node)
         e.tic()
@@ -347,8 +352,8 @@ class HeadServicer:
         e.toc()
         resp = self.ComputeNeckIK(ik_req, context)
 
-        self.logger.info(f"grpc_server.head.SendNeckJointGoal.{counter}: {time.time_ns()/1e6}ms")
-        counter += 1
+        # print(f"grpc_server.head.SendNeckJointGoal.{counter}: {time.time_ns()/1e6}ms")
+        # counter += 1
 
         f = Timer("grpc_server.head.SendNeckJointGoal.context.abort", self.logger, self.bridge_node)
         f.tic()
@@ -356,8 +361,8 @@ class HeadServicer:
             context.abort(grpc.StatusCode.INTERNAL, "Could not compute IK.")
         f.toc()
 
-        self.logger.info(f"grpc_server.head.SendNeckJointGoal.{counter}: {time.time_ns()/1e6}ms")
-        counter += 1
+        # print(f"grpc_server.head.SendNeckJointGoal.{counter}: {time.time_ns()/1e6}ms")
+        # counter += 1
 
         d = Timer("grpc_server.head.SendNeckJointGoal.orbita3d_servicer", self.logger, self.bridge_node)
         d.tic()
@@ -374,11 +379,10 @@ class HeadServicer:
         )
         d.toc()
 
-        self.logger.info(f"grpc_server.head.SendNeckJointGoal.{counter}: {time.time_ns()/1e6}ms")
-        counter += 1
+        # print(f"grpc_server.head.SendNeckJointGoal.{counter}: {time.time_ns()/1e6}ms")
+        # counter += 1
 
         a.toc()
-        self.logger.info(f"grpc_server.head.SendNeckJointGoal.{counter}: {time.time_ns()/1e6}ms")
-        counter += 1
-        self.logger.info(30*"-")
+        # print(f"grpc_server.head.SendNeckJointGoal.{counter}: {time.time_ns()/1e6}ms")
+        print(30*"-")
         return Empty()
