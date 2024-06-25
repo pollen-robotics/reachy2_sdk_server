@@ -31,6 +31,7 @@ from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import (
     extract_quaternion_from_pose_matrix,
     joint_state_to_neck_orientation,
+    matrix_to_pose,
     neck_rotation_to_joint_state,
     pose_matrix_from_rotation3d,
     quat_as_rotation3d,
@@ -317,65 +318,48 @@ class HeadServicer:
         self.bridge_node.publish_command(cmd)
         return Empty()
 
+    # Note: this version uses an IK service call.
+    # --> rlcpy services seem too slow si we're disabling this and using a topic mechnaisms instead.
+    # def SendNeckJointGoal(self, request: NeckJointGoal, context: grpc.ServicerContext) -> Empty:
+    #     head = self.get_head_part_from_part_id(request.id, context)
+
+    #     q = rotation3d_as_quat(request.joints_goal.rotation)
+
+    #     ik_req = NeckIKRequest(
+    #         id=request.id,
+    #         target=NeckOrientation(
+    #             rotation=quat_as_rotation3d(q),
+    #         ),
+    #     )
+    #     resp = self.ComputeNeckIK(ik_req, context)
+
+    #     if not resp.success:
+    #         context.abort(grpc.StatusCode.INTERNAL, "Could not compute IK.")
+
+    #     self.orbita3d_servicer.SendCommand(
+    #         Orbita3dsCommand(
+    #             cmd=[
+    #                 Orbita3dCommand(
+    #                     id=ComponentId(id=head.components[0].id),
+    #                     goal_position=resp.position,
+    #                 ),
+    #             ]
+    #         ),
+    #         context,
+    #     )
+
+    #     return Empty()
+
     def SendNeckJointGoal(self, request: NeckJointGoal, context: grpc.ServicerContext) -> Empty:
         a = Timer("grpc_server.head.SendNeckJointGoal", self.logger, self.bridge_node)
         a.tic()
+        M = pose_matrix_from_rotation3d(request.joints_goal.rotation)
 
-        # counter = 0
-        # print(f"grpc_server.head.SendNeckJointGoal.{counter}: {time.time_ns()/1e6}ms")
-        # counter += 1
-
-        b = Timer("grpc_server.head.SendNeckJointGoal.get_head_part", self.logger, self.bridge_node)
-        b.tic()
-        head = self.get_head_part_from_part_id(request.id, context)
-        b.toc()
-
-        # print(f"grpc_server.head.SendNeckJointGoal.{counter}: {time.time_ns()/1e6}ms")
-        # counter += 1
-
-        c = Timer("grpc_server.head.SendNeckJointGoal.rotation3d_as_quat", self.logger, self.bridge_node)
-        c.tic()
-        q = rotation3d_as_quat(request.joints_goal.rotation)
-        c.toc()
-
-        # print(f"grpc_server.head.SendNeckJointGoal.{counter}: {time.time_ns()/1e6}ms")
-        # counter += 1
-
-        e = Timer("grpc_server.head.SendNeckJointGoal.NeckIKRequest", self.logger, self.bridge_node)
-        e.tic()
-        ik_req = NeckIKRequest(
-            id=request.id,
-            target=NeckOrientation(
-                rotation=quat_as_rotation3d(q),
-            ),
-        )
-        e.toc()
-        resp = self.ComputeNeckIK(ik_req, context)
-
-        # print(f"grpc_server.head.SendNeckJointGoal.{counter}: {time.time_ns()/1e6}ms")
-        # counter += 1
-
-        f = Timer("grpc_server.head.SendNeckJointGoal.context.abort", self.logger, self.bridge_node)
-        f.tic()
-        if not resp.success:
-            context.abort(grpc.StatusCode.INTERNAL, "Could not compute IK.")
-        f.toc()
-
-        # print(f"grpc_server.head.SendNeckJointGoal.{counter}: {time.time_ns()/1e6}ms")
-        # counter += 1
-
-        d = Timer("grpc_server.head.SendNeckJointGoal.orbita3d_servicer", self.logger, self.bridge_node)
+        d = Timer("grpc_server.head.publish_target_pose", self.logger, self.bridge_node)
         d.tic()
-        self.orbita3d_servicer.SendCommand(
-            Orbita3dsCommand(
-                cmd=[
-                    Orbita3dCommand(
-                        id=ComponentId(id=head.components[0].id),
-                        goal_position=resp.position,
-                    ),
-                ]
-            ),
-            context,
+        self.bridge_node.publish_target_pose(
+            request.id,
+            matrix_to_pose(M),
         )
         d.toc()
 

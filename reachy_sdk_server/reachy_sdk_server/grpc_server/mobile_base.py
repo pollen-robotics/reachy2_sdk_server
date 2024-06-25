@@ -171,9 +171,23 @@ class MobileBaseServicer(
         if self.info["serial_number"] is None:
             return MobileBaseState()
 
+        res_status = LidarSafety()
+        status = self.bridge_node.get_safety_status()
+        if status == 0:
+            grpc_obstacle_detection_status = LidarObstacleDetectionEnum.DETECTION_ERROR
+        elif status == 1:
+            grpc_obstacle_detection_status = LidarObstacleDetectionEnum.NO_OBJECT_DETECTED
+        elif status == 2:
+            grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_SLOWDOWN
+        elif status == 3:
+            grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_STOP
+        res_status.obstacle_detection_status.status = grpc_obstacle_detection_status
+
+        res_bat = BatteryLevel(level=FloatValue(value=self.bridge_node.get_battery_voltage()))
+
         req = MobileBaseState(
-            battery_level=self.GetBatteryLevel(request, context),
-            lidar_obstacle_detection_status=self.GetZuuuSafety(request, context).obstacle_detection_status,
+            battery_level=res_bat,
+            lidar_obstacle_detection_status=res_status.obstacle_detection_status,
         )
         return req
 
