@@ -1,10 +1,11 @@
 from typing import List, Optional
-import numpy as np
 
 import grpc
+import numpy as np
 import rclpy
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
+from pollen_msgs.msg import IKRequest
 from reachy2_sdk_api.arm_pb2 import (
     Arm,
     ArmCartesianGoal,
@@ -18,6 +19,8 @@ from reachy2_sdk_api.arm_pb2 import (
     ArmState,
     ArmStatus,
     ArmTemperatures,
+    IKConstrainedMode,
+    IKContinuousMode,
     ListOfArm,
     SpeedLimitRequest,
     TorqueLimitRequest,
@@ -34,9 +37,6 @@ from ..parts import Part
 from ..utils import get_current_timestamp
 from .orbita2d import ComponentId, Orbita2dCommand, Orbita2dsCommand, Orbita2dServicer, Orbita2dStateRequest
 from .orbita3d import Orbita3dCommand, Orbita3dsCommand, Orbita3dServicer, Orbita3dStateRequest
-
-from pollen_msgs.msg import IKRequest
-from reachy2_sdk_api.arm_pb2 import IKConstrainedMode, IKContinuousMode
 
 
 class ArmServicer:
@@ -304,7 +304,7 @@ class ArmServicer:
         if request.HasField("preferred_theta"):  # -> on utilise request.preferred_theta.value, sinon valeur par défaut
             preferred_theta = request.preferred_theta.value
         else:
-            preferred_theta = -4 * np.pi/6
+            preferred_theta = -4 * np.pi / 6
 
         if request.HasField("d_theta_max"):  # -> on utilise request.d_theta_max.value, sinon valeur par défaut
             d_theta_max = request.d_theta_max.value
