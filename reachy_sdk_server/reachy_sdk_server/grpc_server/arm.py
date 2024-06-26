@@ -1,4 +1,5 @@
 from typing import List, Optional
+import numpy as np
 
 import grpc
 import rclpy
@@ -33,6 +34,9 @@ from ..parts import Part
 from ..utils import get_current_timestamp
 from .orbita2d import ComponentId, Orbita2dCommand, Orbita2dsCommand, Orbita2dServicer, Orbita2dStateRequest
 from .orbita3d import Orbita3dCommand, Orbita3dsCommand, Orbita3dServicer, Orbita3dStateRequest
+
+from pollen_msgs.msg import IKRequest
+from reachy2_sdk_api.arm_pb2 import IKConstrainedMode, IKContinuousMode
 
 
 class ArmServicer:
@@ -284,18 +288,49 @@ class ArmServicer:
         # TODO: Remi Here we also want to handle several options:
         # NOTE: branche de l'API : 112-choose-ik-mode
 
-        # IKMODE :
-        # if request.mode==reachy2_sdk_api.arm_pb2.IKMode.UNCONSTRAINED -> Top grasp autorisé
-        # if request.mode==reachy2_sdk_api.arm_pb2.IKMode.LOW_ELBOW -> Coude restreint
+        # self.bridge_node.logger.info(f"Received goal pose for arm : rconstrained_mode {request.constrained_mode}.")
+
+        if request.constrained_mode == IKConstrainedMode.UNCONSTRAINED:  # -> Top grasp autorisé
+            constrained_mode = "unconstrained"
+        if request.constrained_mode == IKConstrainedMode.LOW_ELBOW:  # -> Coude restreint
+            constrained_mode = "low_elbow"
+
+        if request.continuous_mode == IKContinuousMode.CONTINUOUS:  # -> Top grasp autorisé
+            continuous_mode = "continuous"
+        if request.continuous_mode == IKContinuousMode.DISCRETE:  # -> Coude restreint
+            continuous_mode = "discrete"
 
         # PREFERRED_THETA et D_THETA_MAX
-        # if request.HasField("preferred_theta") -> on utilise request.preferred_theta.value, sinon valeur par défaut
-        # if request.HasField("d_theta_max") -> on utilise request.d_theta_max.value, sinon valeur par défaut
+        if request.HasField("preferred_theta"):  # -> on utilise request.preferred_theta.value, sinon valeur par défaut
+            preferred_theta = request.preferred_theta.value
+        else:
+            preferred_theta = -4 * np.pi/6
+
+        if request.HasField("d_theta_max"):  # -> on utilise request.d_theta_max.value, sinon valeur par défaut
+            d_theta_max = request.d_theta_max.value
+        else:
+            d_theta_max = 0.01
 
         # REACHABILITY:
-        # if request.HasField("order_id") -> on fait un truc avec request.order_id.value, sinon osef
-        self.bridge_node.publish_target_pose(
+        if request.HasField("order_id"):  # -> on fait un truc avec request.order_id.value, sinon osef
+            order_id = request.order_id.value
+        else:
+            order_id = 0
+
+        msg = IKRequest()
+
+        msg.pose.pose = matrix_to_pose(request.goal_pose.data)
+        msg.pose.header.stamp = self.bridge_node.get_clock().now().to_msg()
+        msg.constrained_mode = constrained_mode
+        msg.continuous_mode = continuous_mode
+        msg.preferred_theta = preferred_theta
+        msg.d_theta_max = d_theta_max
+        msg.order_id = order_id
+
+        self.bridge_node.publish_arm_target_pose(
             request.id,
-            matrix_to_pose(request.goal_pose.data),
+            msg,
         )
+
+        self.bridge_node.logger.info(f"Received goal pose for arm : request {request}  \nmsg : {msg}'.")
         return Empty()

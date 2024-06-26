@@ -9,6 +9,7 @@ from control_msgs.msg import DynamicJointState, InterfaceValue
 from geometry_msgs.msg import Pose, PoseStamped
 from pollen_msgs.action import Goto
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
+from pollen_msgs.msg import IKRequest
 from rclpy.action import ActionClient
 from rclpy.node import Node
 from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
@@ -194,7 +195,9 @@ class AbstractBridgeNode(Node):
         # And to /{side}_arm/target_pose
         self.forward_kinematics_clients = {}
         self.inverse_kinematics_clients = {}
-        self.target_pose_pubs = {}
+        # self.target_pose_pubs = {}
+        self.head_target_pose_pubs = {}
+        self.arm_target_pose_pubs = {}
 
         self.command_target_pub_lock = Lock()
 
@@ -226,12 +229,20 @@ class AbstractBridgeNode(Node):
                 # Other QoS settings can be adjusted as needed
             )
 
-            self.target_pose_pubs[part.id] = self.create_publisher(
+            self.head_target_pose_pubs[part.id] = self.create_publisher(
                 msg_type=PoseStamped,
                 topic=f"/{part.name}/target_pose",
                 qos_profile=high_freq_qos_profile,
             )
-            self.logger.info(f"Publisher to topic '{self.target_pose_pubs[part.id].topic_name}' ready.")
+
+            self.arm_target_pose_pubs[part.id] = self.create_publisher(
+                msg_type=IKRequest,
+                topic=f"/{part.name}/ik_target_pose",
+                qos_profile=high_freq_qos_profile,
+            )
+
+            self.logger.info(f"Publisher to topic '{self.head_target_pose_pubs[part.id].topic_name}' ready.")
+            self.logger.info(f"Publisher to topic '{self.arm_target_pose_pubs[part.id].topic_name}' ready.")
 
     def compute_forward(self, id: PartId, joint_position: JointState) -> Tuple[bool, np.array]:
         id = self.parts.get_by_part_id(id).id
@@ -256,14 +267,18 @@ class AbstractBridgeNode(Node):
         resp = self.inverse_kinematics_clients[id].call(req)
         return resp.success, resp.joint_position
 
-    def publish_target_pose(self, id: PartId, pose: Pose) -> None:
+    def publish_head_target_pose(self, id: PartId, pose: Pose) -> None:
         id = self.parts.get_by_part_id(id).id
 
         msg = PoseStamped()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.pose = pose
 
-        self.target_pose_pubs[id].publish(msg)
+        self.head_target_pose_pubs[id].publish(msg)
+
+    def publish_arm_target_pose(self, id: PartId, msg: IKRequest) -> None:
+        id = self.parts.get_by_part_id(id).id
+        self.arm_target_pose_pubs[id].publish(msg)
 
     async def send_goto_goal(
         self,

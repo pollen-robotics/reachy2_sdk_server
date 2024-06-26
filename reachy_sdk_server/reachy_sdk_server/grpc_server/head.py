@@ -331,7 +331,7 @@ class HeadServicer:
     def SendNeckJointGoal(self, request: NeckJointGoal, context: grpc.ServicerContext) -> Empty:
         M = pose_matrix_from_rotation3d(request.joints_goal.rotation)
 
-        self.bridge_node.publish_target_pose(
+        self.bridge_node.publish_head_target_pose(
             request.id,
             matrix_to_pose(M),
         )
