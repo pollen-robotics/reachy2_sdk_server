@@ -1,7 +1,8 @@
 from asyncio.events import AbstractEventLoop
+from collections import deque
+from functools import partial
 from threading import Event, Lock
 from typing import List, Tuple
-from collections import deque
 
 import numpy as np
 import prometheus_client as pc
@@ -18,7 +19,6 @@ from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float32, Float32MultiArray
-from functools import partial
 
 from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix
@@ -49,7 +49,7 @@ class AbstractBridgeNode(Node):
             qos_profile=10,
         )
 
-        #TODO create publisher
+        # TODO create publisher
         # self.create_subscription(
         #     msg_type=ReachabilityState,
         #     topic="/ReachabilityState",
@@ -134,9 +134,6 @@ class AbstractBridgeNode(Node):
         self.sum_spin = pc.Summary("sdkserver_spin_once_time", "Time spent during bridge spin_once")
         self.sum_spin2 = pc.Summary("sdkserver_time_reference_1s", "Time sleep 1s")
         self.get_logger().info(f"Setup complete.")
-
-        
-
 
     def wait_for_setup(self) -> None:
         # Wait for a first /dynamic_joint_state message to get a list of all joints

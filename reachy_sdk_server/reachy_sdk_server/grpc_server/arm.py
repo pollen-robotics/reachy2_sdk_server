@@ -1,6 +1,6 @@
+import copy
 from typing import List, Optional
 
-import copy
 import grpc
 import numpy as np
 import rclpy
@@ -24,10 +24,10 @@ from reachy2_sdk_api.arm_pb2 import (
     IKConstrainedMode,
     IKContinuousMode,
     ListOfArm,
+    ReachabilityAnswer,
+    ReachabilityError,
     SpeedLimitRequest,
     TorqueLimitRequest,
-    ReachabilityError,
-    ReachabilityAnswer,
 )
 from reachy2_sdk_api.arm_pb2_grpc import add_ArmServiceServicer_to_server
 from reachy2_sdk_api.kinematics_pb2 import Matrix4x4
