@@ -1,10 +1,12 @@
 from typing import List, Optional
 
+import copy
 import grpc
 import numpy as np
 import rclpy
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
+from google.protobuf.wrappers_pb2 import BoolValue, Int32Value
 from pollen_msgs.msg import IKRequest
 from reachy2_sdk_api.arm_pb2 import (
     Arm,
@@ -24,6 +26,8 @@ from reachy2_sdk_api.arm_pb2 import (
     ListOfArm,
     SpeedLimitRequest,
     TorqueLimitRequest,
+    ReachabilityError,
+    ReachabilityAnswer,
 )
 from reachy2_sdk_api.arm_pb2_grpc import add_ArmServiceServicer_to_server
 from reachy2_sdk_api.kinematics_pb2 import Matrix4x4
@@ -83,13 +87,43 @@ class ArmServicer:
                 grpc.StatusCode.INVALID_ARGUMENT,
                 f"Part '{part_id}' is not an arm.",
             )
-
         return part
+
+    def get_reachability_answer(self, order_id, is_reachable, state):
+        if not is_reachable:
+            if state == "wrist out of range" or "Pose out of reach" or "Backward pose":
+                description = ReachabilityError.DISTANCE_LIMIT
+            elif state == "limited by shoulder":
+                description = ReachabilityError.SHOULDER_LIMIT
+            elif state == "limited by elbow":
+                description = ReachabilityError.ELBOW_LIMIT
+            elif state == "limited by wrist":
+                description = ReachabilityError.WRIST_LIMIT
+            elif state == "continuity limit":
+                description = ReachabilityError.CONTINUITY_LIMIT
+            else:
+                description = ReachabilityError.OTHER
+        else:
+            description = ReachabilityError.NO_ERROR
+        return ReachabilityAnswer(
+            order_id=Int32Value(value=order_id),
+            is_reachable=BoolValue(value=is_reachable),
+            description=description,
+        )
+
+    def get_reachability_state(self, arm: str):
+        reachability_answers = []
+        while len(self.bridge_node.reachability_deque[arm]) > 0:
+            (order_id, is_reachable, state) = self.bridge_node.reachability_deque[arm].popleft()
+            self.bridge_node.logger.info(f"is_reachable : {is_reachable}")
+            reachability_answer = self.get_reachability_answer(order_id, is_reachable, state)
+            reachability_answers.append(reachability_answer)
+        self.bridge_node.logger.info(f"reachability_answers : {len(reachability_answers)}")
+        return reachability_answers
 
     def GetState(self, request: PartId, context: grpc.ServicerContext) -> ArmState:
         arm = self.get_arm_part_by_part_id(request, context)
-
-        return ArmState(
+        arm_state = ArmState(
             timestamp=get_current_timestamp(self.bridge_node),
             id=request,
             activated=True,
@@ -114,7 +148,10 @@ class ArmServicer:
                 ),
                 context,
             ),
+            reachability=self.get_reachability_state(arm.name),
         )
+        # self.bridge_node.logger.info(f"Arm state: {arm_state}")
+        return arm_state
 
     def GetCartesianPosition(self, request: PartId, context: grpc.ServicerContext) -> Matrix4x4:
         request = ArmFKRequest(
@@ -294,11 +331,15 @@ class ArmServicer:
             constrained_mode = "unconstrained"
         if request.constrained_mode == IKConstrainedMode.LOW_ELBOW:  # -> Coude restreint
             constrained_mode = "low_elbow"
+        if request.constrained_mode == IKConstrainedMode.UNDEFINED_CONSTRAINED_MODE:
+            constrained_mode = "undefined"
 
         if request.continuous_mode == IKContinuousMode.CONTINUOUS:  # -> Top grasp autorisé
             continuous_mode = "continuous"
         if request.continuous_mode == IKContinuousMode.DISCRETE:  # -> Coude restreint
             continuous_mode = "discrete"
+        if request.continuous_mode == IKContinuousMode.UNDEFINED_CONTINUOUS_MODE:
+            continuous_mode = "undefined"
 
         # PREFERRED_THETA et D_THETA_MAX
         if request.HasField("preferred_theta"):  # -> on utilise request.preferred_theta.value, sinon valeur par défaut
@@ -332,5 +373,5 @@ class ArmServicer:
             msg,
         )
 
-        self.bridge_node.logger.info(f"Received goal pose for arm : request {request}  \nmsg : {msg}'.")
+        # self.bridge_node.logger.info(f"Received goal pose for arm : request {request}  \nmsg : {msg}'.")
         return Empty()

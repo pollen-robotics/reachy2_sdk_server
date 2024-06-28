@@ -1,6 +1,7 @@
 from asyncio.events import AbstractEventLoop
 from threading import Event, Lock
 from typing import List, Tuple
+from collections import deque
 
 import numpy as np
 import prometheus_client as pc
@@ -8,7 +9,7 @@ import rclpy
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from geometry_msgs.msg import Pose, PoseStamped
 from pollen_msgs.action import Goto
-from pollen_msgs.msg import IKRequest
+from pollen_msgs.msg import IKRequest, ReachabilityState
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
 from rclpy.action import ActionClient
 from rclpy.node import Node
@@ -17,6 +18,7 @@ from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float32, Float32MultiArray
+from functools import partial
 
 from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix
@@ -38,6 +40,7 @@ class AbstractBridgeNode(Node):
         self.joint_state_ready = Event()
         self.got_first_battery_voltage = Event()
         self.got_first_safety_status = Event()
+        self.reachability_deque = {}
 
         self.create_subscription(
             msg_type=DynamicJointState,
@@ -45,6 +48,26 @@ class AbstractBridgeNode(Node):
             callback=self.update_state,
             qos_profile=10,
         )
+
+        #TODO create publisher
+        # self.create_subscription(
+        #     msg_type=ReachabilityState,
+        #     topic="/ReachabilityState",
+        #     callback=self.update_reachability_state,
+        #     qos_profile=10,
+        # )
+
+        for arm in ["r_arm", "l_arm"]:
+            self.create_subscription(
+                msg_type=ReachabilityState,
+                topic=f"/{arm}_reachability_states",
+                qos_profile=10,
+                callback=partial(
+                    self.update_reachability_state,
+                    name=arm,
+                ),
+            )
+            self.reachability_deque[arm] = deque(maxlen=100)
 
         self.command_pub_lock = Lock()
         self.joint_command_pub = self.create_publisher(
@@ -112,6 +135,9 @@ class AbstractBridgeNode(Node):
         self.sum_spin2 = pc.Summary("sdkserver_time_reference_1s", "Time sleep 1s")
         self.get_logger().info(f"Setup complete.")
 
+        
+
+
     def wait_for_setup(self) -> None:
         # Wait for a first /dynamic_joint_state message to get a list of all joints
         while not self.got_first_state.is_set():
@@ -136,6 +162,19 @@ class AbstractBridgeNode(Node):
         for name, kv in zip(msg.joint_names, msg.interface_values):
             state = dict(zip(kv.interface_names, kv.values))
             self.components.get_by_name(name).update_state(state)
+
+    def update_reachability_state(self, msg: ReachabilityState, name: str) -> None:
+        order_id = msg.order_id
+        state = msg.state
+        is_reachable = msg.is_reachable
+        self.logger.info(f"Reachability state for {name} - order_id: {order_id}, state: {state}, is_reachable: {is_reachable}")
+        self.reachability_deque[name].append((order_id, is_reachable, state))
+        # if name == "r_arm":
+        #     self.r_deque.append((order_id, is_reachable, state))
+        # elif name == "l_arm":
+        #     self.l_deque.append((order_id, is_reachable, state))
+        # self.logger.info(f"r_deque: {self.r_deque}")
+        # self.logger.info(f"l_deque: {self.l_deque}")
 
     # Command updates
     def update_command(self, msg: JointState) -> None:
