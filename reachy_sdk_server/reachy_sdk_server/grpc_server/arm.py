@@ -91,7 +91,7 @@ class ArmServicer:
 
     def get_reachability_answer(self, order_id, is_reachable, state):
         if not is_reachable:
-            if state == "wrist out of range" or "Pose out of reach" or "Backward pose":
+            if state == "wrist out of range" or state == "Pose out of reach" or state == "Backward pose":
                 description = ReachabilityError.DISTANCE_LIMIT
             elif state == "limited by shoulder":
                 description = ReachabilityError.SHOULDER_LIMIT
@@ -105,6 +105,7 @@ class ArmServicer:
                 description = ReachabilityError.OTHER
         else:
             description = ReachabilityError.NO_ERROR
+        # self.bridge_node.logger.info(f"description : {description}")
         return ReachabilityAnswer(
             order_id=Int32Value(value=order_id),
             is_reachable=BoolValue(value=is_reachable),
@@ -115,10 +116,11 @@ class ArmServicer:
         reachability_answers = []
         while len(self.bridge_node.reachability_deque[arm]) > 0:
             (order_id, is_reachable, state) = self.bridge_node.reachability_deque[arm].popleft()
-            self.bridge_node.logger.info(f"is_reachable : {is_reachable}")
+            # self.bridge_node.logger.info(f"is_reachable : {is_reachable}")
+            # self.bridge_node.logger.info(f"state : {state}")
             reachability_answer = self.get_reachability_answer(order_id, is_reachable, state)
             reachability_answers.append(reachability_answer)
-        self.bridge_node.logger.info(f"reachability_answers : {len(reachability_answers)}")
+        # self.bridge_node.logger.info(f"reachability_answers : {len(reachability_answers)}")
         return reachability_answers
 
     def GetState(self, request: PartId, context: grpc.ServicerContext) -> ArmState:
@@ -324,8 +326,6 @@ class ArmServicer:
     def SendArmCartesianGoal(self, request: ArmCartesianGoal, context: grpc.ServicerContext) -> Empty:
         # TODO: Remi Here we also want to handle several options:
         # NOTE: branche de l'API : 112-choose-ik-mode
-
-        # self.bridge_node.logger.info(f"Received goal pose for arm : rconstrained_mode {request.constrained_mode}.")
 
         if request.constrained_mode == IKConstrainedMode.UNCONSTRAINED:  # -> Top grasp autorisé
             constrained_mode = "unconstrained"

@@ -164,7 +164,7 @@ class AbstractBridgeNode(Node):
         order_id = msg.order_id
         state = msg.state
         is_reachable = msg.is_reachable
-        self.logger.info(f"Reachability state for {name} - order_id: {order_id}, state: {state}, is_reachable: {is_reachable}")
+        # self.logger.info(f"Reachability state for {name} - order_id: {order_id}, state: {state}, is_reachable: {is_reachable}")
         self.reachability_deque[name].append((order_id, is_reachable, state))
         # if name == "r_arm":
         #     self.r_deque.append((order_id, is_reachable, state))
