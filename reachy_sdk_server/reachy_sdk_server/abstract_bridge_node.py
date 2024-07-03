@@ -1,4 +1,6 @@
 from asyncio.events import AbstractEventLoop
+from collections import deque
+from functools import partial
 from threading import Event, Lock
 from typing import List, Tuple
 
@@ -8,6 +10,7 @@ import rclpy
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from geometry_msgs.msg import Pose, PoseStamped
 from pollen_msgs.action import Goto
+from pollen_msgs.msg import IKRequest, ReachabilityState
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
 from rclpy.action import ActionClient
 from rclpy.node import Node
@@ -37,6 +40,7 @@ class AbstractBridgeNode(Node):
         self.joint_state_ready = Event()
         self.got_first_battery_voltage = Event()
         self.got_first_safety_status = Event()
+        self.reachability_deque = {}
 
         self.create_subscription(
             msg_type=DynamicJointState,
@@ -44,6 +48,26 @@ class AbstractBridgeNode(Node):
             callback=self.update_state,
             qos_profile=10,
         )
+
+        # TODO create publisher
+        # self.create_subscription(
+        #     msg_type=ReachabilityState,
+        #     topic="/ReachabilityState",
+        #     callback=self.update_reachability_state,
+        #     qos_profile=10,
+        # )
+
+        for arm in ["r_arm", "l_arm"]:
+            self.create_subscription(
+                msg_type=ReachabilityState,
+                topic=f"/{arm}_reachability_states",
+                qos_profile=10,
+                callback=partial(
+                    self.update_reachability_state,
+                    name=arm,
+                ),
+            )
+            self.reachability_deque[arm] = deque(maxlen=100)
 
         self.command_pub_lock = Lock()
         self.joint_command_pub = self.create_publisher(
@@ -136,6 +160,12 @@ class AbstractBridgeNode(Node):
             state = dict(zip(kv.interface_names, kv.values))
             self.components.get_by_name(name).update_state(state)
 
+    def update_reachability_state(self, msg: ReachabilityState, name: str) -> None:
+        order_id = msg.order_id
+        state = msg.state
+        is_reachable = msg.is_reachable
+        self.reachability_deque[name].append((order_id, is_reachable, state))
+
     # Command updates
     def update_command(self, msg: JointState) -> None:
         for name, target in zip(msg.name, msg.position):
@@ -194,7 +224,9 @@ class AbstractBridgeNode(Node):
         # And to /{side}_arm/target_pose
         self.forward_kinematics_clients = {}
         self.inverse_kinematics_clients = {}
-        self.target_pose_pubs = {}
+        # self.target_pose_pubs = {}
+        self.head_target_pose_pubs = {}
+        self.arm_target_pose_pubs = {}
 
         self.command_target_pub_lock = Lock()
 
@@ -226,12 +258,20 @@ class AbstractBridgeNode(Node):
                 # Other QoS settings can be adjusted as needed
             )
 
-            self.target_pose_pubs[part.id] = self.create_publisher(
+            self.head_target_pose_pubs[part.id] = self.create_publisher(
                 msg_type=PoseStamped,
                 topic=f"/{part.name}/target_pose",
                 qos_profile=high_freq_qos_profile,
             )
-            self.logger.info(f"Publisher to topic '{self.target_pose_pubs[part.id].topic_name}' ready.")
+
+            self.arm_target_pose_pubs[part.id] = self.create_publisher(
+                msg_type=IKRequest,
+                topic=f"/{part.name}/ik_target_pose",
+                qos_profile=high_freq_qos_profile,
+            )
+
+            self.logger.info(f"Publisher to topic '{self.head_target_pose_pubs[part.id].topic_name}' ready.")
+            self.logger.info(f"Publisher to topic '{self.arm_target_pose_pubs[part.id].topic_name}' ready.")
 
     def compute_forward(self, id: PartId, joint_position: JointState) -> Tuple[bool, np.array]:
         id = self.parts.get_by_part_id(id).id
@@ -256,14 +296,18 @@ class AbstractBridgeNode(Node):
         resp = self.inverse_kinematics_clients[id].call(req)
         return resp.success, resp.joint_position
 
-    def publish_target_pose(self, id: PartId, pose: Pose) -> None:
+    def publish_head_target_pose(self, id: PartId, pose: Pose) -> None:
         id = self.parts.get_by_part_id(id).id
 
         msg = PoseStamped()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.pose = pose
 
-        self.target_pose_pubs[id].publish(msg)
+        self.head_target_pose_pubs[id].publish(msg)
+
+    def publish_arm_target_pose(self, id: PartId, msg: IKRequest) -> None:
+        id = self.parts.get_by_part_id(id).id
+        self.arm_target_pose_pubs[id].publish(msg)
 
     async def send_goto_goal(
         self,
