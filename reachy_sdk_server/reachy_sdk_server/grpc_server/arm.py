@@ -59,6 +59,9 @@ class ArmServicer:
 
         self.arms = self.bridge_node.parts.get_by_type("arm")
 
+        self.default_preferred_theta = -4 * np.pi / 6
+        self.default_d_theta_max = 0.01
+
     def register_to_server(self, server: grpc.Server):
         self.logger.info("Registering 'ArmServiceServicer' to server.")
         add_ArmServiceServicer_to_server(self, server)
@@ -90,22 +93,21 @@ class ArmServicer:
         return part
 
     def get_reachability_answer(self, order_id, is_reachable, state):
+        state_to_description = {
+            "wrist out of range": ReachabilityError.DISTANCE_LIMIT,
+            "Pose out of reach": ReachabilityError.DISTANCE_LIMIT,
+            "Backward pose": ReachabilityError.DISTANCE_LIMIT,
+            "limited by shoulder": ReachabilityError.SHOULDER_LIMIT,
+            "limited by elbow": ReachabilityError.ELBOW_LIMIT,
+            "limited by wrist": ReachabilityError.WRIST_LIMIT,
+            "continuity limit": ReachabilityError.CONTINUITY_LIMIT,
+        }
+
         if not is_reachable:
-            if state == "wrist out of range" or state == "Pose out of reach" or state == "Backward pose":
-                description = ReachabilityError.DISTANCE_LIMIT
-            elif state == "limited by shoulder":
-                description = ReachabilityError.SHOULDER_LIMIT
-            elif state == "limited by elbow":
-                description = ReachabilityError.ELBOW_LIMIT
-            elif state == "limited by wrist":
-                description = ReachabilityError.WRIST_LIMIT
-            elif state == "continuity limit":
-                description = ReachabilityError.CONTINUITY_LIMIT
-            else:
-                description = ReachabilityError.OTHER
+            description = state_to_description.get(state, ReachabilityError.OTHER)
         else:
             description = ReachabilityError.NO_ERROR
-        # self.bridge_node.logger.info(f"description : {description}")
+
         return ReachabilityAnswer(
             order_id=Int32Value(value=order_id),
             is_reachable=BoolValue(value=is_reachable),
@@ -116,11 +118,8 @@ class ArmServicer:
         reachability_answers = []
         while len(self.bridge_node.reachability_deque[arm]) > 0:
             (order_id, is_reachable, state) = self.bridge_node.reachability_deque[arm].popleft()
-            # self.bridge_node.logger.info(f"is_reachable : {is_reachable}")
-            # self.bridge_node.logger.info(f"state : {state}")
             reachability_answer = self.get_reachability_answer(order_id, is_reachable, state)
             reachability_answers.append(reachability_answer)
-        # self.bridge_node.logger.info(f"reachability_answers : {len(reachability_answers)}")
         return reachability_answers
 
     def GetState(self, request: PartId, context: grpc.ServicerContext) -> ArmState:
@@ -152,7 +151,6 @@ class ArmServicer:
             ),
             reachability=self.get_reachability_state(arm.name),
         )
-        # self.bridge_node.logger.info(f"Arm state: {arm_state}")
         return arm_state
 
     def GetCartesianPosition(self, request: PartId, context: grpc.ServicerContext) -> Matrix4x4:
@@ -324,33 +322,31 @@ class ArmServicer:
         return Empty()
 
     def SendArmCartesianGoal(self, request: ArmCartesianGoal, context: grpc.ServicerContext) -> Empty:
-        # TODO: Remi Here we also want to handle several options:
-        # NOTE: branche de l'API : 112-choose-ik-mode
+        constrained_mode_dict = {
+            IKConstrainedMode.UNCONSTRAINED: "unconstrained",
+            IKConstrainedMode.LOW_ELBOW: "low_elbow",
+            IKConstrainedMode.UNDEFINED_CONSTRAINED_MODE: "undefined",
+        }
 
-        if request.constrained_mode == IKConstrainedMode.UNCONSTRAINED:  # -> Top grasp autorisé
-            constrained_mode = "unconstrained"
-        if request.constrained_mode == IKConstrainedMode.LOW_ELBOW:  # -> Coude restreint
-            constrained_mode = "low_elbow"
-        if request.constrained_mode == IKConstrainedMode.UNDEFINED_CONSTRAINED_MODE:
-            constrained_mode = "undefined"
+        continuous_mode_dict = {
+            IKContinuousMode.CONTINUOUS: "continuous",
+            IKContinuousMode.DISCRETE: "discrete",
+            IKContinuousMode.UNDEFINED_CONTINUOUS_MODE: "undefined",
+        }
 
-        if request.continuous_mode == IKContinuousMode.CONTINUOUS:  # -> Top grasp autorisé
-            continuous_mode = "continuous"
-        if request.continuous_mode == IKContinuousMode.DISCRETE:  # -> Coude restreint
-            continuous_mode = "discrete"
-        if request.continuous_mode == IKContinuousMode.UNDEFINED_CONTINUOUS_MODE:
-            continuous_mode = "undefined"
+        constrained_mode = constrained_mode_dict.get(request.constrained_mode, "undefined")
+        continuous_mode = continuous_mode_dict.get(request.continuous_mode, "undefined")
 
         # PREFERRED_THETA et D_THETA_MAX
         if request.HasField("preferred_theta"):  # -> on utilise request.preferred_theta.value, sinon valeur par défaut
             preferred_theta = request.preferred_theta.value
         else:
-            preferred_theta = -4 * np.pi / 6
+            preferred_theta = self.default_preferred_theta
 
         if request.HasField("d_theta_max"):  # -> on utilise request.d_theta_max.value, sinon valeur par défaut
             d_theta_max = request.d_theta_max.value
         else:
-            d_theta_max = 0.01
+            d_theta_max = self.default_d_theta_max
 
         # REACHABILITY:
         if request.HasField("order_id"):  # -> on fait un truc avec request.order_id.value, sinon osef
