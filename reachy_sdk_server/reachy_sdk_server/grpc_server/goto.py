@@ -29,7 +29,7 @@ from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import JointState
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..conversion import pose_matrix_from_quaternion, rotation3d_as_extrinsinc_euler_angles
+from ..conversion import pose_matrix_from_quaternion, rotation3d_as_extrinsinc_euler_angles, rotation3d_as_quat
 from ..parts import Part
 
 
@@ -181,32 +181,9 @@ class GoToServicer:
             y = neck_cartesian_goal.point.y
             z = neck_cartesian_goal.point.z
 
-            q_numpy = _find_neck_quaternion_transform([1, 0, 0], [x, y, z])
-            q_quat = Quaternion(x=q_numpy[0], y=q_numpy[1], z=q_numpy[2], w=q_numpy[3])
-            M = pose_matrix_from_quaternion(q_quat)
-            q0 = JointState()
-            q0.position = [0.0, 0.0, 0.0]
+            q_numpy = _find_neck_quaternion_transform((1, 0, 0), (x, y, z))
+            return self.goto_joints_from_quat(neck_cartesian_goal.id, q_numpy, duration, interpolation_mode)
 
-            success, joint_position = self.bridge_node.compute_inverse(
-                neck_cartesian_goal.id,
-                M,
-                q0,
-            )
-
-            if not success:
-                self.logger.error(f"Could not compute inverse kinematics for arm {arm_cartesian_goal.id}")
-                return GoToId(id=-1)
-
-            joint_names = joint_position.name
-            goal_positions = joint_position.position
-
-            return self.goto_joints(
-                "neck",
-                joint_names,
-                goal_positions,
-                duration,
-                mode=interpolation_mode,
-            )
         else:
             self.logger.error(f"{request} is ill formed. Expected arm_cartesian_goal or neck_cartesian_goal")
             return GoToId(id=-1)
@@ -252,15 +229,20 @@ class GoToServicer:
 
             duration = neck_joint_goal.duration.value
 
-            goal_positions = rotation3d_as_extrinsinc_euler_angles(neck_joint_goal.joints_goal.rotation)
+            if request.joints_goal.neck_joint_goal.joints_goal.rotation.HasField("rpy"):
+                goal_positions = rotation3d_as_extrinsinc_euler_angles(neck_joint_goal.joints_goal.rotation)
 
-            return self.goto_joints(
-                "neck",
-                joint_names,
-                goal_positions,
-                duration,
-                mode=interpolation_mode,
-            )
+                return self.goto_joints(
+                    "neck",
+                    joint_names,
+                    goal_positions,
+                    duration,
+                    mode=interpolation_mode,
+                )
+
+            else:
+                q_numpy = rotation3d_as_quat(neck_joint_goal.joints_goal.rotation)
+                return self.goto_joints_from_quat(neck_joint_goal.id, q_numpy, duration, interpolation_mode)
         else:
             self.logger.error(f"{request} is ill formed. Expected arm_joint_goal or neck_joint_goal")
             return GoToId(id=-1)
@@ -312,6 +294,33 @@ class GoToServicer:
         goal_id = self.goal_manager.store_goal_handle(part_name, goal_handle, goal_request)
 
         return GoToId(id=goal_id)
+
+    def goto_joints_from_quat(self, part_id: PartId, q: Tuple[float, float, float, float], duration: float, interpolation_mode: str) -> GoToId:
+        q = Quaternion(x=q_numpy[0], y=q_numpy[1], z=q_numpy[2], w=q_numpy[3])
+        M = pose_matrix_from_quaternion(q)
+        q0 = JointState()
+        q0.position = [0.0, 0.0, 0.0]
+
+        success, joint_position = self.bridge_node.compute_inverse(
+            part_id,
+            M,
+            q0,
+        )
+
+        if not success:
+            self.logger.error(f"Could not compute inverse kinematics for neck {neck_cartesian_goal.id}")
+            return GoToId(id=-1)
+
+        joint_names = joint_position.name
+        goal_positions = joint_position.position
+
+        return self.goto_joints(
+            "neck",
+            joint_names,
+            goal_positions,
+            duration,
+            mode=interpolation_mode,
+        )
 
     def get_interpolation_mode(self, request: GoToRequest) -> str:
         interpolation_mode = request.interpolation_mode.interpolation_type
