@@ -295,7 +295,9 @@ class GoToServicer:
 
         return GoToId(id=goal_id)
 
-    def goto_joints_from_quat(self, part_id: PartId, q: Tuple[float, float, float, float], duration: float, interpolation_mode: str) -> GoToId:
+    def goto_joints_from_quat(
+        self, part_id: PartId, q: Tuple[float, float, float, float], duration: float, interpolation_mode: str
+    ) -> GoToId:
         q = Quaternion(x=q_numpy[0], y=q_numpy[1], z=q_numpy[2], w=q_numpy[3])
         M = pose_matrix_from_quaternion(q)
         q0 = JointState()
