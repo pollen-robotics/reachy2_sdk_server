@@ -119,6 +119,12 @@ class GoToServicer:
 
     # Position and GoTo
     def GoToCartesian(self, request: GoToRequest, context: grpc.ServicerContext) -> GoToId:
+        """This function can be called for an arm or the neck.
+        For an arm, a full pose is expected in the torso frame.
+        For the neck, a point is expected in the torso frame.
+        At the end of the movement, the robot should look at that point.
+        In both cases, the IK is called and a goto_joints is performed to reach the computed joint positions.
+        """
         interpolation_mode = self.get_interpolation_mode(request)
 
         if request.cartesian_goal.HasField("arm_cartesian_goal"):
@@ -189,6 +195,9 @@ class GoToServicer:
             return GoToId(id=-1)
 
     def GoToJoints(self, request: GoToRequest, context: grpc.ServicerContext) -> GoToId:
+        """This function can be called for an arm or the neck.
+        In both cases, a goto_joints is performed to reach the goal positions in joint space.
+        """
         self.logger.debug(f"GoToJoints: {request}")
         interpolation_mode = self.get_interpolation_mode(request)
         if not interpolation_mode:
@@ -264,6 +273,9 @@ class GoToServicer:
         return GoToAck(ack=True)
 
     def goto_joints(self, part_name, joint_names, goal_positions, duration, mode="minimum_jerk"):
+        """Sends an action request to the goto action server in an async (non-blocking) way.
+        The goal handle is then stored for future use and monotoring.
+        """
         future = asyncio.run_coroutine_threadsafe(
             self.bridge_node.send_goto_goal(
                 part_name,
@@ -298,6 +310,7 @@ class GoToServicer:
     def goto_joints_from_quat(
         self, part_id: PartId, q: Tuple[float, float, float, float], duration: float, interpolation_mode: str
     ) -> GoToId:
+        """Computes the inverse kinematics for the neck and performs a goto_joints with the computed joint positions."""
         q_quat = Quaternion(x=q[0], y=q[1], z=q[2], w=q[3])
         M = pose_matrix_from_quaternion(q_quat)
         q0 = JointState()
@@ -456,7 +469,6 @@ class GoToServicer:
 
 
 class GoalManager:
-    # TODO decide how/when to remove goal handles from the dict. Also investigate the bug that appears when spamming gotos.
     def __init__(self):
         self.outdated_goal_handles = {}
         self.goal_handles = {}
