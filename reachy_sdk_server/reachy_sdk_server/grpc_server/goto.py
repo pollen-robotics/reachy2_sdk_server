@@ -29,7 +29,7 @@ from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import JointState
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..conversion import pose_matrix_from_quaternion, rotation3d_as_extrinsinc_euler_angles
+from ..conversion import pose_matrix_from_quaternion, rotation3d_as_extrinsinc_euler_angles, rotation3d_as_quat
 from ..parts import Part
 
 
@@ -119,6 +119,12 @@ class GoToServicer:
 
     # Position and GoTo
     def GoToCartesian(self, request: GoToRequest, context: grpc.ServicerContext) -> GoToId:
+        """This function can be called for an arm or the neck.
+        For an arm, a full pose is expected in the torso frame.
+        For the neck, a point is expected in the torso frame.
+        At the end of the movement, the robot should look at that point.
+        In both cases, the IK is called and a goto_joints is performed to reach the computed joint positions.
+        """
         interpolation_mode = self.get_interpolation_mode(request)
 
         if request.cartesian_goal.HasField("arm_cartesian_goal"):
@@ -181,37 +187,17 @@ class GoToServicer:
             y = neck_cartesian_goal.point.y
             z = neck_cartesian_goal.point.z
 
-            q_numpy = _find_neck_quaternion_transform([1, 0, 0], [x, y, z])
-            q_quat = Quaternion(x=q_numpy[0], y=q_numpy[1], z=q_numpy[2], w=q_numpy[3])
-            M = pose_matrix_from_quaternion(q_quat)
-            q0 = JointState()
-            q0.position = [0.0, 0.0, 0.0]
+            q_numpy = _find_neck_quaternion_transform((1, 0, 0), (x, y, z))
+            return self.goto_joints_from_quat(neck_cartesian_goal.id, q_numpy, duration, interpolation_mode)
 
-            success, joint_position = self.bridge_node.compute_inverse(
-                neck_cartesian_goal.id,
-                M,
-                q0,
-            )
-
-            if not success:
-                self.logger.error(f"Could not compute inverse kinematics for arm {arm_cartesian_goal.id}")
-                return GoToId(id=-1)
-
-            joint_names = joint_position.name
-            goal_positions = joint_position.position
-
-            return self.goto_joints(
-                "neck",
-                joint_names,
-                goal_positions,
-                duration,
-                mode=interpolation_mode,
-            )
         else:
             self.logger.error(f"{request} is ill formed. Expected arm_cartesian_goal or neck_cartesian_goal")
             return GoToId(id=-1)
 
     def GoToJoints(self, request: GoToRequest, context: grpc.ServicerContext) -> GoToId:
+        """This function can be called for an arm or the neck.
+        In both cases, a goto_joints is performed to reach the goal positions in joint space.
+        """
         self.logger.debug(f"GoToJoints: {request}")
         interpolation_mode = self.get_interpolation_mode(request)
         if not interpolation_mode:
@@ -252,15 +238,20 @@ class GoToServicer:
 
             duration = neck_joint_goal.duration.value
 
-            goal_positions = rotation3d_as_extrinsinc_euler_angles(neck_joint_goal.joints_goal.rotation)
+            if request.joints_goal.neck_joint_goal.joints_goal.rotation.HasField("rpy"):
+                goal_positions = rotation3d_as_extrinsinc_euler_angles(neck_joint_goal.joints_goal.rotation)
 
-            return self.goto_joints(
-                "neck",
-                joint_names,
-                goal_positions,
-                duration,
-                mode=interpolation_mode,
-            )
+                return self.goto_joints(
+                    "neck",
+                    joint_names,
+                    goal_positions,
+                    duration,
+                    mode=interpolation_mode,
+                )
+
+            else:
+                q_numpy = rotation3d_as_quat(neck_joint_goal.joints_goal.rotation)
+                return self.goto_joints_from_quat(neck_joint_goal.id, q_numpy, duration, interpolation_mode)
         else:
             self.logger.error(f"{request} is ill formed. Expected arm_joint_goal or neck_joint_goal")
             return GoToId(id=-1)
@@ -282,6 +273,9 @@ class GoToServicer:
         return GoToAck(ack=True)
 
     def goto_joints(self, part_name, joint_names, goal_positions, duration, mode="minimum_jerk"):
+        """Sends an action request to the goto action server in an async (non-blocking) way.
+        The goal handle is then stored for future use and monotoring.
+        """
         future = asyncio.run_coroutine_threadsafe(
             self.bridge_node.send_goto_goal(
                 part_name,
@@ -312,6 +306,36 @@ class GoToServicer:
         goal_id = self.goal_manager.store_goal_handle(part_name, goal_handle, goal_request)
 
         return GoToId(id=goal_id)
+
+    def goto_joints_from_quat(
+        self, part_id: PartId, q: Tuple[float, float, float, float], duration: float, interpolation_mode: str
+    ) -> GoToId:
+        """Computes the inverse kinematics for the neck and performs a goto_joints with the computed joint positions."""
+        q_quat = Quaternion(x=q[0], y=q[1], z=q[2], w=q[3])
+        M = pose_matrix_from_quaternion(q_quat)
+        q0 = JointState()
+        q0.position = [0.0, 0.0, 0.0]
+
+        success, joint_position = self.bridge_node.compute_inverse(
+            part_id,
+            M,
+            q0,
+        )
+
+        if not success:
+            self.logger.error(f"Could not compute inverse kinematics for neck {neck_cartesian_goal.id}")
+            return GoToId(id=-1)
+
+        joint_names = joint_position.name
+        goal_positions = joint_position.position
+
+        return self.goto_joints(
+            "neck",
+            joint_names,
+            goal_positions,
+            duration,
+            mode=interpolation_mode,
+        )
 
     def get_interpolation_mode(self, request: GoToRequest) -> str:
         interpolation_mode = request.interpolation_mode.interpolation_type
@@ -445,7 +469,6 @@ class GoToServicer:
 
 
 class GoalManager:
-    # TODO decide how/when to remove goal handles from the dict. Also investigate the bug that appears when spamming gotos.
     def __init__(self):
         self.outdated_goal_handles = {}
         self.goal_handles = {}
