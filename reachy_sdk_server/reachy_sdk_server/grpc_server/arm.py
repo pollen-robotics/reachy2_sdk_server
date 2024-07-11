@@ -50,7 +50,9 @@ class ArmServicer:
         logger: rclpy.impl.rcutils_logger.RcutilsLogger,
         orbita2d_servicer: Orbita2dServicer,
         orbita3d_servicer: Orbita3dServicer,
+        tracer,
     ) -> None:
+        self.tracer = tracer
         self.bridge_node = bridge_node
         self.logger = logger
 
@@ -322,52 +324,53 @@ class ArmServicer:
         return Empty()
 
     def SendArmCartesianGoal(self, request: ArmCartesianGoal, context: grpc.ServicerContext) -> Empty:
-        constrained_mode_dict = {
-            IKConstrainedMode.UNCONSTRAINED: "unconstrained",
-            IKConstrainedMode.LOW_ELBOW: "low_elbow",
-            IKConstrainedMode.UNDEFINED_CONSTRAINED_MODE: "undefined",
-        }
+        with self.tracer.start_as_current_span(f"SendArmCartesianGoal") as span:
+            constrained_mode_dict = {
+                IKConstrainedMode.UNCONSTRAINED: "unconstrained",
+                IKConstrainedMode.LOW_ELBOW: "low_elbow",
+                IKConstrainedMode.UNDEFINED_CONSTRAINED_MODE: "undefined",
+            }
 
-        continuous_mode_dict = {
-            IKContinuousMode.CONTINUOUS: "continuous",
-            IKContinuousMode.DISCRETE: "discrete",
-            IKContinuousMode.UNDEFINED_CONTINUOUS_MODE: "undefined",
-        }
+            continuous_mode_dict = {
+                IKContinuousMode.CONTINUOUS: "continuous",
+                IKContinuousMode.DISCRETE: "discrete",
+                IKContinuousMode.UNDEFINED_CONTINUOUS_MODE: "undefined",
+            }
 
-        constrained_mode = constrained_mode_dict.get(request.constrained_mode, "undefined")
-        continuous_mode = continuous_mode_dict.get(request.continuous_mode, "undefined")
+            constrained_mode = constrained_mode_dict.get(request.constrained_mode, "undefined")
+            continuous_mode = continuous_mode_dict.get(request.continuous_mode, "undefined")
 
-        # PREFERRED_THETA et D_THETA_MAX
-        if request.HasField("preferred_theta"):  # -> on utilise request.preferred_theta.value, sinon valeur par défaut
-            preferred_theta = request.preferred_theta.value
-        else:
-            preferred_theta = self.default_preferred_theta
+            # PREFERRED_THETA et D_THETA_MAX
+            if request.HasField("preferred_theta"):  # -> on utilise request.preferred_theta.value, sinon valeur par défaut
+                preferred_theta = request.preferred_theta.value
+            else:
+                preferred_theta = self.default_preferred_theta
 
-        if request.HasField("d_theta_max"):  # -> on utilise request.d_theta_max.value, sinon valeur par défaut
-            d_theta_max = request.d_theta_max.value
-        else:
-            d_theta_max = self.default_d_theta_max
+            if request.HasField("d_theta_max"):  # -> on utilise request.d_theta_max.value, sinon valeur par défaut
+                d_theta_max = request.d_theta_max.value
+            else:
+                d_theta_max = self.default_d_theta_max
 
-        # REACHABILITY:
-        if request.HasField("order_id"):  # -> on fait un truc avec request.order_id.value, sinon osef
-            order_id = request.order_id.value
-        else:
-            order_id = 0
+            # REACHABILITY:
+            if request.HasField("order_id"):  # -> on fait un truc avec request.order_id.value, sinon osef
+                order_id = request.order_id.value
+            else:
+                order_id = 0
 
-        msg = IKRequest()
+            msg = IKRequest()
 
-        msg.pose.pose = matrix_to_pose(request.goal_pose.data)
-        msg.pose.header.stamp = self.bridge_node.get_clock().now().to_msg()
-        msg.constrained_mode = constrained_mode
-        msg.continuous_mode = continuous_mode
-        msg.preferred_theta = preferred_theta
-        msg.d_theta_max = d_theta_max
-        msg.order_id = order_id
+            msg.pose.pose = matrix_to_pose(request.goal_pose.data)
+            msg.pose.header.stamp = self.bridge_node.get_clock().now().to_msg()
+            msg.constrained_mode = constrained_mode
+            msg.continuous_mode = continuous_mode
+            msg.preferred_theta = preferred_theta
+            msg.d_theta_max = d_theta_max
+            msg.order_id = order_id
 
-        self.bridge_node.publish_arm_target_pose(
-            request.id,
-            msg,
-        )
+            self.bridge_node.publish_arm_target_pose(
+                request.id,
+                msg,
+            )
 
         # self.bridge_node.logger.info(f"Received goal pose for arm : request {request}  \nmsg : {msg}'.")
         return Empty()

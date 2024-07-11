@@ -4,6 +4,10 @@ import threading
 import grpc
 import rclpy
 
+from opentelemetry.instrumentation import grpc as grpc_instrumentation
+grpc_instrumentation.GrpcInstrumentorServer().instrument()
+from . import tracing_helper
+
 from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
 from .goto import GoToServicer
@@ -19,6 +23,7 @@ class ReachyGRPCJointSDKServicer:
     def __init__(self, reachy_config_path: str = None) -> None:
         rclpy.init()
 
+        self.tracer = tracing_helper.tracer("grpc-server")
         # executor = rclpy.executors.MultiThreadedExecutor()
         # executor.add_node(self.bridge_node)
         # threading.Thread(target=executor.spin).start()
@@ -45,6 +50,7 @@ class ReachyGRPCJointSDKServicer:
             self.logger,
             orbita2d_servicer,
             orbita3d_servicer,
+            self.tracer,
         )
         goto_servicer = GoToServicer(self.bridge_node, self.logger)
         hand_servicer = HandServicer(self.bridge_node, self.logger)
