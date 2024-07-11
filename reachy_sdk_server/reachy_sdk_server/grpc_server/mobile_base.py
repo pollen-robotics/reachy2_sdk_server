@@ -186,8 +186,8 @@ class MobileBaseServicer(
         res_status.critical_distance.value = lidar_info['critical_distance']
         res_status.obstacle_detection_status.status = grpc_obstacle_detection_status
 
-        res_zuuu_mode = self.GetZuuuMode(Empty(), context)
-        res_control_mode = self.GetControlMode(Empty(), context)
+        res_zuuu_mode = ZuuuModeCommand(mode=ZuuuModePossiblities[self.bridge_node.get_zuuu_mode()])
+        res_control_mode = ControlModeCommand(mode=ControlModePossiblities[self.bridge_node.get_control_mode()])
 
         res_bat = BatteryLevel(level=FloatValue(value=self.bridge_node.get_battery_voltage()))
 
