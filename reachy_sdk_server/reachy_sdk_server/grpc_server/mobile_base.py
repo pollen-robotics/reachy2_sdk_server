@@ -171,23 +171,17 @@ class MobileBaseServicer(
         if self.info["serial_number"] is None:
             return MobileBaseState()
 
-        res_status = LidarSafety()
-        status = self.bridge_node.get_safety_status()
-        if status == 0:
-            grpc_obstacle_detection_status = LidarObstacleDetectionEnum.DETECTION_ERROR
-        elif status == 1:
-            grpc_obstacle_detection_status = LidarObstacleDetectionEnum.NO_OBJECT_DETECTED
-        elif status == 2:
-            grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_SLOWDOWN
-        elif status == 3:
-            grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_STOP
-        res_status.obstacle_detection_status.status = grpc_obstacle_detection_status
+        res_status = self.GetZuuuSafety(Empty(), context)
+        res_zuuu_mode = self.GetZuuuMode(Empty(), context)
+        res_control_mode = self.GetControlMode(Empty(), context)
 
         res_bat = BatteryLevel(level=FloatValue(value=self.bridge_node.get_battery_voltage()))
 
         req = MobileBaseState(
             battery_level=res_bat,
-            lidar_obstacle_detection_status=res_status.obstacle_detection_status,
+            lidar_safety=res_status,
+            zuuu_mode=res_zuuu_mode,
+            control_mode=res_control_mode,
         )
         return req
 
@@ -352,29 +346,22 @@ class MobileBaseServicer(
 
     def GetZuuuSafety(self, request: Empty, context) -> LidarSafety:
         """Get the anti-collision safety status handled by the mobile base hal along with the safety and critical distances."""
-        req = GetZuuuSafety.Request()
+        res_status = LidarSafety()
+        lidar_info = self.bridge_node.get_safety_status()
+        if lidar_info['status'] == 0:
+            grpc_obstacle_detection_status = LidarObstacleDetectionEnum.DETECTION_ERROR
+        elif lidar_info['status'] == 1:
+            grpc_obstacle_detection_status = LidarObstacleDetectionEnum.NO_OBJECT_DETECTED
+        elif lidar_info['status'] == 2:
+            grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_SLOWDOWN
+        elif lidar_info['status'] == 3:
+            grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_STOP
+        res_status.safety_on.value = lidar_info['safety_on']
+        res_status.safety_distance.value = lidar_info['safety_distance']
+        res_status.critical_distance.value = lidar_info['critical_distance']
+        res_status.obstacle_detection_status.status = grpc_obstacle_detection_status
 
-        result = self.get_zuuu_safety_client.call(req)
-
-        response = LidarSafety()
-
-        if result is not None:
-            ros_response = result
-            response.safety_on.value = ros_response.safety_on
-            response.safety_distance.value = ros_response.safety_distance
-            response.critical_distance.value = ros_response.critical_distance
-
-            ros_obstacle_detection_status = ros_response.obstacle_detection_status
-            if ros_obstacle_detection_status == "green":
-                grpc_obstacle_detection_status = LidarObstacleDetectionEnum.NO_OBJECT_DETECTED
-            elif ros_obstacle_detection_status == "orange":
-                grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_SLOWDOWN
-            elif ros_obstacle_detection_status == "red":
-                grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_STOP
-
-            response.obstacle_detection_status.status = grpc_obstacle_detection_status
-
-        return response
+        return res_status
 
     def SetZuuuSafety(self, request: LidarSafety, context) -> MobilityServiceAck:
         """Set on/off the anti-collision safety handled by the mobile base hal."""

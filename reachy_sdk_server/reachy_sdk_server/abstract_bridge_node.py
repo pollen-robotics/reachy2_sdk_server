@@ -2,7 +2,7 @@ from asyncio.events import AbstractEventLoop
 from collections import deque
 from functools import partial
 from threading import Event, Lock
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
 
 import numpy as np
 import prometheus_client as pc
@@ -205,11 +205,11 @@ class AbstractBridgeNode(Node):
     # returns the safety status
     # mirroring the `LidarObstacleDetectionEnum` from `mobile_base_lidar.proto`
     # [0: detection error, 1: no obstacle, 2: obstacle detected slowing down, 3: obstacle detected stopping]
-    def get_safety_status(self) -> int:
+    def get_safety_status(self) -> Dict[str, Any]:
         if not self.got_first_safety_status.is_set():
             self.logger.error("No safety status received yet.")
-            return 0.0
-        return self.lidar_safety["status"]
+            return {"safety_on": False, "safe_distance": 0.0, "critical_distance": 0.0, "status": 0}
+        return self.lidar_safety
 
     def publish_command(self, msg: DynamicJointState) -> None:
         self.joint_command_pub.publish(msg)
