@@ -35,6 +35,10 @@ from reachy2_sdk_api.orbita2d_pb2 import Orbita2dStatus
 from reachy2_sdk_api.orbita3d_pb2 import Orbita3dStatus
 from reachy2_sdk_api.part_pb2 import PartId
 
+
+from . import tracing_helper
+from opentelemetry import trace
+
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import arm_position_to_joint_state, joint_state_to_arm_position, matrix_to_pose
 from ..parts import Part
@@ -358,6 +362,7 @@ class ArmServicer:
                 order_id = 0
 
             msg = IKRequest()
+            msg.traceparent = tracing_helper.traceparent()
 
             msg.pose.pose = matrix_to_pose(request.goal_pose.data)
             msg.pose.header.stamp = self.bridge_node.get_clock().now().to_msg()
@@ -367,10 +372,13 @@ class ArmServicer:
             msg.d_theta_max = d_theta_max
             msg.order_id = order_id
 
-            self.bridge_node.publish_arm_target_pose(
-                request.id,
-                msg,
-            )
+            with self.tracer.start_as_current_span(
+                    "bridge_node.publish_arm_target_pose",
+                    kind=trace.SpanKind.CLIENT) as span:
+                self.bridge_node.publish_arm_target_pose(
+                    request.id,
+                    msg,
+                )
 
         # self.bridge_node.logger.info(f"Received goal pose for arm : request {request}  \nmsg : {msg}'.")
         return Empty()

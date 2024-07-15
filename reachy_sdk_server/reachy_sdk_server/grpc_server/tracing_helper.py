@@ -19,3 +19,14 @@ def tracer(service_name):
         BatchSpanProcessor(OTLPSpanExporter(endpoint="http://localhost:4317"))
     )
     return trace.get_tracer(service_name)
+
+
+TRACEPARENT_STR = "traceparent"
+def traceparent():
+    carrier = {}
+    TraceContextTextMapPropagator().inject(carrier)
+    return carrier[TRACEPARENT_STR]
+
+def ctx_from_traceparent(traceparent):
+    carrier = {TRACEPARENT_STR: traceparent}
+    return TraceContextTextMapPropagator().extract(carrier=carrier)
