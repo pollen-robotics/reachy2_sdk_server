@@ -6,7 +6,6 @@ import rclpy
 
 from opentelemetry.instrumentation import grpc as grpc_instrumentation
 grpc_instrumentation.GrpcInstrumentorServer().instrument()
-from . import tracing_helper
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
@@ -23,7 +22,6 @@ class ReachyGRPCJointSDKServicer:
     def __init__(self, reachy_config_path: str = None) -> None:
         rclpy.init()
 
-        self.tracer = tracing_helper.tracer("grpc-server")
         # executor = rclpy.executors.MultiThreadedExecutor()
         # executor.add_node(self.bridge_node)
         # threading.Thread(target=executor.spin).start()
@@ -37,9 +35,10 @@ class ReachyGRPCJointSDKServicer:
         self.asyncio_thread = threading.Thread(target=self.spin_asyncio)
         self.asyncio_thread.start()
 
-        self.asyncio_loop2 = asyncio.new_event_loop()
-        self.asyncio_thread2 = threading.Thread(target=self.spin_asyncio2)
-        self.asyncio_thread2.start()
+        # sanity check loop running at 1Hz
+        self.asyncio_loop_sanity = asyncio.new_event_loop()
+        self.asyncio_thread_sanity = threading.Thread(target=self.spin_asyncio_sanity)
+        self.asyncio_thread_sanity.start()
 
         self.logger = self.bridge_node.get_logger()
 
@@ -50,7 +49,6 @@ class ReachyGRPCJointSDKServicer:
             self.logger,
             orbita2d_servicer,
             orbita3d_servicer,
-            self.tracer,
         )
         goto_servicer = GoToServicer(self.bridge_node, self.logger)
         hand_servicer = HandServicer(self.bridge_node, self.logger)
@@ -86,12 +84,12 @@ class ReachyGRPCJointSDKServicer:
         asyncio.set_event_loop(self.asyncio_loop)
         self.asyncio_loop.run_until_complete(self.spinning(self.bridge_node))
 
-    def spin_asyncio2(self) -> None:
-        asyncio.set_event_loop(self.asyncio_loop2)
-        self.asyncio_loop2.run_until_complete(self.spinning2(self.bridge_node))
+    def spin_asyncio_sanity(self) -> None:
+        asyncio.set_event_loop(self.asyncio_loop_sanity)
+        self.asyncio_loop_sanity.run_until_complete(self.spinning_sanity(self.bridge_node))
 
-    async def spinning2(self, node):
-        with node.sum_spin2.time():
+    async def spinning_sanity(self, node):
+        with node.sum_spin_sanity.time():
             await asyncio.sleep(1)
 
     async def spinning(self, node):

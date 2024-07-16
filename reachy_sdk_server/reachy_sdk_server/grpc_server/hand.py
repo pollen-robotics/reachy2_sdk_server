@@ -106,19 +106,21 @@ class HandServicer:
         )
 
     def set_stiffness(self, request: PartId, torque: bool, context: grpc.ServicerContext) -> None:
-        hand = self.get_hand_part_from_part_id(request, context)
 
-        cmd = DynamicJointState()
-        cmd.joint_names = []
+        with self.bridge_node.tracer.start_as_current_span(f"SetHandPosition") as span:
+            hand = self.get_hand_part_from_part_id(request, context)
 
-        for c in hand.components:
-            cmd.joint_names.append(c.name)
-            cmd.interface_values.append(
-                InterfaceValue(
-                    interface_names=["torque"],
-                    values=[torque],
+            cmd = DynamicJointState()
+            cmd.joint_names = []
+
+            for c in hand.components:
+                cmd.joint_names.append(c.name)
+                cmd.interface_values.append(
+                    InterfaceValue(
+                        interface_names=["torque"],
+                        values=[torque],
+                    )
                 )
-            )
 
         self.bridge_node.publish_command(cmd)
 
@@ -140,23 +142,24 @@ class HandServicer:
         )
 
     def SetHandPosition(self, request: HandPositionRequest, context: grpc.ServicerContext) -> Empty:
-        hand = self.get_hand_part_from_part_id(request.id, context)
+        with self.bridge_node.tracer.start_as_current_span(f"SetHandPosition") as span:
+            hand = self.get_hand_part_from_part_id(request.id, context)
 
-        # This is a % of the opening
-        opening = np.clip(request.position.parallel_gripper.position, 0, 1)
+            # This is a % of the opening
+            opening = np.clip(request.position.parallel_gripper.position, 0, 1)
 
-        cmd = DynamicJointState()
-        cmd.joint_names = []
+            cmd = DynamicJointState()
+            cmd.joint_names = []
 
-        for c in hand.components:
-            cmd.joint_names.append(c.name + "_finger")
-            cmd.interface_values.append(
-                InterfaceValue(
-                    interface_names=["position"],
-                    values=[opening],
+            for c in hand.components:
+                cmd.joint_names.append(c.name + "_finger")
+                cmd.interface_values.append(
+                    InterfaceValue(
+                        interface_names=["position"],
+                        values=[opening],
+                    )
                 )
-            )
-        self.bridge_node.publish_command(cmd)
+            self.bridge_node.publish_command(cmd)
 
         return Empty()
 

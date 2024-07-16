@@ -10,7 +10,7 @@ import rclpy
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from geometry_msgs.msg import Pose, PoseStamped
 from pollen_msgs.action import Goto
-from pollen_msgs.msg import IKRequest, ReachabilityState
+from pollen_msgs.msg import CartTarget, IKRequest, ReachabilityState
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
 from rclpy.action import ActionClient
 from rclpy.node import Node
@@ -24,6 +24,7 @@ from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix
 from .parts import PartsHolder
 from .utils import parse_reachy_config
+from .grpc_server import tracing_helper
 
 
 class AbstractBridgeNode(Node):
@@ -31,6 +32,7 @@ class AbstractBridgeNode(Node):
         super().__init__(node_name="reachy_abstract_bridge_node")
 
         self.logger = self.get_logger()
+        self.tracer = tracing_helper.tracer("grpc-server_SDK")
 
         self.asyncio_loop = asyncio_loop
         self.config = parse_reachy_config(reachy_config_path)
@@ -132,7 +134,7 @@ class AbstractBridgeNode(Node):
         pc.start_http_server(10000)
         self.sum_getreachystate = pc.Summary("sdkserver_GetReachyState_time", "Time spent during bridge reachy.GetReachyState")
         self.sum_spin = pc.Summary("sdkserver_spin_once_time", "Time spent during bridge spin_once")
-        self.sum_spin2 = pc.Summary("sdkserver_time_reference_1s", "Time sleep 1s")
+        self.sum_spin_sanity = pc.Summary("sdkserver_time_reference_1s", "Sanity check spin, sleeps 1s")
         self.get_logger().info(f"Setup complete.")
 
     def wait_for_setup(self) -> None:
@@ -259,8 +261,8 @@ class AbstractBridgeNode(Node):
             )
 
             self.head_target_pose_pubs[part.id] = self.create_publisher(
-                msg_type=PoseStamped,
-                topic=f"/{part.name}/target_pose",
+                msg_type=CartTarget,
+                topic=f"/{part.name}/cart_target_pose",
                 qos_profile=high_freq_qos_profile,
             )
 
@@ -296,13 +298,8 @@ class AbstractBridgeNode(Node):
         resp = self.inverse_kinematics_clients[id].call(req)
         return resp.success, resp.joint_position
 
-    def publish_head_target_pose(self, id: PartId, pose: Pose) -> None:
+    def publish_head_target_pose(self, id: PartId, msg: CartTarget) -> None:
         id = self.parts.get_by_part_id(id).id
-
-        msg = PoseStamped()
-        msg.header.stamp = self.get_clock().now().to_msg()
-        msg.pose = pose
-
         self.head_target_pose_pubs[id].publish(msg)
 
     def publish_arm_target_pose(self, id: PartId, msg: IKRequest) -> None:

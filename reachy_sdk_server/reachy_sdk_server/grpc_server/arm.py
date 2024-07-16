@@ -54,9 +54,7 @@ class ArmServicer:
         logger: rclpy.impl.rcutils_logger.RcutilsLogger,
         orbita2d_servicer: Orbita2dServicer,
         orbita3d_servicer: Orbita3dServicer,
-        tracer,
     ) -> None:
-        self.tracer = tracer
         self.bridge_node = bridge_node
         self.logger = logger
 
@@ -206,15 +204,17 @@ class ArmServicer:
         self.bridge_node.publish_command(cmd)
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        self.set_stiffness(request, torque=True, context=context)
-        # Set all goal positions to the current position for safety
-        part = self.get_arm_part_by_part_id(request, context)
-        self.bridge_node.set_all_joints_to_current_position(part.name)
+        with self.bridge_node.tracer.start_as_current_span(f"TurnOn") as span:
+            self.set_stiffness(request, torque=True, context=context)
+            # Set all goal positions to the current position for safety
+            part = self.get_arm_part_by_part_id(request, context)
+            self.bridge_node.set_all_joints_to_current_position(part.name)
 
         return Empty()
 
     def TurnOff(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        self.set_stiffness(request, torque=False, context=context)
+        with self.bridge_node.tracer.start_as_current_span(f"TurnOff") as span:
+            self.set_stiffness(request, torque=False, context=context)
         return Empty()
 
     # Temperatures
@@ -226,76 +226,80 @@ class ArmServicer:
         return ArmLimits()
 
     def SetSpeedLimit(self, request: SpeedLimitRequest, context: grpc.ServicerContext) -> Empty:
-        # TODO: re-write using self.orbita2d_servicer.SendCommand?
-        part = self.get_arm_part_by_part_id(request.id, context)
-        cmd = DynamicJointState()
-        cmd.joint_names = []
-        for c in part.components:
-            nb_rw_motor = 3 if c.type == "orbita3d" else 2
-            for i in range(1, nb_rw_motor + 1):
-                # cmd.joint_names.append(c.name)
-                cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
+        with self.bridge_node.tracer.start_as_current_span(f"SetSpeedLimit") as span:
+            # TODO: re-write using self.orbita2d_servicer.SendCommand?
+            part = self.get_arm_part_by_part_id(request.id, context)
+            cmd = DynamicJointState()
+            cmd.joint_names = []
+            for c in part.components:
+                nb_rw_motor = 3 if c.type == "orbita3d" else 2
+                for i in range(1, nb_rw_motor + 1):
+                    # cmd.joint_names.append(c.name)
+                    cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
 
-                cmd.interface_values.append(
-                    InterfaceValue(
-                        interface_names=["speed_limit"],
-                        values=[request.limit / 100],
+                    cmd.interface_values.append(
+                        InterfaceValue(
+                            interface_names=["speed_limit"],
+                            values=[request.limit / 100],
+                        )
                     )
-                )
 
-        self.bridge_node.publish_command(cmd)
+            self.bridge_node.publish_command(cmd)
         return Empty()
 
     def SetTorqueLimit(self, request: TorqueLimitRequest, context: grpc.ServicerContext) -> Empty:
-        # TODO: re-write using self.orbita2d_servicer.SendCommand?
-        part = self.get_arm_part_by_part_id(request.id, context)
+        with self.bridge_node.tracer.start_as_current_span(f"SetTorqueLimit") as span:
+            # TODO: re-write using self.orbita2d_servicer.SendCommand?
+            part = self.get_arm_part_by_part_id(request.id, context)
 
-        cmd = DynamicJointState()
-        cmd.joint_names = []
+            cmd = DynamicJointState()
+            cmd.joint_names = []
 
-        for c in part.components:
-            nb_rw_motor = 3 if c.type == "orbita3d" else 2
-            for i in range(1, nb_rw_motor + 1):
-                # cmd.joint_names.append(c.name)
-                cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
+            for c in part.components:
+                nb_rw_motor = 3 if c.type == "orbita3d" else 2
+                for i in range(1, nb_rw_motor + 1):
+                    # cmd.joint_names.append(c.name)
+                    cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
 
-                cmd.interface_values.append(
-                    InterfaceValue(
-                        interface_names=["torque_limit"],
-                        values=[request.limit / 100],
+                    cmd.interface_values.append(
+                        InterfaceValue(
+                            interface_names=["torque_limit"],
+                            values=[request.limit / 100],
+                        )
                     )
-                )
 
-        self.bridge_node.publish_command(cmd)
+            self.bridge_node.publish_command(cmd)
         return Empty()
 
     # Kinematics
     def ComputeArmFK(self, request: ArmFKRequest, context: grpc.ServicerContext) -> ArmFKSolution:
-        arm = self.get_arm_part_by_part_id(request.id, context)
-        success, pose = self.bridge_node.compute_forward(request.id, arm_position_to_joint_state(request.position, arm))
+        with self.bridge_node.tracer.start_as_current_span(f"ComputeArmFK") as span:
+            arm = self.get_arm_part_by_part_id(request.id, context)
+            success, pose = self.bridge_node.compute_forward(request.id, arm_position_to_joint_state(request.position, arm))
 
-        sol = ArmFKSolution()
+            sol = ArmFKSolution()
 
-        if success:
-            sol.success = True
-            sol.end_effector.pose.data.extend(pose.flatten())
+            if success:
+                sol.success = True
+                sol.end_effector.pose.data.extend(pose.flatten())
 
         return sol
 
     def ComputeArmIK(self, request: ArmIKRequest, context: grpc.ServicerContext) -> ArmIKSolution:
-        arm = self.get_arm_part_by_part_id(request.id, context)
+        with self.bridge_node.tracer.start_as_current_span(f"ComputeArmIK") as span:
+            arm = self.get_arm_part_by_part_id(request.id, context)
 
-        success, joint_position = self.bridge_node.compute_inverse(
-            request.id,
-            request.target.pose.data,
-            arm_position_to_joint_state(request.q0, arm),
-        )
+            success, joint_position = self.bridge_node.compute_inverse(
+                request.id,
+                request.target.pose.data,
+                arm_position_to_joint_state(request.q0, arm),
+            )
 
-        sol = ArmIKSolution()
+            sol = ArmIKSolution()
 
-        if success:
-            sol.success = True
-            sol.arm_position.CopyFrom(joint_state_to_arm_position(joint_position, arm))
+            if success:
+                sol.success = True
+                sol.arm_position.CopyFrom(joint_state_to_arm_position(joint_position, arm))
 
         return sol
 
@@ -328,7 +332,7 @@ class ArmServicer:
         return Empty()
 
     def SendArmCartesianGoal(self, request: ArmCartesianGoal, context: grpc.ServicerContext) -> Empty:
-        with self.tracer.start_as_current_span(f"SendArmCartesianGoal") as span:
+        with self.bridge_node.tracer.start_as_current_span(f"SendArmCartesianGoal") as span:
             constrained_mode_dict = {
                 IKConstrainedMode.UNCONSTRAINED: "unconstrained",
                 IKConstrainedMode.LOW_ELBOW: "low_elbow",
@@ -372,7 +376,7 @@ class ArmServicer:
             msg.d_theta_max = d_theta_max
             msg.order_id = order_id
 
-            with self.tracer.start_as_current_span(
+            with self.bridge_node.tracer.start_as_current_span(
                     "bridge_node.publish_arm_target_pose",
                     kind=trace.SpanKind.CLIENT) as span:
                 self.bridge_node.publish_arm_target_pose(

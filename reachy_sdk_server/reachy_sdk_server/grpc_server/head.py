@@ -41,6 +41,10 @@ from ..parts import Part
 from ..utils import get_current_timestamp
 from .orbita3d import Orbita3dCommand, Orbita3dsCommand, Orbita3dServicer, Orbita3dStateRequest
 
+from pollen_msgs.msg import CartTarget
+from . import tracing_helper
+from opentelemetry import trace
+
 
 class HeadServicer:
     def __init__(
@@ -255,45 +259,47 @@ class HeadServicer:
         )
 
     def SetSpeedLimit(self, request: SpeedLimitRequest, context: grpc.ServicerContext) -> Empty:
-        # TODO: re-write using self.orbita2d_servicer.SendCommand?
-        part = self.get_head_part_from_part_id(request.id, context)
+        with self.bridge_node.tracer.start_as_current_span(f"SetSpeedLimit") as span:
+            # TODO: re-write using self.orbita2d_servicer.SendCommand?
+            part = self.get_head_part_from_part_id(request.id, context)
 
-        cmd = DynamicJointState()
-        cmd.joint_names = []
+            cmd = DynamicJointState()
+            cmd.joint_names = []
 
-        for c in part.components:
-            for i in range(1, 4):
-                cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
+            for c in part.components:
+                for i in range(1, 4):
+                    cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
 
-                cmd.interface_values.append(
-                    InterfaceValue(
-                        interface_names=["speed_limit"],
-                        values=[request.limit / 100],
+                    cmd.interface_values.append(
+                        InterfaceValue(
+                            interface_names=["speed_limit"],
+                            values=[request.limit / 100],
+                        )
                     )
-                )
 
-        self.bridge_node.publish_command(cmd)
+            self.bridge_node.publish_command(cmd)
         return Empty()
 
     def SetTorqueLimit(self, request: TorqueLimitRequest, context: grpc.ServicerContext) -> Empty:
-        # TODO: re-write using self.orbita2d_servicer.SendCommand?
-        part = self.get_head_part_from_part_id(request.id, context)
+        with self.bridge_node.tracer.start_as_current_span(f"SetTorqueLimit") as span:
+            # TODO: re-write using self.orbita2d_servicer.SendCommand?
+            part = self.get_head_part_from_part_id(request.id, context)
 
-        cmd = DynamicJointState()
-        cmd.joint_names = []
+            cmd = DynamicJointState()
+            cmd.joint_names = []
 
-        for c in part.components:
-            for i in range(1, 4):
-                cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
+            for c in part.components:
+                for i in range(1, 4):
+                    cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
 
-                cmd.interface_values.append(
-                    InterfaceValue(
-                        interface_names=["torque_limit"],
-                        values=[request.limit / 100],
+                    cmd.interface_values.append(
+                        InterfaceValue(
+                            interface_names=["torque_limit"],
+                            values=[request.limit / 100],
+                        )
                     )
-                )
 
-        self.bridge_node.publish_command(cmd)
+            self.bridge_node.publish_command(cmd)
         return Empty()
 
     # Note: this version uses an IK service call.
@@ -329,11 +335,20 @@ class HeadServicer:
     #     return Empty()
 
     def SendNeckJointGoal(self, request: NeckJointGoal, context: grpc.ServicerContext) -> Empty:
-        M = pose_matrix_from_rotation3d(request.joints_goal.rotation)
+        with self.bridge_node.tracer.start_as_current_span(f"SendNeckJointGoal") as span:
+            msg = CartTarget()
+            msg.traceparent = tracing_helper.traceparent()
 
-        self.bridge_node.publish_head_target_pose(
-            request.id,
-            matrix_to_pose(M),
-        )
+            msg.pose.header.stamp = self.bridge_node.get_clock().now().to_msg()
+            M = pose_matrix_from_rotation3d(request.joints_goal.rotation)
+            msg.pose.pose = matrix_to_pose(M)
+
+            with self.bridge_node.tracer.start_as_current_span(
+                    "bridge_node.publish_head_target_pose",
+                    kind=trace.SpanKind.CLIENT) as span:
+                self.bridge_node.publish_head_target_pose(
+                    request.id,
+                    msg,
+                )
 
         return Empty()
