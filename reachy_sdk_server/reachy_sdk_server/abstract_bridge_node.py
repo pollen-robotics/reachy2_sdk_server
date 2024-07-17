@@ -39,8 +39,7 @@ class AbstractBridgeNode(Node):
 
         self.got_first_state = Event()
         self.joint_state_ready = Event()
-        self.got_first_battery_voltage = Event()
-        self.got_first_safety_status = Event()
+        self.got_first_mb_state_status = Event()
         self.reachability_deque = {}
 
         self.create_subscription(
@@ -169,7 +168,7 @@ class AbstractBridgeNode(Node):
     # returns the battery voltage value [V]
     # returns 0 if no battery voltage has been received yet
     def get_battery_voltage(self) -> float:
-        if not self.got_first_battery_voltage.is_set():
+        if not self.got_first_mb_state_status.is_set():
             self.logger.error("No battery voltage received yet.")
         return self.battery_voltage
 
@@ -177,7 +176,7 @@ class AbstractBridgeNode(Node):
     # returns the string of the mode
     # returns 'NONE_ZUUU_MODE' if no info has been received yet
     def get_zuuu_mode(self) -> str:
-        if not self.got_first_battery_voltage.is_set():
+        if not self.got_first_mb_state_status.is_set():
             self.logger.error("No zuuu mode received yet.")
         return self.zuuu_mode
 
@@ -185,14 +184,14 @@ class AbstractBridgeNode(Node):
     # returns the string of the mode
     # returns 'NONE_CONTROL_MODE' if no info has been received yet
     def get_control_mode(self) -> str:
-        if not self.got_first_battery_voltage.is_set():
+        if not self.got_first_mb_state_status.is_set():
             self.logger.error("No controle mode received yet.")
         return self.control_mode
 
     # function which is run when the safety status message is received
     def update_mobile_base_state(self, msg: MobileBaseState) -> None:
-        if not self.got_first_safety_status.is_set():
-            self.got_first_safety_status.set()
+        if not self.got_first_mb_state_status.is_set():
+            self.got_first_mb_state_status.set()
         # save the safety status value to the class variable
         # that contains
         # 0: safety on/off flag
@@ -213,7 +212,7 @@ class AbstractBridgeNode(Node):
     # mirroring the `LidarObstacleDetectionEnum` from `mobile_base_lidar.proto`
     # [0: detection error, 1: no obstacle, 2: obstacle detected slowing down, 3: obstacle detected stopping]
     def get_safety_status(self) -> Dict[str, Any]:
-        if not self.got_first_safety_status.is_set():
+        if not self.got_first_mb_state_status.is_set():
             self.logger.error("No safety status received yet.")
             return {"safety_on": False, "safety_distance": 0.0, "critical_distance": 0.0, "status": 0}
         return self.lidar_safety
