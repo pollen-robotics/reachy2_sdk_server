@@ -106,10 +106,10 @@ class AbstractBridgeNode(Node):
         # dictionary that contains the mirror of the LidarSafety class from the zuu_hal.py file
         # and in the GetZuuuSafety service
         # "safety_on":          safety on/off flag
-        # "safe_distance":      obstacle safety distance
+        # "safety_distance":      obstacle safety distance
         # "critical_distance":  obstacle critical distance
         # "status":             safety status [0: detection error, 1: no obstacle, 2: obstacle detected slowing down, 3: obstacle detected stopping]
-        self.lidar_safety = {"safety_on": False, "safe_distance": 0.0, "critical_distance": 0.0, "status": 0}
+        self.lidar_safety = {"safety_on": False, "safety_distance": 0.0, "critical_distance": 0.0, "status": 0}
         self.battery_voltage = 0.0
         self.zuuu_mode = "NONE_ZUUU_MODE"
         self.control_mode = "NONE_CONTROL_MODE"
@@ -201,7 +201,7 @@ class AbstractBridgeNode(Node):
         # 3: safety status [0: detection error, 1: no obstacle, 2: obstacle detected slowing down, 3: obstacle detected stopping]
         self.battery_voltage = msg.battery_voltage.data
         self.lidar_safety["safety_on"] = msg.mobile_base_safety_status.data[0] == 1.0
-        self.lidar_safety["safe_distance"] = msg.mobile_base_safety_status.data[1]
+        self.lidar_safety["safety_distance"] = msg.mobile_base_safety_status.data[1]
         self.lidar_safety["critical_distance"] = msg.mobile_base_safety_status.data[2]
         self.lidar_safety["status"] = int(msg.mobile_base_safety_status.data[3])
 
@@ -215,7 +215,7 @@ class AbstractBridgeNode(Node):
     def get_safety_status(self) -> Dict[str, Any]:
         if not self.got_first_safety_status.is_set():
             self.logger.error("No safety status received yet.")
-            return {"safety_on": False, "safe_distance": 0.0, "critical_distance": 0.0, "status": 0}
+            return {"safety_on": False, "safety_distance": 0.0, "critical_distance": 0.0, "status": 0}
         return self.lidar_safety
 
     def publish_command(self, msg: DynamicJointState) -> None:
