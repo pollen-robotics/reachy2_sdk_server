@@ -2,7 +2,7 @@ from asyncio.events import AbstractEventLoop
 from collections import deque
 from functools import partial
 from threading import Event, Lock
-from typing import List, Tuple, Dict, Any
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import prometheus_client as pc
@@ -10,7 +10,7 @@ import rclpy
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from geometry_msgs.msg import Pose, PoseStamped
 from pollen_msgs.action import Goto
-from pollen_msgs.msg import IKRequest, ReachabilityState
+from pollen_msgs.msg import IKRequest, MobileBaseState, ReachabilityState
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
 from rclpy.action import ActionClient
 from rclpy.node import Node
@@ -19,7 +19,6 @@ from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float32, Float32MultiArray
-from pollen_msgs.msg import MobileBaseState
 
 from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix

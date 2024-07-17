@@ -173,17 +173,17 @@ class MobileBaseServicer(
 
         res_status = LidarSafety()
         lidar_info = self.bridge_node.get_safety_status()
-        if lidar_info['status'] == 0:
+        if lidar_info["status"] == 0:
             grpc_obstacle_detection_status = LidarObstacleDetectionEnum.DETECTION_ERROR
-        elif lidar_info['status'] == 1:
+        elif lidar_info["status"] == 1:
             grpc_obstacle_detection_status = LidarObstacleDetectionEnum.NO_OBJECT_DETECTED
-        elif lidar_info['status'] == 2:
+        elif lidar_info["status"] == 2:
             grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_SLOWDOWN
-        elif lidar_info['status'] == 3:
+        elif lidar_info["status"] == 3:
             grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_STOP
-        res_status.safety_on.value = lidar_info['safety_on']
-        res_status.safety_distance.value = lidar_info['safety_distance']
-        res_status.critical_distance.value = lidar_info['critical_distance']
+        res_status.safety_on.value = lidar_info["safety_on"]
+        res_status.safety_distance.value = lidar_info["safety_distance"]
+        res_status.critical_distance.value = lidar_info["critical_distance"]
         res_status.obstacle_detection_status.status = grpc_obstacle_detection_status
 
         res_zuuu_mode = ZuuuModeCommand(mode=getattr(ZuuuModePossiblities, self.bridge_node.get_zuuu_mode()))
