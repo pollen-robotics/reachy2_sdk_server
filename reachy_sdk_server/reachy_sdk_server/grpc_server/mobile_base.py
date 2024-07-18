@@ -43,6 +43,7 @@ from reachy2_sdk_api.mobile_base_utility_pb2_grpc import (
     MobileBaseUtilityServiceServicer,
     add_MobileBaseUtilityServiceServicer_to_server,
 )
+from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import Image
 from zuuu_interfaces.srv import (
     DistanceToGoal,
@@ -58,7 +59,7 @@ from zuuu_interfaces.srv import (
 )
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..utils import parse_reachy_config
+from ..utils import get_current_timestamp, parse_reachy_config
 
 
 class MobileBaseServicer(
@@ -150,6 +151,8 @@ class MobileBaseServicer(
         """Get mobile base basic info."""
         if self.mobile_base_enabled:
             return MobileBase(
+                # TODO: handle part_id correctly
+                id=PartId(id=100, name="mobile_base"),
                 info=MobileBaseInfo(
                     serial_number=self.info["serial_number"],
                     version_hard=str(self.info["version_hard"]),
@@ -164,9 +167,9 @@ class MobileBaseServicer(
 
     def GetMobileBase(self, request: Empty, context) -> MobileBaseInfo:
         """Get mobile base basic info."""
-        return self.get_mobile_base()
+        return self.get_mobile_base(context)
 
-    def GetState(self, request: Empty, context) -> MobileBaseState:
+    def GetState(self, request: PartId, context) -> MobileBaseState:
         """Get mobile base state."""
         if self.info["serial_number"] is None:
             return MobileBaseState()
@@ -192,6 +195,9 @@ class MobileBaseServicer(
         res_bat = BatteryLevel(level=FloatValue(value=self.bridge_node.get_battery_voltage()))
 
         req = MobileBaseState(
+            timestamp=get_current_timestamp(self.bridge_node),
+            id=request,
+            activated=True,
             battery_level=res_bat,
             lidar_safety=res_status,
             zuuu_mode=res_zuuu_mode,
