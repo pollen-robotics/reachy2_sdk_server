@@ -152,7 +152,7 @@ class MobileBaseServicer(
         if self.mobile_base_enabled:
             return MobileBase(
                 # TODO: handle part_id correctly
-                id=PartId(id=100, name="mobile_base"),
+                part_id=PartId(id=100, name="mobile_base"),
                 info=MobileBaseInfo(
                     serial_number=self.info["serial_number"],
                     version_hard=str(self.info["version_hard"]),
