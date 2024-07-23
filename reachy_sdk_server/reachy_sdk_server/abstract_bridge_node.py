@@ -2,7 +2,7 @@ from asyncio.events import AbstractEventLoop
 from collections import deque
 from functools import partial
 from threading import Event, Lock
-from typing import List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import prometheus_client as pc
@@ -10,7 +10,7 @@ import rclpy
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from geometry_msgs.msg import Pose, PoseStamped
 from pollen_msgs.action import Goto
-from pollen_msgs.msg import IKRequest, ReachabilityState
+from pollen_msgs.msg import IKRequest, MobileBaseState, ReachabilityState
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
 from rclpy.action import ActionClient
 from rclpy.node import Node
@@ -38,8 +38,7 @@ class AbstractBridgeNode(Node):
 
         self.got_first_state = Event()
         self.joint_state_ready = Event()
-        self.got_first_battery_voltage = Event()
-        self.got_first_safety_status = Event()
+        self.got_first_mb_state_status = Event()
         self.reachability_deque = {}
 
         self.create_subscription(
@@ -94,31 +93,24 @@ class AbstractBridgeNode(Node):
             qos_profile=10,
         )
 
-        # create a subscriber to the battery voltage topic
-        # defined in the zuu_hal.py file
-        self.create_subscription(
-            msg_type=Float32,
-            topic="/mobile_base_battery_voltage",
-            callback=self.update_battery_voltage,
-            qos_profile=10,  # TODO see if 10 is too long as this topic is called once per second
-        )
-
         # create a subscriber to the safety status topic
         # defined in the zuu_hal.py file
         self.create_subscription(
-            msg_type=Float32MultiArray,
-            topic="/mobile_base_safety_status",
-            callback=self.update_safety_status,
+            msg_type=MobileBaseState,
+            topic="/mobile_base_state",
+            callback=self.update_mobile_base_state,
             qos_profile=10,
         )
         # dictionary that contains the mirror of the LidarSafety class from the zuu_hal.py file
         # and in the GetZuuuSafety service
         # "safety_on":          safety on/off flag
-        # "safe_distance":      obstacle safety distance
+        # "safety_distance":      obstacle safety distance
         # "critical_distance":  obstacle critical distance
         # "status":             safety status [0: detection error, 1: no obstacle, 2: obstacle detected slowing down, 3: obstacle detected stopping]
-        self.lidar_safety = {"safety_on": False, "safe_distance": 0.0, "critical_distance": 0.0, "status": 0}
+        self.lidar_safety = {"safety_on": False, "safety_distance": 0.0, "critical_distance": 0.0, "status": 0}
         self.battery_voltage = 0.0
+        self.zuuu_mode = "NONE_ZUUU_MODE"
+        self.control_mode = "NONE_CONTROL_MODE"
 
         # Setup goto action clients
         self.prefixes = ["r_arm", "l_arm", "neck"]
@@ -171,45 +163,58 @@ class AbstractBridgeNode(Node):
         for name, target in zip(msg.name, msg.position):
             self.components.get_by_name(name).update_command({"target_position": target})
 
-    # function which is run when the battery voltage message is received
-    def update_battery_voltage(self, msg: Float32) -> None:
-        if not self.got_first_battery_voltage.is_set():
-            self.got_first_battery_voltage.set()
-        # save the battery voltage value to the class variable
-        self.battery_voltage = msg.data
-
     # getter for the battery voltage
     # returns the battery voltage value [V]
     # returns 0 if no battery voltage has been received yet
     def get_battery_voltage(self) -> float:
-        if not self.got_first_battery_voltage.is_set():
+        if not self.got_first_mb_state_status.is_set():
             self.logger.error("No battery voltage received yet.")
         return self.battery_voltage
 
+    # getter for zuuu mode
+    # returns the string of the mode
+    # returns 'NONE_ZUUU_MODE' if no info has been received yet
+    def get_zuuu_mode(self) -> str:
+        if not self.got_first_mb_state_status.is_set():
+            self.logger.error("No zuuu mode received yet.")
+        return self.zuuu_mode
+
+    # getter for mobile base control mode
+    # returns the string of the mode
+    # returns 'NONE_CONTROL_MODE' if no info has been received yet
+    def get_control_mode(self) -> str:
+        if not self.got_first_mb_state_status.is_set():
+            self.logger.error("No controle mode received yet.")
+        return self.control_mode
+
     # function which is run when the safety status message is received
-    def update_safety_status(self, msg: Float32MultiArray) -> None:
-        if not self.got_first_safety_status.is_set():
-            self.got_first_safety_status.set()
+    def update_mobile_base_state(self, msg: MobileBaseState) -> None:
+        if not self.got_first_mb_state_status.is_set():
+            self.got_first_mb_state_status.set()
         # save the safety status value to the class variable
         # that contains
         # 0: safety on/off flag
         # 1: obstacle safety distance
         # 2: obstacle critical distance
         # 3: safety status [0: detection error, 1: no obstacle, 2: obstacle detected slowing down, 3: obstacle detected stopping]
-        self.lidar_safety["safety_on"] = msg.data[0] == 1.0
-        self.lidar_safety["safe_distance"] = msg.data[1]
-        self.lidar_safety["critical_distance"] = msg.data[2]
-        self.lidar_safety["status"] = int(msg.data[3])
+        self.battery_voltage = msg.battery_voltage.data
+        self.lidar_safety["safety_on"] = msg.mobile_base_safety_status.data[0] == 1.0
+        self.lidar_safety["safety_distance"] = msg.mobile_base_safety_status.data[1]
+        self.lidar_safety["critical_distance"] = msg.mobile_base_safety_status.data[2]
+        self.lidar_safety["status"] = int(msg.mobile_base_safety_status.data[3])
+
+        self.zuuu_mode = msg.zuuu_mode
+        self.control_mode = msg.control_mode
 
     # getter for the safety status
     # returns the safety status
     # mirroring the `LidarObstacleDetectionEnum` from `mobile_base_lidar.proto`
     # [0: detection error, 1: no obstacle, 2: obstacle detected slowing down, 3: obstacle detected stopping]
-    def get_safety_status(self) -> int:
-        if not self.got_first_safety_status.is_set():
+    def get_safety_status(self) -> Dict[str, Any]:
+        if not self.got_first_mb_state_status.is_set():
             self.logger.error("No safety status received yet.")
-            return 0.0
-        return self.lidar_safety["status"]
+            return {"safety_on": False, "safety_distance": 0.0, "critical_distance": 0.0, "status": 0}
+        return self.lidar_safety
 
     def publish_command(self, msg: DynamicJointState) -> None:
         self.joint_command_pub.publish(msg)
