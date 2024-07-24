@@ -11,7 +11,7 @@ from cv_bridge import CvBridge
 from geometry_msgs.msg import Twist
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
-from PIL import Image as PilImage
+import cv2
 from reachy2_sdk_api.mobile_base_lidar_pb2 import LidarMap, LidarObstacleDetectionEnum, LidarSafety
 from reachy2_sdk_api.mobile_base_lidar_pb2_grpc import (
     MobileBaseLidarServiceServicer,
@@ -401,10 +401,9 @@ class MobileBaseServicer(
 
     def GetLidarMap(self, request: Empty, context) -> LidarMap:
         """Get the lidar map."""
-        img = PilImage.fromarray(self.lidar_img)
-
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG")  # Format can be changed as needed
-        uncompressed_bytes = buf.getvalue()
-        compressed_bytes = zlib.compress(uncompressed_bytes)
-        return LidarMap(data=compressed_bytes)
+        res, frame = cv2.imencode(".png", self._lidar_img)
+        if res:
+            return LidarMap(data=frame.tobytes())
+        else:
+            self.logger.error("Failed to encode image")
+            return LidarMap(data=None)
