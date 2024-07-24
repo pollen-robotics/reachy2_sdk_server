@@ -5,13 +5,13 @@ import zlib
 from queue import Empty
 from subprocess import PIPE, check_output, run
 
+import cv2
 import grpc
 import rclpy
 from cv_bridge import CvBridge
 from geometry_msgs.msg import Twist
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
-import cv2
 from reachy2_sdk_api.mobile_base_lidar_pb2 import LidarMap, LidarObstacleDetectionEnum, LidarSafety
 from reachy2_sdk_api.mobile_base_lidar_pb2_grpc import (
     MobileBaseLidarServiceServicer,
