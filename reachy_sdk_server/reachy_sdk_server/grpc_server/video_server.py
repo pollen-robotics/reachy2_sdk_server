@@ -1,5 +1,8 @@
-from threading import Lock
-from typing import Dict, List
+import threading
+from enum import Enum
+from functools import partial
+from threading import Event, Lock
+from typing import Dict, List, Optional
 
 import cv2
 import grpc
@@ -7,12 +10,39 @@ import numpy as np
 import numpy.typing as npt
 import rclpy
 from google.protobuf.empty_pb2 import Empty
+from google.protobuf.timestamp_pb2 import Timestamp
 from google.protobuf.wrappers_pb2 import BoolValue
 from pollen_vision.camera_wrappers.depthai import SDKWrapper
 from pollen_vision.camera_wrappers.depthai.utils import get_config_file_path, get_connected_devices
 from reachy2_sdk_api.error_pb2 import Error
-from reachy2_sdk_api.video_pb2 import CameraInfo, Frame, ListOfCameraInfo, VideoAck, View, ViewRequest
+from reachy2_sdk_api.video_pb2 import CameraFeatures, CameraParameters, Frame, ListOfCameraFeatures, VideoAck, View, ViewRequest
 from reachy2_sdk_api.video_pb2_grpc import add_VideoServiceServicer_to_server
+from sensor_msgs.msg import CameraInfo
+from sensor_msgs.msg._compressed_image import CompressedImage
+
+
+class CameraType(Enum):
+    """Camera names defined in pollen-vision"""
+
+    TELEOP = "teleop_head"
+    DEPTH = "depth_camera"  # TODO
+
+
+class ROSFrame:
+    def __init__(self, timestamp, data):
+        self.timestamp = timestamp
+        self.data = data
+
+
+class ROSCamInfo:
+    def __init__(self, height, width, distortion_model, D, K, R, P):
+        self.height = height
+        self.width = width
+        self.distortion_model = distortion_model
+        self.D = D
+        self.K = K
+        self.R = R
+        self.P = P
 
 
 class ReachyGRPCVideoSDKServicer:
@@ -23,110 +53,122 @@ class ReachyGRPCVideoSDKServicer:
 
         self._logger.info("Reachy GRPC Video SDK Servicer initialized.")
 
-        self._available_cams: Dict[str, SDKWrapper] = {}
-        self._list_cam: List[CameraInfo] = []
-        self._captured_data: Dict[str, Dict[str, npt.NDArray[np.uint8]]] = {}
+        self._list_cam = []
+        # TODO add more cameras
+        ci = CameraFeatures(name=CameraType.TELEOP.value, stereo=True, depth=False)
+        self._list_cam.append(ci)
 
-        self._nb_grpc_client = 0
-        self._lock = Lock()
+        self.left_camera_sub = self.node.create_subscription(
+            CompressedImage,
+            "teleop_camera/left_image/compressed",
+            partial(self.on_image_update, side="left"),
+            1,
+        )
+
+        self.right_camera_sub = self.node.create_subscription(
+            CompressedImage,
+            "teleop_camera/right_image/compressed",
+            partial(self.on_image_update, side="right"),
+            1,
+        )
+
+        self.cams_frame: Dict[str, Optional[ROSFrame]] = {"left": None, "right": None}
+
+        self.left_camera_info_sub = self.node.create_subscription(
+            CameraInfo,
+            "teleop_camera/left_image/camera_info",
+            partial(self.on_info_update, side="left"),
+            1,
+        )
+
+        self.right_camera_info_sub = self.node.create_subscription(
+            CameraInfo,
+            "teleop_camera/right_image/camera_info",
+            partial(self.on_info_update, side="right"),
+            1,
+        )
+
+        self.cams_info: Dict[str, Optional[ROSCamInfo]] = {"left": None, "right": None}
+
+        self.ros_thread = threading.Thread(target=self.spin_ros, daemon=True)
+        self.ros_thread.start()
+
+    def __del__(self) -> None:
+        self.node.destroy_node()
+        rclpy.shutdown()
+
+    def spin_ros(self) -> None:
+        self._logger.info("Spin node")
+        rclpy.spin(self.node)
+
+    def on_image_update(self, msg, side):
+        """Get data from image. Callback for "/'side'_image "subscriber."""
+        frame = ROSFrame(Timestamp(seconds=msg.header.stamp.sec, nanos=msg.header.stamp.nanosec), msg.data.tobytes())
+        self.cams_frame[side] = frame
+
+    def on_info_update(self, msg, side):
+        """Get data from image. Callback for "/'side'_image "subscriber."""
+        cam_info = ROSCamInfo(msg.height, msg.width, msg.distortion_model, msg.d, msg.k, msg.r, msg.p)
+        self.cams_info[side] = cam_info
 
     def register_to_server(self, server: grpc.Server):
         self._logger.info("Registering 'VideoServiceServicer' to server.")
         add_VideoServiceServicer_to_server(self, server)
 
-    def GoodBye(self, request: Empty, context: grpc.ServicerContext) -> Empty:
-        self._logger.info(f"Client leaving. Remaining {self._nb_grpc_client}")
-        with self._lock:
-            self._nb_grpc_client -= 1
-            if self._nb_grpc_client < 1:
-                self._logger.info("No more client. Releasing cameras.")
-                self._available_cams.clear()
-                self._list_cam.clear()
-                self._nb_grpc_client = 0
-        return Empty()
-
-    def InitAllCameras(self, request: CameraInfo, context: grpc.ServicerContext) -> ListOfCameraInfo:
-        with self._lock:
-            self._nb_grpc_client += 1
-            if len(self._available_cams) != 0:
-                self._logger.info("Cameras already initialized")
-                return ListOfCameraInfo(camera_info=self._list_cam)
-
-            self._logger.info("Initializing all cameras...")
-            try:
-                devices = get_connected_devices()
-            except RuntimeError as e:
-                self._logger.error(f"List of camera cannot be retrieved {e}.")
-                return ListOfCameraInfo()
-
-            self._list_cam = []
-            for mxid, name in devices.items():
-                ci = CameraInfo(mxid=mxid, name=name)
-                if name == "other":  # hardcoded in pollen-vision
-                    ci.stereo = False
-                    ci.depth = True
-                else:  # teleop otherwise
-                    ci.stereo = True
-                    ci.depth = False
-                ack = self._init_camera(ci)
-                if ack.success.value:
-                    self._list_cam.append(ci)
-                else:
-                    self._logger.error(f"Error opening camera {ack.error}.")
-
-        if len(self._list_cam) == 0:
-            self._logger.debug("List of cam is empty")
-            return ListOfCameraInfo()
-        else:
-            return ListOfCameraInfo(camera_info=self._list_cam)
-
-    def _init_camera(self, camera_info: CameraInfo) -> VideoAck:
-        try:
-            if camera_info.name == "other":
-                self._logger.info("Opening SR camera")
-                cam = SDKWrapper(
-                    get_config_file_path("CONFIG_SR"),
-                    compute_depth=True,
-                    rectify=False,
-                    mx_id=camera_info.mxid,
-                    jpeg_output=True,
-                )
-            else:
-                self._logger.info("Opening teleop camera")
-                cam = SDKWrapper(
-                    get_config_file_path("CONFIG_IMX296"),
-                    compute_depth=False,
-                    rectify=True,
-                    mx_id=camera_info.mxid,
-                    jpeg_output=True,
-                )
-            self._available_cams[camera_info.mxid] = cam
-            return VideoAck(success=BoolValue(value=True))
-        except RuntimeError as e:
-            return VideoAck(success=BoolValue(value=False), error=Error(details=str(e)))
-        except Exception as e:
-            return VideoAck(success=BoolValue(value=False), error=Error(details=str(e)))
+    def GetAvailableCameras(self, request: CameraInfo, context: grpc.ServicerContext) -> ListOfCameraFeatures:
+        return ListOfCameraFeatures(camera_feat=self._list_cam)
 
     def GetFrame(self, request: ViewRequest, context: grpc.ServicerContext) -> Frame:
         """
-        Frames are encoded in PNG to save bandwith
+        Frames are encoded in JPG to save bandwidth
         """
-        if request.camera_info.mxid not in self._available_cams:
-            self._logger.warning(f"Camera {request.camera_info.mxid} not opened")
-            return Frame(data=None)
-        elif not request.camera_info.stereo and request.view == View.RIGHT:
-            self._logger.warning(f"Camera {request.camera_info.mxid} has no stereo feature. Returning mono view")
-        elif request.camera_info.mxid not in self._captured_data:
-            self._logger.warning("No data captured. Make sure to call capture() first")
-            return Frame(data=None)
+        if request.camera_feat.name not in [c.name for c in self._list_cam]:
+            self._logger.warning(f"Camera {request.camera_info.name} not opened")
+            return Frame(data=None, timestamp=None)
+        elif not request.camera_feat.stereo and request.view == View.RIGHT:
+            self._logger.warning(f"Camera {request.camera_info.name} has no stereo feature. Returning mono view")
 
-        if not request.camera_info.stereo or request.view == View.LEFT:
-            frame = self._captured_data[request.camera_info.mxid]["left"]
+        if not request.camera_feat.stereo or request.view == View.LEFT:
+            frame = self.cams_frame["left"]
         else:
-            frame = self._captured_data[request.camera_info.mxid]["right"]
+            frame = self.cams_frame["right"]
 
-        return Frame(data=frame.tobytes())
+        if frame is None:
+            self._logger.warning(f"No camera data published for {request.camera_feat.name}")
+            return Frame(data=None, timestamp=None)
 
+        return Frame(data=frame.data, timestamp=frame.timestamp)
+
+    def GetParameters(self, request: ViewRequest, context: grpc.ServicerContext) -> CameraParameters:
+        """
+        Get camera parameters as defined in https://docs.ros.org/en/melodic/api/sensor_msgs/html/msg/CameraInfo.html
+        """
+        if request.camera_feat.name not in [c.name for c in self._list_cam]:
+            self._logger.warning(f"Camera {request.camera_feat.name} not opened")
+            return CameraParameters()
+        elif not request.camera_feat.stereo and request.view == View.RIGHT:
+            self._logger.warning(f"Camera {request.camera_feat.name} has no stereo feature. Returning mono view")
+
+        if not request.camera_feat.stereo or request.view == View.LEFT:
+            cam_param = self.cams_info["left"]
+        else:
+            cam_param = self.cams_info["right"]
+
+        if cam_param is None:
+            self._logger.warning(f"No camera parameters published for {request.camera_feat.name}")
+            return CameraParameters()
+
+        return CameraParameters(
+            height=cam_param.height,
+            width=cam_param.width,
+            distortion_model=cam_param.distortion_model,
+            D=cam_param.D,
+            K=cam_param.K,
+            R=cam_param.R,
+            P=cam_param.P,
+        )
+
+    """
     def GetDepthFrame(self, request: ViewRequest, context: grpc.ServicerContext) -> Frame:
         if request.camera_info.mxid not in self._available_cams:
             self._logger.warning(f"Camera {request.camera_info.mxid} not opened")
@@ -193,6 +235,7 @@ class ReachyGRPCVideoSDKServicer:
 
         self._captured_data[request.mxid], _, _ = self._available_cams[request.mxid].get_data()
         return VideoAck(success=BoolValue(value=True))
+    """
 
 
 def main():
