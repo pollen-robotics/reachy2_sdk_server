@@ -28,11 +28,15 @@ from .grpc_server import tracing_helper
 
 
 class AbstractBridgeNode(Node):
-    def __init__(self, reachy_config_path: str = None, asyncio_loop: AbstractEventLoop = None) -> None:
+    def __init__(self, reachy_config_path: str = None,
+                 asyncio_loop: AbstractEventLoop = None,
+                 port = 0) -> None:
         super().__init__(node_name="reachy_abstract_bridge_node")
 
         self.logger = self.get_logger()
-        self.tracer = tracing_helper.tracer("grpc-server_SDK")
+        self.tracer = tracing_helper.tracer(f"grpc-server_SDK{'.' + str(port) if port != 0 else ''}")
+        metrics_port = 10000 + int(port)
+        self.logger.info(f"Start port:{port}, metrics_port:{metrics_port} (port+10000).")
 
         self.asyncio_loop = asyncio_loop
         self.config = parse_reachy_config(reachy_config_path)
@@ -131,7 +135,7 @@ class AbstractBridgeNode(Node):
             self.goto_action_client[prefix].wait_for_server()
 
         # Start up the server to expose the metrics.
-        pc.start_http_server(10000)
+        pc.start_http_server(metrics_port)
         self.sum_getreachystate = pc.Summary("sdkserver_GetReachyState_time", "Time spent during bridge reachy.GetReachyState")
         self.sum_spin = pc.Summary("sdkserver_spin_once_time", "Time spent during bridge spin_once")
         self.sum_spin_sanity = pc.Summary("sdkserver_time_reference_1s", "Sanity check spin, sleeps 1s")

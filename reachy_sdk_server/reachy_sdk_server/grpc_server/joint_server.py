@@ -1,5 +1,8 @@
 import asyncio
 import threading
+import multiprocessing as mp
+import logging
+import sys
 
 import grpc
 import rclpy
@@ -19,7 +22,7 @@ from .reachy import ReachyServicer
 
 
 class ReachyGRPCJointSDKServicer:
-    def __init__(self, reachy_config_path: str = None) -> None:
+    def __init__(self, reachy_config_path: str = None, port = None) -> None:
         rclpy.init()
 
         # executor = rclpy.executors.MultiThreadedExecutor()
@@ -29,8 +32,9 @@ class ReachyGRPCJointSDKServicer:
         # self.asyncio_loop = asyncio.get_event_loop()
         self.asyncio_loop = asyncio.new_event_loop()
 
-        # Should we have separate nodes for each servicer instead?
-        self.bridge_node = AbstractBridgeNode(reachy_config_path=reachy_config_path, asyncio_loop=self.asyncio_loop)
+        self.bridge_node = AbstractBridgeNode(reachy_config_path=reachy_config_path,
+                                              asyncio_loop=self.asyncio_loop,
+                                              port=port)
 
         self.asyncio_thread = threading.Thread(target=self.spin_asyncio)
         self.asyncio_thread.start()
@@ -99,28 +103,63 @@ class ReachyGRPCJointSDKServicer:
             await asyncio.sleep(0.001)
 
 
-def main():
+_LOGGER = logging.getLogger(__name__)
+handler = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter("[PID %(process)d] %(message)s")
+handler.setFormatter(formatter)
+_LOGGER.addHandler(handler)
+_LOGGER.setLevel(logging.INFO)
+
+def main_singleprocess(_ = 1):
     import argparse
     from concurrent import futures
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=50051)
+    parser.add_argument("--port", type=int, default=5005)
     parser.add_argument("--max-workers", type=int, default=10)
     parser.add_argument("--ros-args", action="store_true")
     parser.add_argument("reachy_config", type=str)
     args = parser.parse_args()
 
-    servicer = ReachyGRPCJointSDKServicer(reachy_config_path=args.reachy_config)
+    port = f"{args.port}{_}"
+    _LOGGER.info(f"Starting grpc server at {port}")
+
+    # options = (("grpc.so_reuseport", 1),)
+    servicer = ReachyGRPCJointSDKServicer(reachy_config_path=args.reachy_config, port=port)
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers))
+    # server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers),
+    #                      options=options)
+    # server = grpc.server(futures.ThreadPoolExecutor(max_workers=100))
+    # server = grpc.server(futures.ProcessPoolExecutor(max_workers=4))
 
     servicer.register_all_services(server)
 
-    server.add_insecure_port(f"[::]:{args.port}")
+    server.add_insecure_port(f"[::]:{port}")
+    _LOGGER.info("Ready to start")
     server.start()
 
-    servicer.logger.info(f"Server started on port {args.port}.")
+    servicer.logger.info(f"Server started on port {port}.")
+    _LOGGER.info(f"Server started on port {port}.")
     server.wait_for_termination()
 
+def main_multiprocess():
+    _LOGGER.info("Launch grpc servers...")
+    workers = []
+    for _ in range(1,7):
+        _LOGGER.info(f"grpc round {_}")
+        # NOTE: It is imperative that the worker subprocesses be forked before
+        # any gRPC servers start up. See
+        # https://github.com/grpc/grpc/issues/16001 for more details.
+        worker = mp.Process(target=main_singleprocess, args=(_,))
+        worker.start()
+        workers.append(worker)
+
+    for worker in workers:
+        worker.join()
+
+# NOTE this code allows using a multi-process grpc server
+# main = main_multiprocess
+main = main_singleprocess
 
 if __name__ == "__main__":
     main()
