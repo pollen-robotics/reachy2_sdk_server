@@ -1,21 +1,12 @@
 import threading
 from enum import Enum
 from functools import partial
-from threading import Event, Lock
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
-import cv2
 import grpc
-import numpy as np
-import numpy.typing as npt
 import rclpy
-from google.protobuf.empty_pb2 import Empty
 from google.protobuf.timestamp_pb2 import Timestamp
-from google.protobuf.wrappers_pb2 import BoolValue
-from pollen_vision.camera_wrappers.depthai import SDKWrapper
-from pollen_vision.camera_wrappers.depthai.utils import get_config_file_path, get_connected_devices
-from reachy2_sdk_api.error_pb2 import Error
-from reachy2_sdk_api.video_pb2 import CameraFeatures, CameraParameters, Frame, ListOfCameraFeatures, VideoAck, View, ViewRequest
+from reachy2_sdk_api.video_pb2 import CameraFeatures, CameraParameters, Frame, ListOfCameraFeatures, View, ViewRequest
 from reachy2_sdk_api.video_pb2_grpc import add_VideoServiceServicer_to_server
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg._compressed_image import CompressedImage
@@ -55,40 +46,11 @@ class ReachyGRPCVideoSDKServicer:
 
         self._list_cam = []
         # TODO add more cameras
-        ci = CameraFeatures(name=CameraType.TELEOP.value, stereo=True, depth=False)
+        ci = self._configure_teleop_camera()
         self._list_cam.append(ci)
 
-        self.left_camera_sub = self.node.create_subscription(
-            CompressedImage,
-            "teleop_camera/left_image/compressed",
-            partial(self.on_image_update, side="left"),
-            1,
-        )
-
-        self.right_camera_sub = self.node.create_subscription(
-            CompressedImage,
-            "teleop_camera/right_image/compressed",
-            partial(self.on_image_update, side="right"),
-            1,
-        )
-
-        self.cams_frame: Dict[str, Optional[ROSFrame]] = {"left": None, "right": None}
-
-        self.left_camera_info_sub = self.node.create_subscription(
-            CameraInfo,
-            "teleop_camera/left_image/camera_info",
-            partial(self.on_info_update, side="left"),
-            1,
-        )
-
-        self.right_camera_info_sub = self.node.create_subscription(
-            CameraInfo,
-            "teleop_camera/right_image/camera_info",
-            partial(self.on_info_update, side="right"),
-            1,
-        )
-
-        self.cams_info: Dict[str, Optional[ROSCamInfo]] = {"left": None, "right": None}
+        self.cams_frame: Dict[View, Optional[ROSFrame]] = {View.LEFT: None, View.RIGHT: None}
+        self.cams_info: Dict[View, Optional[ROSCamInfo]] = {View.LEFT: None, View.RIGHT: None}
 
         self.ros_thread = threading.Thread(target=self.spin_ros, daemon=True)
         self.ros_thread.start()
@@ -96,6 +58,38 @@ class ReachyGRPCVideoSDKServicer:
     def __del__(self) -> None:
         self.node.destroy_node()
         rclpy.shutdown()
+
+    def _configure_teleop_camera(self) -> CameraFeatures:
+        ci = CameraFeatures(name=CameraType.TELEOP.value, stereo=True, depth=False)
+        self._left_camera_sub = self.node.create_subscription(
+            CompressedImage,
+            "teleop_camera/left_image/compressed",
+            partial(self.on_image_update, side=View.LEFT),
+            1,
+        )
+
+        self._right_camera_sub = self.node.create_subscription(
+            CompressedImage,
+            "teleop_camera/right_image/compressed",
+            partial(self.on_image_update, side=View.RIGHT),
+            1,
+        )
+
+        self._left_camera_info_sub = self.node.create_subscription(
+            CameraInfo,
+            "teleop_camera/left_image/camera_info",
+            partial(self.on_info_update, side=View.LEFT),
+            1,
+        )
+
+        self._right_camera_info_sub = self.node.create_subscription(
+            CameraInfo,
+            "teleop_camera/right_image/camera_info",
+            partial(self.on_info_update, side=View.RIGHT),
+            1,
+        )
+
+        return ci
 
     def spin_ros(self) -> None:
         self._logger.info("Spin node")
@@ -127,11 +121,9 @@ class ReachyGRPCVideoSDKServicer:
             return Frame(data=None, timestamp=None)
         elif not request.camera_feat.stereo and request.view == View.RIGHT:
             self._logger.warning(f"Camera {request.camera_info.name} has no stereo feature. Returning mono view")
+            request.view = View.LEFT
 
-        if not request.camera_feat.stereo or request.view == View.LEFT:
-            frame = self.cams_frame["left"]
-        else:
-            frame = self.cams_frame["right"]
+        frame = self.cams_frame[request.view]
 
         if frame is None:
             self._logger.warning(f"No camera data published for {request.camera_feat.name}")
@@ -148,11 +140,9 @@ class ReachyGRPCVideoSDKServicer:
             return CameraParameters()
         elif not request.camera_feat.stereo and request.view == View.RIGHT:
             self._logger.warning(f"Camera {request.camera_feat.name} has no stereo feature. Returning mono view")
+            request.view = View.LEFT
 
-        if not request.camera_feat.stereo or request.view == View.LEFT:
-            cam_param = self.cams_info["left"]
-        else:
-            cam_param = self.cams_info["right"]
+        cam_param = self.cams_info[request.view]
 
         if cam_param is None:
             self._logger.warning(f"No camera parameters published for {request.camera_feat.name}")
