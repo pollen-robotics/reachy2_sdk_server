@@ -31,8 +31,8 @@ from sensor_msgs.msg import JointState
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import pose_matrix_from_quaternion, rotation3d_as_extrinsinc_euler_angles, rotation3d_as_quat
 from ..parts import Part
-from .arm import GetJointPosition
-from .head import GetOrientation
+from .arm import ArmServicer
+from .head import HeadServicer
 
 
 class GoToServicer:
@@ -40,10 +40,15 @@ class GoToServicer:
         self,
         bridge_node: AbstractBridgeNode,
         logger: rclpy.impl.rcutils_logger.RcutilsLogger,
+        arm_servicer: ArmServicer,
+        head_servicer: HeadServicer,
     ) -> None:
         self.bridge_node = bridge_node
         self.logger = logger
         self.goal_manager = GoalManager()
+
+        self.arm_servicer = arm_servicer
+        self.head_servicer = head_servicer
 
     def register_to_server(self, server: grpc.Server) -> None:
         self.logger.info("Registering 'GoToServiceServicer' to server.")
@@ -257,15 +262,15 @@ class GoToServicer:
 
         elif request.joints_goal.HasField("single_joint_goal"):
             single_joint_goal = request.joints_goal.single_joint_goal
-            if request.joints_goal.joint.HasField("arm_joint"):
+            if request.joints_goal.single_joint_goal.HasField("neck_joint"):
                 head = self.get_head_part_by_part_id(single_joint_goal.id, context)
                 joint_names = self.part_to_list_of_joint_names(head)
 
                 duration = single_joint_goal.duration.value
 
-                joints_position = GetOrientation(single_joint_goal.id, context)
+                joints_position = self.head_servicer.GetOrientation(single_joint_goal.id, context)
                 goal_positions = rotation3d_as_extrinsinc_euler_angles(neck_joint_goal.joints_goal.rotation)
-                goal_positions[single_joint_goal.neck_joint.value] = single_joint_goal.joint_goal.value
+                goal_positions[single_joint_goal.neck_joint] = single_joint_goal.joint_goal.value
 
                 return self.goto_joints(
                     "neck",
@@ -275,13 +280,13 @@ class GoToServicer:
                     mode=interpolation_mode,
                 )
 
-            if request.joints_goal.joint.HasField("arm_joint"):
+            if request.joints_goal.single_joint_goal.HasField("arm_joint"):
                 arm = self.get_arm_part_by_part_id(single_joint_goal.id, context)
                 joint_names = self.part_to_list_of_joint_names(arm)
 
                 duration = single_joint_goal.duration.value
 
-                joints_position = GetJointPosition(single_joint_goal.id, context)
+                joints_position = self.arm_servicer.GetJointPosition(single_joint_goal.id, context)
                 goal_positions = [
                     joints_position.shoulder_position.axis_1.value,
                     joints_position.shoulder_position.axis_2.value,
@@ -291,7 +296,9 @@ class GoToServicer:
                     joints_position.wrist_position.rpy.pitch.value,
                     joints_position.wrist_position.rpy.yaw.value,
                 ]
-                goal_positions[single_joint_goal.arm_joint.value] = single_joint_goal.joint_goal.value
+                goal_positions[single_joint_goal.arm_joint] = single_joint_goal.joint_goal.value
+
+                self.logger.warning(f"{goal_positions}")
 
                 return self.goto_joints(
                     arm.name,

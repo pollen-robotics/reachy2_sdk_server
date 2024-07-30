@@ -46,9 +46,9 @@ class ReachyGRPCJointSDKServicer:
             orbita2d_servicer,
             orbita3d_servicer,
         )
-        goto_servicer = GoToServicer(self.bridge_node, self.logger)
         hand_servicer = HandServicer(self.bridge_node, self.logger)
         head_servicer = HeadServicer(self.bridge_node, self.logger, orbita3d_servicer)
+        goto_servicer = GoToServicer(self.bridge_node, self.logger, arm_servicer, head_servicer)
         mobile_base_servicer = MobileBaseServicer(self.bridge_node, self.logger, reachy_config_path)
         reachy_servicer = ReachyServicer(
             self.bridge_node,
