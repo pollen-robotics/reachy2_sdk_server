@@ -31,6 +31,8 @@ from sensor_msgs.msg import JointState
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import pose_matrix_from_quaternion, rotation3d_as_extrinsinc_euler_angles, rotation3d_as_quat
 from ..parts import Part
+from .arm import GetJointPosition
+from .head import GetOrientation
 
 
 class GoToServicer:
@@ -252,6 +254,52 @@ class GoToServicer:
             else:
                 q_numpy = rotation3d_as_quat(neck_joint_goal.joints_goal.rotation)
                 return self.goto_joints_from_quat(neck_joint_goal.id, q_numpy, duration, interpolation_mode)
+
+        elif request.joints_goal.HasField("single_joint_goal"):
+            single_joint_goal = request.joints_goal.single_joint_goal
+            if request.joints_goal.joint.HasField("arm_joint"):
+                head = self.get_head_part_by_part_id(single_joint_goal.id, context)
+                joint_names = self.part_to_list_of_joint_names(head)
+
+                duration = single_joint_goal.duration.value
+
+                joints_position = GetOrientation(single_joint_goal.id, context)
+                goal_positions = rotation3d_as_extrinsinc_euler_angles(neck_joint_goal.joints_goal.rotation)
+                goal_positions[single_joint_goal.neck_joint.value] = single_joint_goal.joint_goal.value
+
+                return self.goto_joints(
+                    "neck",
+                    joint_names,
+                    goal_positions,
+                    duration,
+                    mode=interpolation_mode,
+                )
+
+            if request.joints_goal.joint.HasField("arm_joint"):
+                arm = self.get_arm_part_by_part_id(single_joint_goal.id, context)
+                joint_names = self.part_to_list_of_joint_names(arm)
+
+                duration = single_joint_goal.duration.value
+
+                joints_position = GetJointPosition(single_joint_goal.id, context)
+                goal_positions = [
+                    joints_position.shoulder_position.axis_1.value,
+                    joints_position.shoulder_position.axis_2.value,
+                    joints_position.elbow_position.axis_1.value,
+                    joints_position.elbow_position.axis_2.value,
+                    joints_position.wrist_position.rpy.roll.value,
+                    joints_position.wrist_position.rpy.pitch.value,
+                    joints_position.wrist_position.rpy.yaw.value,
+                ]
+                goal_positions[single_joint_goal.arm_joint.value] = single_joint_goal.joint_goal.value
+
+                return self.goto_joints(
+                    arm.name,
+                    joint_names,
+                    goal_positions,
+                    duration,
+                    mode=interpolation_mode,
+                )
         else:
             self.logger.error(f"{request} is ill formed. Expected arm_joint_goal or neck_joint_goal")
             return GoToId(id=-1)
