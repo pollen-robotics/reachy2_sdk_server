@@ -393,9 +393,16 @@ class MobileBaseServicer(
     def SetZuuuSafety(self, request: LidarSafety, context) -> MobilityServiceAck:
         """Set on/off the anti-collision safety handled by the mobile base hal."""
         req = SetZuuuSafety.Request()
-        req.safety_on = request.safety_on.value
-        req.safety_distance = request.safety_distance.value
-        req.critical_distance = request.critical_distance.value
+        if req.HasField("safety_on"):
+            req.safety_on = request.safety_on.value
+        else:
+            self.logger.error("Safety_on field is missing in the SetZuuuSafety request.")
+        return MobilityServiceAck(success=BoolValue(value=False))
+
+        if req.HasField("safety_distance"):
+            req.safety_distance = request.safety_distance.value
+        if req.HasField("critical_distance"):
+            req.critical_distance = request.critical_distance.value
         self.set_zuuu_safety_client.call_async(req)
         return MobilityServiceAck(success=BoolValue(value=True))
 
