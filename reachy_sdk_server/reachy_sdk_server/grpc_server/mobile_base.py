@@ -397,7 +397,7 @@ class MobileBaseServicer(
             req.safety_on = request.safety_on.value
         else:
             self.logger.error("Safety_on field is missing in the SetZuuuSafety request.")
-        return MobilityServiceAck(success=BoolValue(value=False))
+            return MobilityServiceAck(success=BoolValue(value=False))
 
         if request.HasField("safety_distance"):
             req.safety_distance = request.safety_distance.value
