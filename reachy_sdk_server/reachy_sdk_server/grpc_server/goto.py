@@ -31,6 +31,8 @@ from sensor_msgs.msg import JointState
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import pose_matrix_from_quaternion, rotation3d_as_extrinsinc_euler_angles, rotation3d_as_quat
 from ..parts import Part
+from .arm import ArmServicer
+from .head import HeadServicer
 
 
 class GoToServicer:
@@ -252,8 +254,57 @@ class GoToServicer:
             else:
                 q_numpy = rotation3d_as_quat(neck_joint_goal.joints_goal.rotation)
                 return self.goto_joints_from_quat(neck_joint_goal.id, q_numpy, duration, interpolation_mode)
+
+        elif request.joints_goal.HasField("custom_joint_goal"):
+            custom_joint_goal = request.joints_goal.custom_joint_goal
+            if request.joints_goal.custom_joint_goal.HasField("neck_joints"):
+                # TODO: to update
+                head = self.get_head_part_by_part_id(custom_joint_goal.id, context)
+                all_joints_names = self.part_to_list_of_joint_names(head)
+
+                joint_names = []
+                for joint in custom_joint_goal.neck_joints.joints:
+                    joint_names.append(all_joints_names[joint])
+
+                duration = custom_joint_goal.duration.value
+
+                goal_positions = []
+                for goal in custom_joint_goal.joints_goals:
+                    goal_positions.append(goal.value)
+
+                return self.goto_joints(
+                    "neck",
+                    joint_names,
+                    goal_positions,
+                    duration,
+                    mode=interpolation_mode,
+                )
+
+            if request.joints_goal.custom_joint_goal.HasField("arm_joints"):
+                arm = self.get_arm_part_by_part_id(custom_joint_goal.id, context)
+                all_joints_names = self.part_to_list_of_joint_names(arm)
+
+                joint_names = []
+                for joint in custom_joint_goal.arm_joints.joints:
+                    joint_names.append(all_joints_names[joint])
+
+                duration = custom_joint_goal.duration.value
+
+                goal_positions = []
+                for goal in custom_joint_goal.joints_goals:
+                    goal_positions.append(goal.value)
+
+                self.logger.warning(f"{goal_positions}")
+
+                return self.goto_joints(
+                    arm.name,
+                    joint_names,
+                    goal_positions,
+                    duration,
+                    mode=interpolation_mode,
+                )
         else:
-            self.logger.error(f"{request} is ill formed. Expected arm_joint_goal or neck_joint_goal")
+            self.logger.error(f"{request} is ill formed. Expected arm_joint_goal, neck_joint_goal or custom_joint_goal")
             return GoToId(id=-1)
 
     def GetGoToRequest(self, goto_id: GoToId, context: grpc.ServicerContext) -> GoToRequest:
