@@ -25,6 +25,7 @@ from reachy2_sdk_api.part_pb2 import PartId
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..parts import Part
+from . import tracing_helper
 
 HandComponents = namedtuple("HandComponents", ["actuator", "finger", "raw_motor_1"])
 
