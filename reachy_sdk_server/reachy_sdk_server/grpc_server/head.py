@@ -259,7 +259,7 @@ class HeadServicer:
         )
 
     def SetSpeedLimit(self, request: SpeedLimitRequest, context: grpc.ServicerContext) -> Empty:
-        with self.bridge_node.tracer.start_as_current_span(f"SetSpeedLimit") as span:
+        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetSpeedLimit"):
             # TODO: re-write using self.orbita2d_servicer.SendCommand?
             part = self.get_head_part_from_part_id(request.id, context)
 
@@ -281,7 +281,7 @@ class HeadServicer:
         return Empty()
 
     def SetTorqueLimit(self, request: TorqueLimitRequest, context: grpc.ServicerContext) -> Empty:
-        with self.bridge_node.tracer.start_as_current_span(f"SetTorqueLimit") as span:
+        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetTorqueLimit"):
             # TODO: re-write using self.orbita2d_servicer.SendCommand?
             part = self.get_head_part_from_part_id(request.id, context)
 
@@ -335,7 +335,7 @@ class HeadServicer:
     #     return Empty()
 
     def SendNeckJointGoal(self, request: NeckJointGoal, context: grpc.ServicerContext) -> Empty:
-        with self.bridge_node.tracer.start_as_current_span(f"SendNeckJointGoal") as span:
+        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SendNeckJointGoal"):
             msg = CartTarget()
             msg.traceparent = tracing_helper.traceparent()
 
@@ -345,7 +345,7 @@ class HeadServicer:
 
             with self.bridge_node.tracer.start_as_current_span(
                     "bridge_node.publish_head_target_pose",
-                    kind=trace.SpanKind.CLIENT) as span:
+                    kind=trace.SpanKind.CLIENT):
                 self.bridge_node.publish_head_target_pose(
                     request.id,
                     msg,

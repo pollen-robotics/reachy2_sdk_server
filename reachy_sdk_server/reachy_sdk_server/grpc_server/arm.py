@@ -204,7 +204,7 @@ class ArmServicer:
         self.bridge_node.publish_command(cmd)
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        with self.bridge_node.tracer.start_as_current_span(f"TurnOn") as span:
+        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"TurnOn"):
             self.set_stiffness(request, torque=True, context=context)
             # Set all goal positions to the current position for safety
             part = self.get_arm_part_by_part_id(request, context)
@@ -213,7 +213,7 @@ class ArmServicer:
         return Empty()
 
     def TurnOff(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        with self.bridge_node.tracer.start_as_current_span(f"TurnOff") as span:
+        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"TurnOff"):
             self.set_stiffness(request, torque=False, context=context)
         return Empty()
 
@@ -226,7 +226,7 @@ class ArmServicer:
         return ArmLimits()
 
     def SetSpeedLimit(self, request: SpeedLimitRequest, context: grpc.ServicerContext) -> Empty:
-        with self.bridge_node.tracer.start_as_current_span(f"SetSpeedLimit") as span:
+        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetSpeedLimit"):
             # TODO: re-write using self.orbita2d_servicer.SendCommand?
             part = self.get_arm_part_by_part_id(request.id, context)
             cmd = DynamicJointState()
@@ -248,7 +248,7 @@ class ArmServicer:
         return Empty()
 
     def SetTorqueLimit(self, request: TorqueLimitRequest, context: grpc.ServicerContext) -> Empty:
-        with self.bridge_node.tracer.start_as_current_span(f"SetTorqueLimit") as span:
+        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetTorqueLimit"):
             # TODO: re-write using self.orbita2d_servicer.SendCommand?
             part = self.get_arm_part_by_part_id(request.id, context)
 
@@ -273,7 +273,7 @@ class ArmServicer:
 
     # Kinematics
     def ComputeArmFK(self, request: ArmFKRequest, context: grpc.ServicerContext) -> ArmFKSolution:
-        with self.bridge_node.tracer.start_as_current_span(f"ComputeArmFK") as span:
+        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"ComputeArmFK"):
             arm = self.get_arm_part_by_part_id(request.id, context)
             success, pose = self.bridge_node.compute_forward(request.id, arm_position_to_joint_state(request.position, arm))
 
@@ -286,7 +286,7 @@ class ArmServicer:
         return sol
 
     def ComputeArmIK(self, request: ArmIKRequest, context: grpc.ServicerContext) -> ArmIKSolution:
-        with self.bridge_node.tracer.start_as_current_span(f"ComputeArmIK") as span:
+        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"ComputeArmIK"):
             arm = self.get_arm_part_by_part_id(request.id, context)
 
             success, joint_position = self.bridge_node.compute_inverse(
@@ -332,7 +332,7 @@ class ArmServicer:
         return Empty()
 
     def SendArmCartesianGoal(self, request: ArmCartesianGoal, context: grpc.ServicerContext) -> Empty:
-        with self.bridge_node.tracer.start_as_current_span(f"SendArmCartesianGoal") as span:
+        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SendArmCartesianGoal"):
             constrained_mode_dict = {
                 IKConstrainedMode.UNCONSTRAINED: "unconstrained",
                 IKConstrainedMode.LOW_ELBOW: "low_elbow",
@@ -376,9 +376,9 @@ class ArmServicer:
             msg.d_theta_max = d_theta_max
             msg.order_id = order_id
 
-            with self.bridge_node.tracer.start_as_current_span(
-                    "bridge_node.publish_arm_target_pose",
-                    kind=trace.SpanKind.CLIENT) as span:
+            with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer,
+                                           trace_name=f"bridge_node.publish_arm_target_pose",
+                                           kind=trace.SpanKind.CLIENT):
                 self.bridge_node.publish_arm_target_pose(
                     request.id,
                     msg,

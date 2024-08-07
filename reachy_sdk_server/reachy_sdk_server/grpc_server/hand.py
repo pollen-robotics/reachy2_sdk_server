@@ -107,7 +107,7 @@ class HandServicer:
 
     def set_stiffness(self, request: PartId, torque: bool, context: grpc.ServicerContext) -> None:
 
-        with self.bridge_node.tracer.start_as_current_span(f"SetHandPosition") as span:
+        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetHandPosition"):
             hand = self.get_hand_part_from_part_id(request, context)
 
             cmd = DynamicJointState()
@@ -142,7 +142,7 @@ class HandServicer:
         )
 
     def SetHandPosition(self, request: HandPositionRequest, context: grpc.ServicerContext) -> Empty:
-        with self.bridge_node.tracer.start_as_current_span(f"SetHandPosition") as span:
+        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetHandPosition"):
             hand = self.get_hand_part_from_part_id(request.id, context)
 
             # This is a % of the opening

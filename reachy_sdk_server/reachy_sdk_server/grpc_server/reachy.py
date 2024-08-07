@@ -79,11 +79,10 @@ class ReachyServicer:
         # it seems to grow recursively (each one depends on StreamReachy + the previous GetReachyState)
         # span_links = tracing_helper.span_links(tracing_helper.first_span("GetReachyState"))
         # print('span_links', [x.context for x in span_links[:3]])
-        with self.bridge_node.tracer.start_as_current_span(f"GetReachyState",
-                                               kind=tracing_helper.trace.SpanKind.INTERNAL,
-                                               context=tracing_helper.otel_rootctx,
-                                               # links=span_links,
-                                               ) as span:
+        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer,
+                                       trace_name=f"GetReachyState",
+                                       kind=tracing_helper.trace.SpanKind.INTERNAL,
+                                       context=tracing_helper.otel_rootctx):
             # span.add_link(tracing_helper.first_span("GetReachyState").get_span_context()) # see NOTE above
             with self.bridge_node.sum_getreachystate.time():
                 if request.id != self.reachy_id.id and request.name != self.reachy_id.name:
@@ -120,11 +119,10 @@ class ReachyServicer:
         )
 
     def Audit(self, request: ReachyId, context: grpc.ServicerContext) -> ReachyStatus:
-        with self.bridge_node.tracer.start_as_current_span(f"Audit",
-                                               kind=tracing_helper.trace.SpanKind.INTERNAL,
-                                               context=tracing_helper.otel_rootctx,
-                                               # links=span_links,
-                                               ) as span:
+        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer,
+                                       trace_name=f"Audit",
+                                       kind=tracing_helper.trace.SpanKind.INTERNAL,
+                                       context=tracing_helper.otel_rootctx):
             if request.id != self.reachy_id.id and request.name != self.reachy_id.name:
                 context.abort(grpc.StatusCode.NOT_FOUND, "Reachy not found.")
 
