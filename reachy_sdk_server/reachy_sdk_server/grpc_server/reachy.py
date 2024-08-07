@@ -106,7 +106,8 @@ class ReachyServicer:
                             params[f"{p.name}_state"] = self.hand_servicer.GetState(PartId(id=p.id), context)
 
                 with self.bridge_node.tracer.start_as_current_span(f"GetReachyState::type=mobile_base"):
-                    params["mobile_base_state"] = self.mobile_base_servicer.GetState(Empty(), context)
+                    params["mobile_base_state"] = self.mobile_base_servicer.GetState(PartId(id=100), context)
+
         return ReachyState(**params)
 
     def StreamReachyState(self, request: ReachyStreamStateRequest, context: grpc.ServicerContext) -> Iterator[ReachyState]:
