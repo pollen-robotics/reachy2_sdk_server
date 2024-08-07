@@ -56,7 +56,7 @@ def configure_pyroscope(service_name, tags={}):
         pyroscope.configure(
             application_name=service_name,  # replace this with some name for your application
             server_address="http://localhost:4040",  # replace this with the address of your Pyroscope server
-            sample_rate=2000,  # default is 100
+            sample_rate=5000,  # default is 100
             detect_subprocesses=True,  # detect subprocesses started by the main process; default is False
             oncpu=False,  # report cpu time only; default is True
             gil_only=False,  # only include traces for threads that are holding on to the Global Interpreter Lock; default is True

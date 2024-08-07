@@ -34,7 +34,17 @@ class AbstractBridgeNode(Node):
         super().__init__(node_name="reachy_abstract_bridge_node")
 
         self.logger = self.get_logger()
-        self.tracer = tracing_helper.tracer(f"grpc-server_SDK{'.' + str(port) if port != 0 else ''}")
+
+        NODE_NAME = f"grpc-server_SDK{'.' + str(port) if port != 0 else ''}"
+        tracing_helper.configure_pyroscope(
+            NODE_NAME,
+            tags={
+                "server": "false",
+                "client": "true",
+            },
+        )
+        self.tracer = tracing_helper.tracer(NODE_NAME)
+
         metrics_port = 10000 + int(port)
         self.logger.info(f"Start port:{port}, metrics_port:{metrics_port} (port+10000).")
 
