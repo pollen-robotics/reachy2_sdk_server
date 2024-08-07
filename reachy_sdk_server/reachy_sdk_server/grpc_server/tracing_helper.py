@@ -7,6 +7,7 @@ from opentelemetry.sdk.trace.export import (  # ConsoleSpanExporter,; SimpleSpan
     BatchSpanProcessor, )
 
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+from opentelemetry.instrumentation import grpc as grpc_instrumentation
 
 import pyroscope
 from pyroscope import otel
@@ -45,7 +46,7 @@ class DummyContext:
     span_id: float
 
 
-class DummySpan(contextlib.nullcontext):
+class DummySpan:
     """
     Used when spans are disabled
     """
@@ -56,10 +57,10 @@ class DummySpan(contextlib.nullcontext):
         self.N += 1
         return DummyContext(trace_id=self.N, span_id=self.N)
 
-    def set_attributes(self, _):
+    def set_attributes(_):
         pass
 
-    def end(self):
+    def end(_):
         pass
 
 
@@ -109,53 +110,41 @@ class PollenSpan(contextlib.ExitStack):
         return stack
 
 
-def travel_span(name, start_time, tracer, context=None):
-    """
-    Creates a span with a provided start_time.
-    This is a workaround to simulate having started the span in the past.
-    It's used to create a "fake" span for messages traveling between processes.
-    """
-    with tracer.start_span(name, start_time=start_time, context=context):
-        pass
+def tracer(service_name, grpc_type=""):
+    if otel_spans_enabled():
+        match grpc_type:
+            case "":
+                # not auto-instrumentate
+                pass
+            case "server":
+                grpc_instrumentation.GrpcInstrumentorServer().instrument()
+            case "client":
+                grpc_instrumentation.GrpcInstrumentorClient().instrument()
+            case _:
+                ValueError("Sorry, no numbers below zero")
 
+        # resource = Resource(attributes={"service.name": "grpc_server"})
+        resource = Resource(attributes={"service.name": service_name})
+        provider = TracerProvider(resource=resource)
 
-def tracer(service_name):
-    # resource = Resource(attributes={"service.name": "grpc_server"})
-    resource = Resource(attributes={"service.name": service_name})
-    provider = TracerProvider(resource=resource)
-
-    if pyroscope_enabled():
+        if pyroscope_enabled():
+            provider.add_span_processor(otel.PyroscopeSpanProcessor())
         provider.add_span_processor(
-            otel.PyroscopeSpanProcessor())
-    provider.add_span_processor(
-        BatchSpanProcessor(
-            OTLPSpanExporter(endpoint=f"http://{localhoststr}:4317")))
+            BatchSpanProcessor(
+                OTLPSpanExporter(endpoint=f"http://{localhoststr}:4317")))
 
-    trace.set_tracer_provider(provider)
-    # trace.get_tracer_provider().add_span_processor(
-    #     BatchSpanProcessor(OTLPSpanExporter(endpoint="http://localhost:4317"))
-    # )
+        trace.set_tracer_provider(provider)
+        # trace.get_tracer_provider().add_span_processor(
+        #     BatchSpanProcessor(OTLPSpanExporter(endpoint="http://localhost:4317"))
+        # )
 
-    return trace.get_tracer(service_name)
+        return trace.get_tracer(service_name)
+    return None
 
 
 def span_links(span, spans=[]):
     spans.append(trace.Link(span.get_span_context()))
     return spans
-
-
-TRACEPARENT_STR = "traceparent"
-
-
-def traceparent():
-    carrier = {}
-    TraceContextTextMapPropagator().inject(carrier)
-    return carrier[TRACEPARENT_STR]
-
-
-def ctx_from_traceparent(traceparent):
-    carrier = {TRACEPARENT_STR: traceparent}
-    return TraceContextTextMapPropagator().extract(carrier=carrier)
 
 
 def configure_pyroscope(service_name, tags={}):
@@ -180,8 +169,59 @@ def configure_pyroscope(service_name, tags={}):
             tags=tags,
         )
 
+
 def first_span(key):
     if key not in first_spans:
         first_spans[key] = trace.get_current_span()
         print("first_span key:", key, first_spans[key])
     return first_spans[key]
+
+
+#######################################################################################
+# dummy function to be disabled when otel spans off
+
+
+def real_travel_span(name, start_time, tracer, context=None):
+    """
+    Creates a span with a provided start_time.
+    This is a workaround to simulate having started the span in the past.
+    It's used to create a "fake" span for messages traveling between processes.
+    """
+    with tracer.start_span(name, start_time=start_time, context=context):
+        pass
+
+
+def dummy_travel_span(name, start_time, tracer, context=None):
+    pass
+
+
+TRACEPARENT_STR = "traceparent"
+
+
+def real_traceparent():
+    carrier = {}
+    TraceContextTextMapPropagator().inject(carrier)
+    return carrier[TRACEPARENT_STR]
+
+
+def dummy_traceparent():
+    return ""
+
+
+def real_ctx_from_traceparent(traceparent):
+    carrier = {TRACEPARENT_STR: traceparent}
+    return TraceContextTextMapPropagator().extract(carrier=carrier)
+
+
+def dummy_ctx_from_traceparent(_):
+    return None
+
+
+travel_span = real_travel_span
+traceparent = real_traceparent
+ctx_from_traceparent = real_ctx_from_traceparent
+if not otel_spans_enabled():
+    travel_span = dummy_travel_span
+    traceparent = dummy_traceparent
+    ctx_from_traceparent = dummy_ctx_from_traceparent
+#######################################################################################

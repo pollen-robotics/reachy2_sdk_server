@@ -43,7 +43,7 @@ class AbstractBridgeNode(Node):
                 "client": "true",
             },
         )
-        self.tracer = tracing_helper.tracer(NODE_NAME)
+        self.tracer = tracing_helper.tracer(NODE_NAME, grpc_type="server")
 
         metrics_port = 10000 + int(port)
         self.logger.info(f"Start port:{port}, metrics_port:{metrics_port} (port+10000).")

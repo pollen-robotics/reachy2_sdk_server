@@ -339,13 +339,13 @@ class HeadServicer:
             msg = CartTarget()
             msg.traceparent = tracing_helper.traceparent()
 
-            msg.pose.header.stamp = self.bridge_node.get_clock().now().to_msg()
             M = pose_matrix_from_rotation3d(request.joints_goal.rotation)
             msg.pose.pose = matrix_to_pose(M)
 
-            with self.bridge_node.tracer.start_as_current_span(
-                    "bridge_node.publish_head_target_pose",
-                    kind=trace.SpanKind.CLIENT):
+            with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer,
+                                           trace_name="bridge_node.publish_head_target_pose",
+                                           kind=trace.SpanKind.CLIENT):
+                msg.pose.header.stamp = self.bridge_node.get_clock().now().to_msg()
                 self.bridge_node.publish_head_target_pose(
                     request.id,
                     msg,

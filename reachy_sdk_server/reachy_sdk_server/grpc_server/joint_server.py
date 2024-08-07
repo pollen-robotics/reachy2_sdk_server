@@ -7,9 +7,6 @@ import sys
 import grpc
 import rclpy
 
-from opentelemetry.instrumentation import grpc as grpc_instrumentation
-grpc_instrumentation.GrpcInstrumentorServer().instrument()
-
 from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
 from .goto import GoToServicer

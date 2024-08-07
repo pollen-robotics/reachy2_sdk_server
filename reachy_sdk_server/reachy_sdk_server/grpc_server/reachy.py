@@ -49,27 +49,28 @@ class ReachyServicer:
         add_ReachyServiceServicer_to_server(self, server)
 
     def GetReachy(self, request: Empty, context: grpc.ServicerContext) -> Reachy:
-        with self.bridge_node.tracer.start_as_current_span(f"GetReachy",
-                                               kind=tracing_helper.trace.SpanKind.INTERNAL,
-                                               context=tracing_helper.otel_rootctx,
-                                               ):
+
+        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer,
+                                       trace_name="GetReachy",
+                                       kind=tracing_helper.trace.SpanKind.INTERNAL,
+                                       context=tracing_helper.otel_rootctx):
             params = {
                 "id": self.reachy_id,
             }
 
             for p in self.bridge_node.parts:
                 if p.type == "arm":
-                    with self.bridge_node.tracer.start_as_current_span(f"GetReachy::type=arm"):
+                    with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachy::type=arm"):
                         params[p.name] = self.arm_servicer.get_arm(p, context)
                 elif p.type == "head":
-                    with self.bridge_node.tracer.start_as_current_span(f"GetReachy::type=head"):
+                    with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachy::type=head"):
                         params[p.name] = self.head_servicer.get_head(p, context)
                 elif p.type == "hand":
-                    with self.bridge_node.tracer.start_as_current_span(f"GetReachy::type=hand"):
+                    with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachy::type=hand"):
                         params[p.name] = self.hand_servicer.get_hand(p, context)
 
             if self.mobile_base_servicer.get_mobile_base(context) is not None:
-                with self.bridge_node.tracer.start_as_current_span(f"GetReachy::type=mobile_base"):
+                with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachy::type=mobile_base"):
                     params["mobile_base"] = self.mobile_base_servicer.get_mobile_base(context)
 
         return Reachy(**params)
@@ -95,16 +96,16 @@ class ReachyServicer:
 
                 for p in self.bridge_node.parts:
                     if p.type == "arm":
-                        with self.bridge_node.tracer.start_as_current_span(f"GetReachyState::type=arm"):
+                        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachyState::type=arm"):
                             params[f"{p.name}_state"] = self.arm_servicer.GetState(PartId(id=p.id), context)
                     elif p.type == "head":
-                        with self.bridge_node.tracer.start_as_current_span(f"GetReachyState::type=head"):
+                        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachyState::type=head"):
                             params[f"{p.name}_state"] = self.head_servicer.GetState(PartId(id=p.id), context)
                     elif p.type == "hand":
-                        with self.bridge_node.tracer.start_as_current_span(f"GetReachyState::type=hand"):
+                        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachyState::type=hand"):
                             params[f"{p.name}_state"] = self.hand_servicer.GetState(PartId(id=p.id), context)
 
-                with self.bridge_node.tracer.start_as_current_span(f"GetReachyState::type=mobile_base"):
+                with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachyState::type=mobile_base"):
                     params["mobile_base_state"] = self.mobile_base_servicer.GetState(PartId(id=100), context)
 
         return ReachyState(**params)
@@ -133,16 +134,16 @@ class ReachyServicer:
 
             for p in self.bridge_node.parts:
                 if p.type == "arm":
-                    with self.bridge_node.tracer.start_as_current_span(f"Audit::type=arm"):
+                    with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"Audit::type=arm"):
                         params[f"{p.name}_status"] = self.arm_servicer.Audit(PartId(id=p.id), context)
                 elif p.type == "head":
-                    with self.bridge_node.tracer.start_as_current_span(f"Audit::type=head"):
+                    with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"Audit::type=head"):
                         params[f"{p.name}_status"] = self.head_servicer.Audit(PartId(id=p.id), context)
                 elif p.type == "hand":
-                    with self.bridge_node.tracer.start_as_current_span(f"Audit::type=hand"):
+                    with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"Audit::type=hand"):
                         params[f"{p.name}_status"] = self.hand_servicer.Audit(PartId(id=p.id), context)
 
-            # with self.bridge_node.tracer.start_as_current_span(f"Audit::type=mobile_base"):
+            # with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"Audit::type=mobile_base"):
             #     params["mobile_base_state"] = self.mobile_base_servicer.GetState(Empty(), context)
 
         return ReachyStatus(**params)
