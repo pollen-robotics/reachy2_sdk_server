@@ -369,7 +369,6 @@ class ArmServicer:
             msg.traceparent = tracing_helper.traceparent()
 
             msg.pose.pose = matrix_to_pose(request.goal_pose.data)
-            msg.pose.header.stamp = self.bridge_node.get_clock().now().to_msg()
             msg.constrained_mode = constrained_mode
             msg.continuous_mode = continuous_mode
             msg.preferred_theta = preferred_theta
@@ -379,6 +378,8 @@ class ArmServicer:
             with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer,
                                            trace_name=f"bridge_node.publish_arm_target_pose",
                                            kind=trace.SpanKind.CLIENT):
+                # timestamp here for tracing purposes
+                msg.pose.header.stamp = self.bridge_node.get_clock().now().to_msg()
                 self.bridge_node.publish_arm_target_pose(
                     request.id,
                     msg,
