@@ -142,8 +142,11 @@ class HandServicer:
     def SetHandPosition(self, request: HandPositionRequest, context: grpc.ServicerContext) -> Empty:
         hand = self.get_hand_part_from_part_id(request.id, context)
 
-        # This is a % of the opening
-        opening = np.clip(request.position.parallel_gripper.position, 0, 1)
+        if request.position.parallel_gripper.HasField("goal_position"):
+            opening = self.position_to_opening(request.position.parallel_gripper.goal_position)
+        else:
+            # This is a % of the opening
+            opening = np.clip(request.position.parallel_gripper.opening_percentage, 0, 1)  # qui est ce qui était déjà fait
 
         cmd = DynamicJointState()
         cmd.joint_names = []
