@@ -32,6 +32,10 @@ class ReachyGRPCJointSDKServicer:
         self.asyncio_thread = threading.Thread(target=self.spin_asyncio)
         self.asyncio_thread.start()
 
+        self.asyncio_loop2 = asyncio.new_event_loop()
+        self.asyncio_thread2 = threading.Thread(target=self.spin_asyncio2)
+        self.asyncio_thread2.start()
+
         self.logger = self.bridge_node.get_logger()
 
         orbita2d_servicer = Orbita2dServicer(self.bridge_node, self.logger)
@@ -42,9 +46,9 @@ class ReachyGRPCJointSDKServicer:
             orbita2d_servicer,
             orbita3d_servicer,
         )
-        goto_servicer = GoToServicer(self.bridge_node, self.logger)
         hand_servicer = HandServicer(self.bridge_node, self.logger)
         head_servicer = HeadServicer(self.bridge_node, self.logger, orbita3d_servicer)
+        goto_servicer = GoToServicer(self.bridge_node, self.logger)
         mobile_base_servicer = MobileBaseServicer(self.bridge_node, self.logger, reachy_config_path)
         reachy_servicer = ReachyServicer(
             self.bridge_node,
@@ -76,9 +80,18 @@ class ReachyGRPCJointSDKServicer:
         asyncio.set_event_loop(self.asyncio_loop)
         self.asyncio_loop.run_until_complete(self.spinning(self.bridge_node))
 
+    def spin_asyncio2(self) -> None:
+        asyncio.set_event_loop(self.asyncio_loop2)
+        self.asyncio_loop2.run_until_complete(self.spinning2(self.bridge_node))
+
+    async def spinning2(self, node):
+        with node.sum_spin2.time():
+            await asyncio.sleep(1)
+
     async def spinning(self, node):
         while rclpy.ok():
-            rclpy.spin_once(node, timeout_sec=0.01)
+            with node.sum_spin.time():
+                rclpy.spin_once(node, timeout_sec=0.01)
             await asyncio.sleep(0.001)
 
 

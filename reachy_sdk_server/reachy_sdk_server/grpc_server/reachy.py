@@ -4,7 +4,14 @@ import grpc
 import rclpy
 from google.protobuf.empty_pb2 import Empty
 from reachy2_sdk_api.part_pb2 import PartId
-from reachy2_sdk_api.reachy_pb2 import Reachy, ReachyId, ReachyState, ReachyStreamStateRequest
+from reachy2_sdk_api.reachy_pb2 import (
+    Reachy,
+    ReachyId,
+    ReachyState,
+    ReachyStatus,
+    ReachyStreamAuditRequest,
+    ReachyStreamStateRequest,
+)
 from reachy2_sdk_api.reachy_pb2_grpc import add_ReachyServiceServicer_to_server
 
 from ..abstract_bridge_node import AbstractBridgeNode
@@ -58,6 +65,38 @@ class ReachyServicer:
         return Reachy(**params)
 
     def GetReachyState(self, request: ReachyId, context: grpc.ServicerContext) -> ReachyState:
+        with self.bridge_node.sum_getreachystate.time():
+            if request.id != self.reachy_id.id and request.name != self.reachy_id.name:
+                context.abort(grpc.StatusCode.NOT_FOUND, "Reachy not found.")
+
+            params = {
+                "timestamp": get_current_timestamp(self.bridge_node),
+                "id": self.reachy_id,
+            }
+
+            for p in self.bridge_node.parts:
+                if p.type == "arm":
+                    params[f"{p.name}_state"] = self.arm_servicer.GetState(PartId(id=p.id), context)
+                elif p.type == "head":
+                    params[f"{p.name}_state"] = self.head_servicer.GetState(PartId(id=p.id), context)
+                elif p.type == "hand":
+                    params[f"{p.name}_state"] = self.hand_servicer.GetState(PartId(id=p.id), context)
+
+            if self.mobile_base_servicer.get_mobile_base(context) is not None:
+                params["mobile_base_state"] = self.mobile_base_servicer.GetState(PartId(id=100), context)
+
+        return ReachyState(**params)
+
+    def StreamReachyState(self, request: ReachyStreamStateRequest, context: grpc.ServicerContext) -> Iterator[ReachyState]:
+        return endless_timer_get_stream_works(
+            self.bridge_node,
+            self.GetReachyState,
+            request.id,
+            context,
+            1 / request.publish_frequency,
+        )
+
+    def Audit(self, request: ReachyId, context: grpc.ServicerContext) -> ReachyStatus:
         if request.id != self.reachy_id.id and request.name != self.reachy_id.name:
             context.abort(grpc.StatusCode.NOT_FOUND, "Reachy not found.")
 
@@ -68,20 +107,20 @@ class ReachyServicer:
 
         for p in self.bridge_node.parts:
             if p.type == "arm":
-                params[f"{p.name}_state"] = self.arm_servicer.GetState(PartId(id=p.id), context)
+                params[f"{p.name}_status"] = self.arm_servicer.Audit(PartId(id=p.id), context)
             elif p.type == "head":
-                params[f"{p.name}_state"] = self.head_servicer.GetState(PartId(id=p.id), context)
+                params[f"{p.name}_status"] = self.head_servicer.Audit(PartId(id=p.id), context)
             elif p.type == "hand":
-                params[f"{p.name}_state"] = self.hand_servicer.GetState(PartId(id=p.id), context)
+                params[f"{p.name}_status"] = self.hand_servicer.Audit(PartId(id=p.id), context)
 
         # params["mobile_base_state"] = self.mobile_base_servicer.GetState(Empty(), context)
 
-        return ReachyState(**params)
+        return ReachyStatus(**params)
 
-    def StreamReachyState(self, request: ReachyStreamStateRequest, context: grpc.ServicerContext) -> Iterator[ReachyState]:
+    def StreamAudit(self, request: ReachyStreamAuditRequest, context: grpc.ServicerContext) -> Iterator[ReachyStatus]:
         return endless_timer_get_stream_works(
             self.bridge_node,
-            self.GetReachyState,
+            self.Audit,
             request.id,
             context,
             1 / request.publish_frequency,

@@ -31,6 +31,7 @@ from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import (
     extract_quaternion_from_pose_matrix,
     joint_state_to_neck_orientation,
+    matrix_to_pose,
     neck_rotation_to_joint_state,
     pose_matrix_from_rotation3d,
     quat_as_rotation3d,
@@ -295,32 +296,44 @@ class HeadServicer:
         self.bridge_node.publish_command(cmd)
         return Empty()
 
+    # Note: this version uses an IK service call.
+    # --> rlcpy services seem too slow si we're disabling this and using a topic mechnaisms instead.
+    # def SendNeckJointGoal(self, request: NeckJointGoal, context: grpc.ServicerContext) -> Empty:
+    #     head = self.get_head_part_from_part_id(request.id, context)
+
+    #     q = rotation3d_as_quat(request.joints_goal.rotation)
+
+    #     ik_req = NeckIKRequest(
+    #         id=request.id,
+    #         target=NeckOrientation(
+    #             rotation=quat_as_rotation3d(q),
+    #         ),
+    #     )
+    #     resp = self.ComputeNeckIK(ik_req, context)
+
+    #     if not resp.success:
+    #         context.abort(grpc.StatusCode.INTERNAL, "Could not compute IK.")
+
+    #     self.orbita3d_servicer.SendCommand(
+    #         Orbita3dsCommand(
+    #             cmd=[
+    #                 Orbita3dCommand(
+    #                     id=ComponentId(id=head.components[0].id),
+    #                     goal_position=resp.position,
+    #                 ),
+    #             ]
+    #         ),
+    #         context,
+    #     )
+
+    #     return Empty()
+
     def SendNeckJointGoal(self, request: NeckJointGoal, context: grpc.ServicerContext) -> Empty:
-        head = self.get_head_part_from_part_id(request.id, context)
+        M = pose_matrix_from_rotation3d(request.joints_goal.rotation)
 
-        q = rotation3d_as_quat(request.joints_goal.rotation)
-
-        ik_req = NeckIKRequest(
-            id=request.id,
-            target=NeckOrientation(
-                rotation=quat_as_rotation3d(q),
-            ),
-        )
-        resp = self.ComputeNeckIK(ik_req, context)
-
-        if not resp.success:
-            context.abort(grpc.StatusCode.INTERNAL, "Could not compute IK.")
-
-        self.orbita3d_servicer.SendCommand(
-            Orbita3dsCommand(
-                cmd=[
-                    Orbita3dCommand(
-                        id=ComponentId(id=head.components[0].id),
-                        goal_position=resp.position,
-                    ),
-                ]
-            ),
-            context,
+        self.bridge_node.publish_head_target_pose(
+            request.id,
+            matrix_to_pose(M),
         )
 
         return Empty()

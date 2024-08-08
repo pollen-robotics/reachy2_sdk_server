@@ -46,6 +46,7 @@ from reachy2_sdk_api.mobile_base_utility_pb2_grpc import (
     MobileBaseUtilityServiceServicer,
     add_MobileBaseUtilityServiceServicer_to_server,
 )
+from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import Image
 from zuuu_interfaces.srv import (
     DistanceToGoal,
@@ -61,7 +62,7 @@ from zuuu_interfaces.srv import (
 )
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..utils import parse_reachy_config
+from ..utils import get_current_timestamp, parse_reachy_config
 
 
 class MobileBaseServicer(
@@ -158,6 +159,8 @@ class MobileBaseServicer(
         """Get mobile base basic info."""
         if self.mobile_base_enabled:
             return MobileBase(
+                # TODO: handle part_id correctly
+                part_id=PartId(id=100, name="mobile_base"),
                 info=MobileBaseInfo(
                     serial_number=self.info["serial_number"],
                     version_hard=str(self.info["version_hard"]),
@@ -172,16 +175,41 @@ class MobileBaseServicer(
 
     def GetMobileBase(self, request: Empty, context) -> MobileBaseInfo:
         """Get mobile base basic info."""
-        return self.get_mobile_base()
+        return self.get_mobile_base(context)
 
-    def GetState(self, request: Empty, context) -> MobileBaseState:
+    def GetState(self, request: PartId, context) -> MobileBaseState:
         """Get mobile base state."""
         if self.info["serial_number"] is None:
             return MobileBaseState()
 
+        res_status = LidarSafety()
+        lidar_info = self.bridge_node.get_safety_status()
+        if lidar_info["status"] == 0:
+            grpc_obstacle_detection_status = LidarObstacleDetectionEnum.DETECTION_ERROR
+        elif lidar_info["status"] == 1:
+            grpc_obstacle_detection_status = LidarObstacleDetectionEnum.NO_OBJECT_DETECTED
+        elif lidar_info["status"] == 2:
+            grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_SLOWDOWN
+        elif lidar_info["status"] == 3:
+            grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_STOP
+        res_status.safety_on.value = lidar_info["safety_on"]
+        res_status.safety_distance.value = lidar_info["safety_distance"]
+        res_status.critical_distance.value = lidar_info["critical_distance"]
+        res_status.obstacle_detection_status.status = grpc_obstacle_detection_status
+
+        res_zuuu_mode = ZuuuModeCommand(mode=getattr(ZuuuModePossiblities, self.bridge_node.get_zuuu_mode()))
+        res_control_mode = ControlModeCommand(mode=getattr(ControlModePossiblities, self.bridge_node.get_control_mode()))
+
+        res_bat = BatteryLevel(level=FloatValue(value=self.bridge_node.get_battery_voltage()))
+
         req = MobileBaseState(
-            battery_level=self.GetBatteryLevel(request, context),
-            lidar_obstacle_detection_status=self.GetZuuuSafety(request, context).obstacle_detection_status,
+            timestamp=get_current_timestamp(self.bridge_node),
+            id=request,
+            activated=True,
+            battery_level=res_bat,
+            lidar_safety=res_status,
+            zuuu_mode=res_zuuu_mode,
+            control_mode=res_control_mode,
         )
         return req
 
@@ -408,9 +436,16 @@ class MobileBaseServicer(
     def SetZuuuSafety(self, request: LidarSafety, context) -> MobilityServiceAck:
         """Set on/off the anti-collision safety handled by the mobile base hal."""
         req = SetZuuuSafety.Request()
-        req.safety_on = request.safety_on.value
-        req.safety_distance = request.safety_distance.value
-        req.critical_distance = request.critical_distance.value
+        if request.HasField("safety_on"):
+            req.safety_on = request.safety_on.value
+        else:
+            self.logger.error("Safety_on field is missing in the SetZuuuSafety request.")
+            return MobilityServiceAck(success=BoolValue(value=False))
+
+        if request.HasField("safety_distance"):
+            req.safety_distance = request.safety_distance.value
+        if request.HasField("critical_distance"):
+            req.critical_distance = request.critical_distance.value
         self.set_zuuu_safety_client.call_async(req)
         return MobilityServiceAck(success=BoolValue(value=True))
 
