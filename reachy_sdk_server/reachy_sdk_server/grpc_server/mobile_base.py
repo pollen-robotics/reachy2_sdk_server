@@ -39,7 +39,6 @@ from reachy2_sdk_api.mobile_base_utility_pb2 import (
     ControlModePossiblities,
     ListOfMobileBase,
     MobileBase,
-    MobileBaseInfo,
     MobileBaseState,
     MobileBaseStatus,
     OdometryVector,
@@ -50,7 +49,7 @@ from reachy2_sdk_api.mobile_base_utility_pb2_grpc import (
     MobileBaseUtilityServiceServicer,
     add_MobileBaseUtilityServiceServicer_to_server,
 )
-from reachy2_sdk_api.part_pb2 import PartId
+from reachy2_sdk_api.part_pb2 import PartId, PartInfo
 from sensor_msgs.msg import Image
 from zuuu_interfaces.srv import (
     DistanceToGoal,
@@ -162,7 +161,7 @@ class MobileBaseServicer(
         if self.mobile_base_enabled:
             return MobileBase(
                 part_id=self._part_id,
-                info=MobileBaseInfo(
+                info=PartInfo(
                     serial_number=self.info["serial_number"],
                     version_hard=str(self.info["version_hard"]),
                     version_soft=str(self.info["version_soft"]),
@@ -174,10 +173,10 @@ class MobileBaseServicer(
     def get_lidar_img(self, msg):
         self.lidar_img = self.bridge.imgmsg_to_cv2(msg)
 
-    def GetAllArms(self, request: Empty, context: grpc.ServicerContext) -> ListOfMobileBase:
+    def GetAllMobileBases(self, request: Empty, context: grpc.ServicerContext) -> ListOfMobileBase:
         return ListOfMobileBase(mobile_base=[self.GetMobileBase(Empty(), context)])
 
-    def GetMobileBase(self, request: Empty, context) -> MobileBaseInfo:
+    def GetMobileBase(self, request: Empty, context) -> PartInfo:
         """Get mobile base basic info."""
         return self.get_mobile_base(context)
 
