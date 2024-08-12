@@ -442,6 +442,12 @@ class MobileBaseServicer(
         return Empty()
 
     def ResetDefaultValues(self, request: PartId, context: grpc.ServicerContext) -> Empty:
+        self._stub.SetZuuuSafety(
+            LidarSafety(
+                critical_distance=FloatValue(value=0.55),
+                safety_distance=FloatValue(value=0.7)
+            )
+        )
         return Empty()
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
