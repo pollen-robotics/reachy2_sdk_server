@@ -450,12 +450,12 @@ class MobileBaseServicer(
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         zuuu_mode = ZuuuModeCommand(id=request, mode=ZuuuModePossiblities.BRAKE)
-        SetZuuuMode(zuuu_mode)
+        SetZuuuMode(zuuu_mode, context)
         return Empty()
 
     def TurnOff(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         zuuu_mode = ZuuuModeCommand(id=request, mode=ZuuuModePossiblities.FREE_WHEEL)
-        SetZuuuMode(zuuu_mode)
+        SetZuuuMode(zuuu_mode, context)
         return Empty()
 
     def GetLidarObstacleDetectionStatus(self, request: PartId, context: grpc.ServicerContext) -> LidarObstacleDetectionStatus:
