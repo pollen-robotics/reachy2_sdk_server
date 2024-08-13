@@ -185,7 +185,7 @@ class MobileBaseServicer(
         if self.info["serial_number"] is None:
             return MobileBaseState()
 
-        res_status = LidarSafety()
+        res_status = LidarSafety(id=request)
         lidar_info = self.bridge_node.get_safety_status()
         if lidar_info["status"] == 0:
             grpc_obstacle_detection_status = LidarObstacleDetectionEnum.DETECTION_ERROR
@@ -195,7 +195,6 @@ class MobileBaseServicer(
             grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_SLOWDOWN
         elif lidar_info["status"] == 3:
             grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_STOP
-        res_status.id = self._part_id
         res_status.safety_on.value = lidar_info["safety_on"]
         res_status.safety_distance.value = lidar_info["safety_distance"]
         res_status.critical_distance.value = lidar_info["critical_distance"]
