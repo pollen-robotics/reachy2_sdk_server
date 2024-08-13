@@ -146,9 +146,7 @@ class HandServicer:
             opening = self.position_to_opening(request.position.parallel_gripper.position.value)
         else:
             # This is a % of the opening
-            opening = np.clip(
-                request.position.parallel_gripper.opening_percentage.value, 0, 1
-            )  # qui est ce qui était déjà fait
+            opening = np.clip(request.position.parallel_gripper.opening_percentage.value, 0, 1)
 
         cmd = DynamicJointState()
         cmd.joint_names = []
