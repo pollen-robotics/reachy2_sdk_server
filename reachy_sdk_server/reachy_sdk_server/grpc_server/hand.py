@@ -77,7 +77,7 @@ class HandServicer:
         return HandState(
             opening=FloatValue(value=opening),
             present_position=HandPosition(
-                parallel_gripper=ParallelGripperPosition(position=position),
+                parallel_gripper=ParallelGripperPosition(position=FloatValue(value=position)),
             ),
             goal_position=self.GetHandGoalPosition(request, context),
             compliant=BoolValue(value=not torque),
@@ -88,7 +88,7 @@ class HandServicer:
             request=HandPositionRequest(
                 id=request,
                 position=HandPosition(
-                    parallel_gripper=ParallelGripperPosition(position=1.0),
+                    parallel_gripper=ParallelGripperPosition(opening_percentage=FloatValue(value=1.0)),
                 ),
             ),
             context=context,
@@ -99,7 +99,7 @@ class HandServicer:
             request=HandPositionRequest(
                 id=request,
                 position=HandPosition(
-                    parallel_gripper=ParallelGripperPosition(position=0.0),
+                    parallel_gripper=ParallelGripperPosition(opening_percentage=FloatValue(value=0.0)),
                 ),
             ),
             context=context,
@@ -136,14 +136,17 @@ class HandServicer:
         position = hand_components.finger.state["target_position"]
 
         return HandPosition(
-            parallel_gripper=ParallelGripperPosition(position=position),
+            parallel_gripper=ParallelGripperPosition(position=FloatValue(value=position)),
         )
 
     def SetHandPosition(self, request: HandPositionRequest, context: grpc.ServicerContext) -> Empty:
         hand = self.get_hand_part_from_part_id(request.id, context)
 
-        # This is a % of the opening
-        opening = np.clip(request.position.parallel_gripper.position, 0, 1)
+        if request.position.parallel_gripper.HasField("position"):
+            opening = self.position_to_opening(request.position.parallel_gripper.position.value)
+        else:
+            # This is a % of the opening
+            opening = np.clip(request.position.parallel_gripper.opening_percentage.value, 0, 1)
 
         cmd = DynamicJointState()
         cmd.joint_names = []
