@@ -2,6 +2,7 @@ from typing import Iterator
 
 import grpc
 import rclpy
+import reachy2_monitoring as rm
 from google.protobuf.empty_pb2 import Empty
 from reachy2_sdk_api.part_pb2 import PartId
 from reachy2_sdk_api.reachy_pb2 import (
@@ -20,8 +21,6 @@ from .arm import ArmServicer
 from .hand import HandServicer
 from .head import HeadServicer
 from .mobile_base import MobileBaseServicer
-
-import reachy2_monitoring as rm
 
 
 class ReachyServicer:
@@ -49,11 +48,9 @@ class ReachyServicer:
         add_ReachyServiceServicer_to_server(self, server)
 
     def GetReachy(self, request: Empty, context: grpc.ServicerContext) -> Reachy:
-
-        with rm.PollenSpan(tracer=self.bridge_node.tracer,
-                                       trace_name="GetReachy",
-                                       kind=rm.trace.SpanKind.INTERNAL,
-                                       context=rm.otel_rootctx):
+        with rm.PollenSpan(
+            tracer=self.bridge_node.tracer, trace_name="GetReachy", kind=rm.trace.SpanKind.INTERNAL, context=rm.otel_rootctx
+        ):
             params = {
                 "id": self.reachy_id,
             }
@@ -80,10 +77,12 @@ class ReachyServicer:
         # it seems to grow recursively (each one depends on StreamReachy + the previous GetReachyState)
         # span_links = rm.span_links(rm.first_span("GetReachyState"))
         # print('span_links', [x.context for x in span_links[:3]])
-        with rm.PollenSpan(tracer=self.bridge_node.tracer,
-                                       trace_name=f"GetReachyState",
-                                       kind=rm.trace.SpanKind.INTERNAL,
-                                       context=rm.otel_rootctx):
+        with rm.PollenSpan(
+            tracer=self.bridge_node.tracer,
+            trace_name=f"GetReachyState",
+            kind=rm.trace.SpanKind.INTERNAL,
+            context=rm.otel_rootctx,
+        ):
             # span.add_link(rm.first_span("GetReachyState").get_span_context()) # see NOTE above
             with self.bridge_node.sum_getreachystate.time():
                 if request.id != self.reachy_id.id and request.name != self.reachy_id.name:
@@ -120,10 +119,9 @@ class ReachyServicer:
         )
 
     def Audit(self, request: ReachyId, context: grpc.ServicerContext) -> ReachyStatus:
-        with rm.PollenSpan(tracer=self.bridge_node.tracer,
-                                       trace_name=f"Audit",
-                                       kind=rm.trace.SpanKind.INTERNAL,
-                                       context=rm.otel_rootctx):
+        with rm.PollenSpan(
+            tracer=self.bridge_node.tracer, trace_name=f"Audit", kind=rm.trace.SpanKind.INTERNAL, context=rm.otel_rootctx
+        ):
             if request.id != self.reachy_id.id and request.name != self.reachy_id.name:
                 context.abort(grpc.StatusCode.NOT_FOUND, "Reachy not found.")
 
@@ -147,6 +145,7 @@ class ReachyServicer:
             #     params["mobile_base_state"] = self.mobile_base_servicer.GetState(Empty(), context)
 
         return ReachyStatus(**params)
+
     Audit.first_span = None
 
     def StreamAudit(self, request: ReachyStreamAuditRequest, context: grpc.ServicerContext) -> Iterator[ReachyStatus]:

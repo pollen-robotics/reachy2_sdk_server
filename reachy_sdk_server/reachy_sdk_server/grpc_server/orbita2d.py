@@ -271,43 +271,63 @@ conversion_table = {
         axis_2=FloatValue(value=o.axis2.state["target_position"]),
     ),
     "speed_limit": lambda o: Float2d(
-        motor_1=FloatValue(value=o.raw_motor_1.state["speed_limit"])
-        if not math.isnan(o.raw_motor_1.state["speed_limit"])
-        else FloatValue(value=100.0),
-        motor_2=FloatValue(value=o.raw_motor_2.state["speed_limit"])
-        if not math.isnan(o.raw_motor_2.state["speed_limit"])
-        else FloatValue(value=100.0),
+        motor_1=(
+            FloatValue(value=o.raw_motor_1.state["speed_limit"])
+            if not math.isnan(o.raw_motor_1.state["speed_limit"])
+            else FloatValue(value=100.0)
+        ),
+        motor_2=(
+            FloatValue(value=o.raw_motor_2.state["speed_limit"])
+            if not math.isnan(o.raw_motor_2.state["speed_limit"])
+            else FloatValue(value=100.0)
+        ),
     ),
     "torque_limit": lambda o: Float2d(
-        motor_1=FloatValue(value=o.raw_motor_1.state["torque_limit"])
-        if not math.isnan(o.raw_motor_1.state["torque_limit"])
-        else FloatValue(value=100.0),
-        motor_2=FloatValue(value=o.raw_motor_2.state["torque_limit"])
-        if not math.isnan(o.raw_motor_2.state["torque_limit"])
-        else FloatValue(value=100.0),
+        motor_1=(
+            FloatValue(value=o.raw_motor_1.state["torque_limit"])
+            if not math.isnan(o.raw_motor_1.state["torque_limit"])
+            else FloatValue(value=100.0)
+        ),
+        motor_2=(
+            FloatValue(value=o.raw_motor_2.state["torque_limit"])
+            if not math.isnan(o.raw_motor_2.state["torque_limit"])
+            else FloatValue(value=100.0)
+        ),
     ),
     "pid": lambda o: PID2d(
         motor_1=PIDGains(
-            p=FloatValue(value=o.raw_motor_1.state["p_gain"])
-            if not math.isnan(o.raw_motor_1.state["p_gain"])
-            else FloatValue(value=100.0),
-            i=FloatValue(value=o.raw_motor_1.state["i_gain"])
-            if not math.isnan(o.raw_motor_1.state["i_gain"])
-            else FloatValue(value=100.0),
-            d=FloatValue(value=o.raw_motor_1.state["d_gain"])
-            if not math.isnan(o.raw_motor_1.state["d_gain"])
-            else FloatValue(value=100.0),
+            p=(
+                FloatValue(value=o.raw_motor_1.state["p_gain"])
+                if not math.isnan(o.raw_motor_1.state["p_gain"])
+                else FloatValue(value=100.0)
+            ),
+            i=(
+                FloatValue(value=o.raw_motor_1.state["i_gain"])
+                if not math.isnan(o.raw_motor_1.state["i_gain"])
+                else FloatValue(value=100.0)
+            ),
+            d=(
+                FloatValue(value=o.raw_motor_1.state["d_gain"])
+                if not math.isnan(o.raw_motor_1.state["d_gain"])
+                else FloatValue(value=100.0)
+            ),
         ),
         motor_2=PIDGains(
-            p=FloatValue(value=o.raw_motor_2.state["p_gain"])
-            if not math.isnan(o.raw_motor_2.state["p_gain"])
-            else FloatValue(value=100.0),
-            i=FloatValue(value=o.raw_motor_2.state["i_gain"])
-            if not math.isnan(o.raw_motor_2.state["i_gain"])
-            else FloatValue(value=100.0),
-            d=FloatValue(value=o.raw_motor_2.state["d_gain"])
-            if not math.isnan(o.raw_motor_2.state["d_gain"])
-            else FloatValue(value=100.0),
+            p=(
+                FloatValue(value=o.raw_motor_2.state["p_gain"])
+                if not math.isnan(o.raw_motor_2.state["p_gain"])
+                else FloatValue(value=100.0)
+            ),
+            i=(
+                FloatValue(value=o.raw_motor_2.state["i_gain"])
+                if not math.isnan(o.raw_motor_2.state["i_gain"])
+                else FloatValue(value=100.0)
+            ),
+            d=(
+                FloatValue(value=o.raw_motor_2.state["d_gain"])
+                if not math.isnan(o.raw_motor_2.state["d_gain"])
+                else FloatValue(value=100.0)
+            ),
         ),
     ),
 }

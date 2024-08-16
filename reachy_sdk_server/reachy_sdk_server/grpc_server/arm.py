@@ -4,9 +4,11 @@ from typing import List, Optional
 import grpc
 import numpy as np
 import rclpy
+import reachy2_monitoring as rm
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, Int32Value
+from opentelemetry import trace
 from pollen_msgs.msg import IKRequest
 from reachy2_sdk_api.arm_pb2 import (
     Arm,
@@ -34,10 +36,6 @@ from reachy2_sdk_api.kinematics_pb2 import Matrix4x4
 from reachy2_sdk_api.orbita2d_pb2 import Orbita2dStatus
 from reachy2_sdk_api.orbita3d_pb2 import Orbita3dStatus
 from reachy2_sdk_api.part_pb2 import PartId
-
-
-import reachy2_monitoring as rm
-from opentelemetry import trace
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..conversion import arm_position_to_joint_state, joint_state_to_arm_position, matrix_to_pose
@@ -375,9 +373,9 @@ class ArmServicer:
             msg.d_theta_max = d_theta_max
             msg.order_id = order_id
 
-            with rm.PollenSpan(tracer=self.bridge_node.tracer,
-                                           trace_name=f"bridge_node.publish_arm_target_pose",
-                                           kind=trace.SpanKind.CLIENT):
+            with rm.PollenSpan(
+                tracer=self.bridge_node.tracer, trace_name=f"bridge_node.publish_arm_target_pose", kind=trace.SpanKind.CLIENT
+            ):
                 # timestamp here for tracing purposes
                 msg.pose.header.stamp = self.bridge_node.get_clock().now().to_msg()
                 self.bridge_node.publish_arm_target_pose(

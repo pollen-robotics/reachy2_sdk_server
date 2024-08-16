@@ -3,6 +3,7 @@ from collections import namedtuple
 import grpc
 import numpy as np
 import rclpy
+import reachy2_monitoring as rm
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
@@ -25,7 +26,6 @@ from reachy2_sdk_api.part_pb2 import PartId
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..parts import Part
-import reachy2_monitoring as rm
 
 HandComponents = namedtuple("HandComponents", ["actuator", "finger", "raw_motor_1"])
 
@@ -107,7 +107,6 @@ class HandServicer:
         )
 
     def set_stiffness(self, request: PartId, torque: bool, context: grpc.ServicerContext) -> None:
-
         with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetHandPosition"):
             hand = self.get_hand_part_from_part_id(request, context)
 

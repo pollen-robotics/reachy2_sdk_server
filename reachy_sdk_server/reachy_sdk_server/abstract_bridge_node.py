@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 import prometheus_client as pc
 import rclpy
+import reachy2_monitoring as rm
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from geometry_msgs.msg import Pose, PoseStamped
 from pollen_msgs.action import Goto
@@ -24,13 +25,10 @@ from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix
 from .parts import PartsHolder
 from .utils import parse_reachy_config
-import reachy2_monitoring as rm
 
 
 class AbstractBridgeNode(Node):
-    def __init__(self, reachy_config_path: str = None,
-                 asyncio_loop: AbstractEventLoop = None,
-                 port = 0) -> None:
+    def __init__(self, reachy_config_path: str = None, asyncio_loop: AbstractEventLoop = None, port=0) -> None:
         super().__init__(node_name="reachy_abstract_bridge_node")
 
         self.logger = self.get_logger()

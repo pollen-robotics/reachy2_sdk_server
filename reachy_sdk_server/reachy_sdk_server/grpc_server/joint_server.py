@@ -1,8 +1,8 @@
 import asyncio
-import threading
-import multiprocessing as mp
 import logging
+import multiprocessing as mp
 import sys
+import threading
 
 import grpc
 import rclpy
@@ -19,7 +19,7 @@ from .reachy import ReachyServicer
 
 
 class ReachyGRPCJointSDKServicer:
-    def __init__(self, reachy_config_path: str = None, port = None) -> None:
+    def __init__(self, reachy_config_path: str = None, port=None) -> None:
         rclpy.init()
 
         # executor = rclpy.executors.MultiThreadedExecutor()
@@ -29,9 +29,7 @@ class ReachyGRPCJointSDKServicer:
         # self.asyncio_loop = asyncio.get_event_loop()
         self.asyncio_loop = asyncio.new_event_loop()
 
-        self.bridge_node = AbstractBridgeNode(reachy_config_path=reachy_config_path,
-                                              asyncio_loop=self.asyncio_loop,
-                                              port=port)
+        self.bridge_node = AbstractBridgeNode(reachy_config_path=reachy_config_path, asyncio_loop=self.asyncio_loop, port=port)
 
         self.asyncio_thread = threading.Thread(target=self.spin_asyncio)
         self.asyncio_thread.start()
@@ -107,7 +105,8 @@ handler.setFormatter(formatter)
 _LOGGER.addHandler(handler)
 _LOGGER.setLevel(logging.INFO)
 
-def main_singleprocess(_ = 1):
+
+def main_singleprocess(_=1):
     import argparse
     from concurrent import futures
 
@@ -139,10 +138,11 @@ def main_singleprocess(_ = 1):
     _LOGGER.info(f"Server started on port {port}.")
     server.wait_for_termination()
 
+
 def main_multiprocess():
     _LOGGER.info("Launch grpc servers...")
     workers = []
-    for _ in range(1,7):
+    for _ in range(1, 7):
         _LOGGER.info(f"grpc round {_}")
         # NOTE: It is imperative that the worker subprocesses be forked before
         # any gRPC servers start up. See
@@ -153,6 +153,7 @@ def main_multiprocess():
 
     for worker in workers:
         worker.join()
+
 
 # NOTE this code allows using a multi-process grpc server
 # main = main_multiprocess

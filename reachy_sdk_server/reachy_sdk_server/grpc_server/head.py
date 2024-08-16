@@ -1,7 +1,10 @@
 import grpc
 import rclpy
+import reachy2_monitoring as rm
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
+from opentelemetry import trace
+from pollen_msgs.msg import CartTarget
 from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.head_pb2 import (
     Head,
@@ -40,11 +43,6 @@ from ..conversion import (
 from ..parts import Part
 from ..utils import get_current_timestamp
 from .orbita3d import Orbita3dCommand, Orbita3dsCommand, Orbita3dServicer, Orbita3dStateRequest
-
-from pollen_msgs.msg import CartTarget
-
-import reachy2_monitoring as rm
-from opentelemetry import trace
 
 
 class HeadServicer:
@@ -343,9 +341,9 @@ class HeadServicer:
             M = pose_matrix_from_rotation3d(request.joints_goal.rotation)
             msg.pose.pose = matrix_to_pose(M)
 
-            with rm.PollenSpan(tracer=self.bridge_node.tracer,
-                                           trace_name="bridge_node.publish_head_target_pose",
-                                           kind=trace.SpanKind.CLIENT):
+            with rm.PollenSpan(
+                tracer=self.bridge_node.tracer, trace_name="bridge_node.publish_head_target_pose", kind=trace.SpanKind.CLIENT
+            ):
                 msg.pose.header.stamp = self.bridge_node.get_clock().now().to_msg()
                 self.bridge_node.publish_head_target_pose(
                     request.id,
