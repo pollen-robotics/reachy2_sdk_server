@@ -42,7 +42,8 @@ from ..utils import get_current_timestamp
 from .orbita3d import Orbita3dCommand, Orbita3dsCommand, Orbita3dServicer, Orbita3dStateRequest
 
 from pollen_msgs.msg import CartTarget
-from . import tracing_helper
+
+import reachy2_monitoring as rm
 from opentelemetry import trace
 
 
@@ -259,7 +260,7 @@ class HeadServicer:
         )
 
     def SetSpeedLimit(self, request: SpeedLimitRequest, context: grpc.ServicerContext) -> Empty:
-        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetSpeedLimit"):
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetSpeedLimit"):
             # TODO: re-write using self.orbita2d_servicer.SendCommand?
             part = self.get_head_part_from_part_id(request.id, context)
 
@@ -281,7 +282,7 @@ class HeadServicer:
         return Empty()
 
     def SetTorqueLimit(self, request: TorqueLimitRequest, context: grpc.ServicerContext) -> Empty:
-        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetTorqueLimit"):
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetTorqueLimit"):
             # TODO: re-write using self.orbita2d_servicer.SendCommand?
             part = self.get_head_part_from_part_id(request.id, context)
 
@@ -335,14 +336,14 @@ class HeadServicer:
     #     return Empty()
 
     def SendNeckJointGoal(self, request: NeckJointGoal, context: grpc.ServicerContext) -> Empty:
-        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SendNeckJointGoal"):
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SendNeckJointGoal"):
             msg = CartTarget()
-            msg.traceparent = tracing_helper.traceparent()
+            msg.traceparent = rm.traceparent()
 
             M = pose_matrix_from_rotation3d(request.joints_goal.rotation)
             msg.pose.pose = matrix_to_pose(M)
 
-            with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer,
+            with rm.PollenSpan(tracer=self.bridge_node.tracer,
                                            trace_name="bridge_node.publish_head_target_pose",
                                            kind=trace.SpanKind.CLIENT):
                 msg.pose.header.stamp = self.bridge_node.get_clock().now().to_msg()

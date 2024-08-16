@@ -36,7 +36,7 @@ from reachy2_sdk_api.orbita3d_pb2 import Orbita3dStatus
 from reachy2_sdk_api.part_pb2 import PartId
 
 
-from . import tracing_helper
+import reachy2_monitoring as rm
 from opentelemetry import trace
 
 from ..abstract_bridge_node import AbstractBridgeNode
@@ -204,7 +204,7 @@ class ArmServicer:
         self.bridge_node.publish_command(cmd)
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"TurnOn"):
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"TurnOn"):
             self.set_stiffness(request, torque=True, context=context)
             # Set all goal positions to the current position for safety
             part = self.get_arm_part_by_part_id(request, context)
@@ -213,7 +213,7 @@ class ArmServicer:
         return Empty()
 
     def TurnOff(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"TurnOff"):
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"TurnOff"):
             self.set_stiffness(request, torque=False, context=context)
         return Empty()
 
@@ -226,7 +226,7 @@ class ArmServicer:
         return ArmLimits()
 
     def SetSpeedLimit(self, request: SpeedLimitRequest, context: grpc.ServicerContext) -> Empty:
-        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetSpeedLimit"):
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetSpeedLimit"):
             # TODO: re-write using self.orbita2d_servicer.SendCommand?
             part = self.get_arm_part_by_part_id(request.id, context)
             cmd = DynamicJointState()
@@ -248,7 +248,7 @@ class ArmServicer:
         return Empty()
 
     def SetTorqueLimit(self, request: TorqueLimitRequest, context: grpc.ServicerContext) -> Empty:
-        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetTorqueLimit"):
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetTorqueLimit"):
             # TODO: re-write using self.orbita2d_servicer.SendCommand?
             part = self.get_arm_part_by_part_id(request.id, context)
 
@@ -273,7 +273,7 @@ class ArmServicer:
 
     # Kinematics
     def ComputeArmFK(self, request: ArmFKRequest, context: grpc.ServicerContext) -> ArmFKSolution:
-        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"ComputeArmFK"):
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"ComputeArmFK"):
             arm = self.get_arm_part_by_part_id(request.id, context)
             success, pose = self.bridge_node.compute_forward(request.id, arm_position_to_joint_state(request.position, arm))
 
@@ -286,7 +286,7 @@ class ArmServicer:
         return sol
 
     def ComputeArmIK(self, request: ArmIKRequest, context: grpc.ServicerContext) -> ArmIKSolution:
-        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"ComputeArmIK"):
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"ComputeArmIK"):
             arm = self.get_arm_part_by_part_id(request.id, context)
 
             success, joint_position = self.bridge_node.compute_inverse(
@@ -332,7 +332,7 @@ class ArmServicer:
         return Empty()
 
     def SendArmCartesianGoal(self, request: ArmCartesianGoal, context: grpc.ServicerContext) -> Empty:
-        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SendArmCartesianGoal"):
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SendArmCartesianGoal"):
             constrained_mode_dict = {
                 IKConstrainedMode.UNCONSTRAINED: "unconstrained",
                 IKConstrainedMode.LOW_ELBOW: "low_elbow",
@@ -366,7 +366,7 @@ class ArmServicer:
                 order_id = 0
 
             msg = IKRequest()
-            msg.traceparent = tracing_helper.traceparent()
+            msg.traceparent = rm.traceparent()
 
             msg.pose.pose = matrix_to_pose(request.goal_pose.data)
             msg.constrained_mode = constrained_mode
@@ -375,7 +375,7 @@ class ArmServicer:
             msg.d_theta_max = d_theta_max
             msg.order_id = order_id
 
-            with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer,
+            with rm.PollenSpan(tracer=self.bridge_node.tracer,
                                            trace_name=f"bridge_node.publish_arm_target_pose",
                                            kind=trace.SpanKind.CLIENT):
                 # timestamp here for tracing purposes

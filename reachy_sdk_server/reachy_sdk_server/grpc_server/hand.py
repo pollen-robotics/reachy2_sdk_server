@@ -25,7 +25,7 @@ from reachy2_sdk_api.part_pb2 import PartId
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..parts import Part
-from . import tracing_helper
+import reachy2_monitoring as rm
 
 HandComponents = namedtuple("HandComponents", ["actuator", "finger", "raw_motor_1"])
 
@@ -108,7 +108,7 @@ class HandServicer:
 
     def set_stiffness(self, request: PartId, torque: bool, context: grpc.ServicerContext) -> None:
 
-        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetHandPosition"):
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetHandPosition"):
             hand = self.get_hand_part_from_part_id(request, context)
 
             cmd = DynamicJointState()
@@ -143,7 +143,7 @@ class HandServicer:
         )
 
     def SetHandPosition(self, request: HandPositionRequest, context: grpc.ServicerContext) -> Empty:
-        with tracing_helper.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetHandPosition"):
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetHandPosition"):
             hand = self.get_hand_part_from_part_id(request.id, context)
 
             # This is a % of the opening

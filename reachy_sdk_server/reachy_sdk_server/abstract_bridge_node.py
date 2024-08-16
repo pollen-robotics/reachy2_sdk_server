@@ -24,7 +24,7 @@ from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix
 from .parts import PartsHolder
 from .utils import parse_reachy_config
-from .grpc_server import tracing_helper
+import reachy2_monitoring as rm
 
 
 class AbstractBridgeNode(Node):
@@ -36,14 +36,14 @@ class AbstractBridgeNode(Node):
         self.logger = self.get_logger()
 
         NODE_NAME = f"grpc-server_SDK{'.' + str(port) if port != 0 else ''}"
-        tracing_helper.configure_pyroscope(
+        rm.configure_pyroscope(
             NODE_NAME,
             tags={
                 "server": "false",
                 "client": "true",
             },
         )
-        self.tracer = tracing_helper.tracer(NODE_NAME, grpc_type="server")
+        self.tracer = rm.tracer(NODE_NAME, grpc_type="server")
 
         metrics_port = 10000 + int(port)
         self.logger.info(f"Start port:{port}, metrics_port:{metrics_port} (port+10000).")
