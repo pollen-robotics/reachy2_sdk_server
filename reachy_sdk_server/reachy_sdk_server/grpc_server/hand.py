@@ -3,6 +3,7 @@ from collections import namedtuple
 import grpc
 import numpy as np
 import rclpy
+import reachy2_monitoring as rm
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
@@ -106,19 +107,20 @@ class HandServicer:
         )
 
     def set_stiffness(self, request: PartId, torque: bool, context: grpc.ServicerContext) -> None:
-        hand = self.get_hand_part_from_part_id(request, context)
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetHandPosition"):
+            hand = self.get_hand_part_from_part_id(request, context)
 
-        cmd = DynamicJointState()
-        cmd.joint_names = []
+            cmd = DynamicJointState()
+            cmd.joint_names = []
 
-        for c in hand.components:
-            cmd.joint_names.append(c.name)
-            cmd.interface_values.append(
-                InterfaceValue(
-                    interface_names=["torque"],
-                    values=[torque],
+            for c in hand.components:
+                cmd.joint_names.append(c.name)
+                cmd.interface_values.append(
+                    InterfaceValue(
+                        interface_names=["torque"],
+                        values=[torque],
+                    )
                 )
-            )
 
         self.bridge_node.publish_command(cmd)
 
@@ -140,26 +142,27 @@ class HandServicer:
         )
 
     def SetHandPosition(self, request: HandPositionRequest, context: grpc.ServicerContext) -> Empty:
-        hand = self.get_hand_part_from_part_id(request.id, context)
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetHandPosition"):
+            hand = self.get_hand_part_from_part_id(request.id, context)
 
-        if request.position.parallel_gripper.HasField("position"):
-            opening = self.position_to_opening(request.position.parallel_gripper.position.value)
-        else:
-            # This is a % of the opening
-            opening = np.clip(request.position.parallel_gripper.opening_percentage.value, 0, 1)
+            if request.position.parallel_gripper.HasField("position"):
+                opening = self.position_to_opening(request.position.parallel_gripper.position.value)
+            else:
+                # This is a % of the opening
+                opening = np.clip(request.position.parallel_gripper.opening_percentage.value, 0, 1)
 
-        cmd = DynamicJointState()
-        cmd.joint_names = []
+            cmd = DynamicJointState()
+            cmd.joint_names = []
 
-        for c in hand.components:
-            cmd.joint_names.append(c.name + "_finger")
-            cmd.interface_values.append(
-                InterfaceValue(
-                    interface_names=["position"],
-                    values=[opening],
+            for c in hand.components:
+                cmd.joint_names.append(c.name + "_finger")
+                cmd.interface_values.append(
+                    InterfaceValue(
+                        interface_names=["position"],
+                        values=[opening],
+                    )
                 )
-            )
-        self.bridge_node.publish_command(cmd)
+            self.bridge_node.publish_command(cmd)
 
         return Empty()
 
