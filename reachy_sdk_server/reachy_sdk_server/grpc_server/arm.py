@@ -4,9 +4,11 @@ from typing import List, Optional
 import grpc
 import numpy as np
 import rclpy
+import reachy2_monitoring as rm
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, Int32Value
+from opentelemetry import trace
 from pollen_msgs.msg import IKRequest
 from reachy2_sdk_api.arm_pb2 import (
     Arm,
@@ -200,15 +202,17 @@ class ArmServicer:
         self.bridge_node.publish_command(cmd)
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        self.set_stiffness(request, torque=True, context=context)
-        # Set all goal positions to the current position for safety
-        part = self.get_arm_part_by_part_id(request, context)
-        self.bridge_node.set_all_joints_to_current_position(part.name)
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"TurnOn"):
+            self.set_stiffness(request, torque=True, context=context)
+            # Set all goal positions to the current position for safety
+            part = self.get_arm_part_by_part_id(request, context)
+            self.bridge_node.set_all_joints_to_current_position(part.name)
 
         return Empty()
 
     def TurnOff(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        self.set_stiffness(request, torque=False, context=context)
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"TurnOff"):
+            self.set_stiffness(request, torque=False, context=context)
         return Empty()
 
     # Temperatures
@@ -220,76 +224,80 @@ class ArmServicer:
         return ArmLimits()
 
     def SetSpeedLimit(self, request: SpeedLimitRequest, context: grpc.ServicerContext) -> Empty:
-        # TODO: re-write using self.orbita2d_servicer.SendCommand?
-        part = self.get_arm_part_by_part_id(request.id, context)
-        cmd = DynamicJointState()
-        cmd.joint_names = []
-        for c in part.components:
-            nb_rw_motor = 3 if c.type == "orbita3d" else 2
-            for i in range(1, nb_rw_motor + 1):
-                # cmd.joint_names.append(c.name)
-                cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetSpeedLimit"):
+            # TODO: re-write using self.orbita2d_servicer.SendCommand?
+            part = self.get_arm_part_by_part_id(request.id, context)
+            cmd = DynamicJointState()
+            cmd.joint_names = []
+            for c in part.components:
+                nb_rw_motor = 3 if c.type == "orbita3d" else 2
+                for i in range(1, nb_rw_motor + 1):
+                    # cmd.joint_names.append(c.name)
+                    cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
 
-                cmd.interface_values.append(
-                    InterfaceValue(
-                        interface_names=["speed_limit"],
-                        values=[request.limit / 100],
+                    cmd.interface_values.append(
+                        InterfaceValue(
+                            interface_names=["speed_limit"],
+                            values=[request.limit / 100],
+                        )
                     )
-                )
 
-        self.bridge_node.publish_command(cmd)
+            self.bridge_node.publish_command(cmd)
         return Empty()
 
     def SetTorqueLimit(self, request: TorqueLimitRequest, context: grpc.ServicerContext) -> Empty:
-        # TODO: re-write using self.orbita2d_servicer.SendCommand?
-        part = self.get_arm_part_by_part_id(request.id, context)
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetTorqueLimit"):
+            # TODO: re-write using self.orbita2d_servicer.SendCommand?
+            part = self.get_arm_part_by_part_id(request.id, context)
 
-        cmd = DynamicJointState()
-        cmd.joint_names = []
+            cmd = DynamicJointState()
+            cmd.joint_names = []
 
-        for c in part.components:
-            nb_rw_motor = 3 if c.type == "orbita3d" else 2
-            for i in range(1, nb_rw_motor + 1):
-                # cmd.joint_names.append(c.name)
-                cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
+            for c in part.components:
+                nb_rw_motor = 3 if c.type == "orbita3d" else 2
+                for i in range(1, nb_rw_motor + 1):
+                    # cmd.joint_names.append(c.name)
+                    cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
 
-                cmd.interface_values.append(
-                    InterfaceValue(
-                        interface_names=["torque_limit"],
-                        values=[request.limit / 100],
+                    cmd.interface_values.append(
+                        InterfaceValue(
+                            interface_names=["torque_limit"],
+                            values=[request.limit / 100],
+                        )
                     )
-                )
 
-        self.bridge_node.publish_command(cmd)
+            self.bridge_node.publish_command(cmd)
         return Empty()
 
     # Kinematics
     def ComputeArmFK(self, request: ArmFKRequest, context: grpc.ServicerContext) -> ArmFKSolution:
-        arm = self.get_arm_part_by_part_id(request.id, context)
-        success, pose = self.bridge_node.compute_forward(request.id, arm_position_to_joint_state(request.position, arm))
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"ComputeArmFK"):
+            arm = self.get_arm_part_by_part_id(request.id, context)
+            success, pose = self.bridge_node.compute_forward(request.id, arm_position_to_joint_state(request.position, arm))
 
-        sol = ArmFKSolution()
+            sol = ArmFKSolution()
 
-        if success:
-            sol.success = True
-            sol.end_effector.pose.data.extend(pose.flatten())
+            if success:
+                sol.success = True
+                sol.end_effector.pose.data.extend(pose.flatten())
 
         return sol
 
     def ComputeArmIK(self, request: ArmIKRequest, context: grpc.ServicerContext) -> ArmIKSolution:
-        arm = self.get_arm_part_by_part_id(request.id, context)
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"ComputeArmIK"):
+            arm = self.get_arm_part_by_part_id(request.id, context)
 
-        success, joint_position = self.bridge_node.compute_inverse(
-            request.id,
-            request.target.pose.data,
-            arm_position_to_joint_state(request.q0, arm),
-        )
+            success, joint_position = self.bridge_node.compute_inverse(
+                request.id,
+                request.target.pose.data,
+                arm_position_to_joint_state(request.q0, arm),
+            )
 
-        sol = ArmIKSolution()
+            sol = ArmIKSolution()
 
-        if success:
-            sol.success = True
-            sol.arm_position.CopyFrom(joint_state_to_arm_position(joint_position, arm))
+            if success:
+                sol.success = True
+                sol.arm_position.CopyFrom(joint_state_to_arm_position(joint_position, arm))
 
         return sol
 
@@ -322,52 +330,58 @@ class ArmServicer:
         return Empty()
 
     def SendArmCartesianGoal(self, request: ArmCartesianGoal, context: grpc.ServicerContext) -> Empty:
-        constrained_mode_dict = {
-            IKConstrainedMode.UNCONSTRAINED: "unconstrained",
-            IKConstrainedMode.LOW_ELBOW: "low_elbow",
-            IKConstrainedMode.UNDEFINED_CONSTRAINED_MODE: "undefined",
-        }
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SendArmCartesianGoal"):
+            constrained_mode_dict = {
+                IKConstrainedMode.UNCONSTRAINED: "unconstrained",
+                IKConstrainedMode.LOW_ELBOW: "low_elbow",
+                IKConstrainedMode.UNDEFINED_CONSTRAINED_MODE: "undefined",
+            }
 
-        continuous_mode_dict = {
-            IKContinuousMode.CONTINUOUS: "continuous",
-            IKContinuousMode.DISCRETE: "discrete",
-            IKContinuousMode.UNDEFINED_CONTINUOUS_MODE: "undefined",
-        }
+            continuous_mode_dict = {
+                IKContinuousMode.CONTINUOUS: "continuous",
+                IKContinuousMode.DISCRETE: "discrete",
+                IKContinuousMode.UNDEFINED_CONTINUOUS_MODE: "undefined",
+            }
 
-        constrained_mode = constrained_mode_dict.get(request.constrained_mode, "undefined")
-        continuous_mode = continuous_mode_dict.get(request.continuous_mode, "undefined")
+            constrained_mode = constrained_mode_dict.get(request.constrained_mode, "undefined")
+            continuous_mode = continuous_mode_dict.get(request.continuous_mode, "undefined")
 
-        # PREFERRED_THETA et D_THETA_MAX
-        if request.HasField("preferred_theta"):  # -> on utilise request.preferred_theta.value, sinon valeur par défaut
-            preferred_theta = request.preferred_theta.value
-        else:
-            preferred_theta = self.default_preferred_theta
+            # PREFERRED_THETA et D_THETA_MAX
+            if request.HasField("preferred_theta"):  # -> on utilise request.preferred_theta.value, sinon valeur par défaut
+                preferred_theta = request.preferred_theta.value
+            else:
+                preferred_theta = self.default_preferred_theta
 
-        if request.HasField("d_theta_max"):  # -> on utilise request.d_theta_max.value, sinon valeur par défaut
-            d_theta_max = request.d_theta_max.value
-        else:
-            d_theta_max = self.default_d_theta_max
+            if request.HasField("d_theta_max"):  # -> on utilise request.d_theta_max.value, sinon valeur par défaut
+                d_theta_max = request.d_theta_max.value
+            else:
+                d_theta_max = self.default_d_theta_max
 
-        # REACHABILITY:
-        if request.HasField("order_id"):  # -> on fait un truc avec request.order_id.value, sinon osef
-            order_id = request.order_id.value
-        else:
-            order_id = 0
+            # REACHABILITY:
+            if request.HasField("order_id"):  # -> on fait un truc avec request.order_id.value, sinon osef
+                order_id = request.order_id.value
+            else:
+                order_id = 0
 
-        msg = IKRequest()
+            msg = IKRequest()
+            msg.traceparent = rm.traceparent()
 
-        msg.pose.pose = matrix_to_pose(request.goal_pose.data)
-        msg.pose.header.stamp = self.bridge_node.get_clock().now().to_msg()
-        msg.constrained_mode = constrained_mode
-        msg.continuous_mode = continuous_mode
-        msg.preferred_theta = preferred_theta
-        msg.d_theta_max = d_theta_max
-        msg.order_id = order_id
+            msg.pose.pose = matrix_to_pose(request.goal_pose.data)
+            msg.constrained_mode = constrained_mode
+            msg.continuous_mode = continuous_mode
+            msg.preferred_theta = preferred_theta
+            msg.d_theta_max = d_theta_max
+            msg.order_id = order_id
 
-        self.bridge_node.publish_arm_target_pose(
-            request.id,
-            msg,
-        )
+            with rm.PollenSpan(
+                tracer=self.bridge_node.tracer, trace_name=f"bridge_node.publish_arm_target_pose", kind=trace.SpanKind.CLIENT
+            ):
+                # timestamp here for tracing purposes
+                msg.pose.header.stamp = self.bridge_node.get_clock().now().to_msg()
+                self.bridge_node.publish_arm_target_pose(
+                    request.id,
+                    msg,
+                )
 
         # self.bridge_node.logger.info(f"Received goal pose for arm : request {request}  \nmsg : {msg}'.")
         return Empty()

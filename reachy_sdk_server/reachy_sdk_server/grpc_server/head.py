@@ -1,7 +1,10 @@
 import grpc
 import rclpy
+import reachy2_monitoring as rm
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
+from opentelemetry import trace
+from pollen_msgs.msg import CartTarget
 from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.head_pb2 import (
     Head,
@@ -255,45 +258,47 @@ class HeadServicer:
         )
 
     def SetSpeedLimit(self, request: SpeedLimitRequest, context: grpc.ServicerContext) -> Empty:
-        # TODO: re-write using self.orbita2d_servicer.SendCommand?
-        part = self.get_head_part_from_part_id(request.id, context)
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetSpeedLimit"):
+            # TODO: re-write using self.orbita2d_servicer.SendCommand?
+            part = self.get_head_part_from_part_id(request.id, context)
 
-        cmd = DynamicJointState()
-        cmd.joint_names = []
+            cmd = DynamicJointState()
+            cmd.joint_names = []
 
-        for c in part.components:
-            for i in range(1, 4):
-                cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
+            for c in part.components:
+                for i in range(1, 4):
+                    cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
 
-                cmd.interface_values.append(
-                    InterfaceValue(
-                        interface_names=["speed_limit"],
-                        values=[request.limit / 100],
+                    cmd.interface_values.append(
+                        InterfaceValue(
+                            interface_names=["speed_limit"],
+                            values=[request.limit / 100],
+                        )
                     )
-                )
 
-        self.bridge_node.publish_command(cmd)
+            self.bridge_node.publish_command(cmd)
         return Empty()
 
     def SetTorqueLimit(self, request: TorqueLimitRequest, context: grpc.ServicerContext) -> Empty:
-        # TODO: re-write using self.orbita2d_servicer.SendCommand?
-        part = self.get_head_part_from_part_id(request.id, context)
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetTorqueLimit"):
+            # TODO: re-write using self.orbita2d_servicer.SendCommand?
+            part = self.get_head_part_from_part_id(request.id, context)
 
-        cmd = DynamicJointState()
-        cmd.joint_names = []
+            cmd = DynamicJointState()
+            cmd.joint_names = []
 
-        for c in part.components:
-            for i in range(1, 4):
-                cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
+            for c in part.components:
+                for i in range(1, 4):
+                    cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
 
-                cmd.interface_values.append(
-                    InterfaceValue(
-                        interface_names=["torque_limit"],
-                        values=[request.limit / 100],
+                    cmd.interface_values.append(
+                        InterfaceValue(
+                            interface_names=["torque_limit"],
+                            values=[request.limit / 100],
+                        )
                     )
-                )
 
-        self.bridge_node.publish_command(cmd)
+            self.bridge_node.publish_command(cmd)
         return Empty()
 
     # Note: this version uses an IK service call.
@@ -329,11 +334,20 @@ class HeadServicer:
     #     return Empty()
 
     def SendNeckJointGoal(self, request: NeckJointGoal, context: grpc.ServicerContext) -> Empty:
-        M = pose_matrix_from_rotation3d(request.joints_goal.rotation)
+        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SendNeckJointGoal"):
+            msg = CartTarget()
+            msg.traceparent = rm.traceparent()
 
-        self.bridge_node.publish_head_target_pose(
-            request.id,
-            matrix_to_pose(M),
-        )
+            M = pose_matrix_from_rotation3d(request.joints_goal.rotation)
+            msg.pose.pose = matrix_to_pose(M)
+
+            with rm.PollenSpan(
+                tracer=self.bridge_node.tracer, trace_name="bridge_node.publish_head_target_pose", kind=trace.SpanKind.CLIENT
+            ):
+                msg.pose.header.stamp = self.bridge_node.get_clock().now().to_msg()
+                self.bridge_node.publish_head_target_pose(
+                    request.id,
+                    msg,
+                )
 
         return Empty()
