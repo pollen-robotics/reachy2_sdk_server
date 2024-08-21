@@ -16,7 +16,7 @@ class CameraType(Enum):
     """Camera names defined in pollen-vision"""
 
     TELEOP = "teleop_head"
-    DEPTH = "depth_camera"  # TODO
+    DEPTH = "depth_camera"
 
 
 class ROSFrame:
@@ -45,12 +45,17 @@ class ReachyGRPCVideoSDKServicer:
         self._logger.info("Reachy GRPC Video SDK Servicer initialized.")
 
         self._list_cam = []
-        # TODO add more cameras
-        ci = self._configure_teleop_camera()
-        self._list_cam.append(ci)
+        self._list_cam.append(self._configure_teleop_camera())
+        self._list_cam.append(self._configure_depth_camera())
 
-        self.cams_frame: Dict[View, Optional[ROSFrame]] = {View.LEFT: None, View.RIGHT: None}
-        self.cams_info: Dict[View, Optional[ROSCamInfo]] = {View.LEFT: None, View.RIGHT: None}
+        self.cams_frame: Dict[CameraType, Dict[View, Optional[ROSFrame]]] = {
+            CameraType.TELEOP: {View.LEFT: None, View.RIGHT: None},
+            CameraType.DEPTH: {View.LEFT: None},
+        }
+        self.cams_info: Dict[CameraType, Dict[View, Optional[ROSCamInfo]]] = {
+            CameraType.TELEOP: {View.LEFT: None, View.RIGHT: None},
+            CameraType.DEPTH: {View.LEFT: None},
+        }
 
         self.ros_thread = threading.Thread(target=self.spin_ros, daemon=True)
         self.ros_thread.start()
@@ -64,28 +69,46 @@ class ReachyGRPCVideoSDKServicer:
         self._left_camera_sub = self.node.create_subscription(
             CompressedImage,
             "teleop_camera/left_image/compressed",
-            partial(self.on_image_update, side=View.LEFT),
+            partial(self.on_image_update, cam_type=CameraType.TELEOP, side=View.LEFT),
             1,
         )
 
         self._right_camera_sub = self.node.create_subscription(
             CompressedImage,
             "teleop_camera/right_image/compressed",
-            partial(self.on_image_update, side=View.RIGHT),
+            partial(self.on_image_update, cam_type=CameraType.TELEOP, side=View.RIGHT),
             1,
         )
 
         self._left_camera_info_sub = self.node.create_subscription(
             CameraInfo,
             "teleop_camera/left_image/camera_info",
-            partial(self.on_info_update, side=View.LEFT),
+            partial(self.on_info_update, cam_type=CameraType.TELEOP, side=View.LEFT),
             1,
         )
 
         self._right_camera_info_sub = self.node.create_subscription(
             CameraInfo,
             "teleop_camera/right_image/camera_info",
-            partial(self.on_info_update, side=View.RIGHT),
+            partial(self.on_info_update, cam_type=CameraType.TELEOP, side=View.RIGHT),
+            1,
+        )
+
+        return ci
+
+    def _configure_depth_camera(self) -> CameraFeatures:
+        ci = CameraFeatures(name=CameraType.DEPTH.value, stereo=False, depth=True)
+        self._depth_camera_sub = self.node.create_subscription(
+            CompressedImage,
+            "camera/color/image_raw/compressed",
+            partial(self.on_image_update, cam_type=CameraType.DEPTH, side=View.LEFT),
+            1,
+        )
+
+        self._depth_camera_info_sub = self.node.create_subscription(
+            CameraInfo,
+            "camera/color/camera_info",
+            partial(self.on_info_update, cam_type=CameraType.DEPTH, side=View.LEFT),
             1,
         )
 
@@ -95,15 +118,15 @@ class ReachyGRPCVideoSDKServicer:
         self._logger.info("Spin node")
         rclpy.spin(self.node)
 
-    def on_image_update(self, msg, side):
+    def on_image_update(self, msg, cam_type: CameraFeatures, side: View):
         """Get data from image. Callback for "/'side'_image "subscriber."""
         frame = ROSFrame(Timestamp(seconds=msg.header.stamp.sec, nanos=msg.header.stamp.nanosec), msg.data.tobytes())
-        self.cams_frame[side] = frame
+        self.cams_frame[cam_type][side] = frame
 
-    def on_info_update(self, msg, side):
+    def on_info_update(self, msg, cam_type: CameraFeatures, side: View):
         """Get data from image. Callback for "/'side'_image "subscriber."""
         cam_info = ROSCamInfo(msg.height, msg.width, msg.distortion_model, msg.d, msg.k, msg.r, msg.p)
-        self.cams_info[side] = cam_info
+        self.cams_info[cam_type][side] = cam_info
 
     def register_to_server(self, server: grpc.Server):
         self._logger.info("Registering 'VideoServiceServicer' to server.")
@@ -123,7 +146,11 @@ class ReachyGRPCVideoSDKServicer:
             self._logger.warning(f"Camera {request.camera_info.name} has no stereo feature. Returning mono view")
             request.view = View.LEFT
 
-        frame = self.cams_frame[request.view]
+        camtype = CameraType.TELEOP
+        if request.camera_feat.name == CameraType.DEPTH.value:
+            camtype = CameraType.DEPTH
+
+        frame = self.cams_frame[camtype][request.view]
 
         if frame is None:
             self._logger.warning(f"No camera data published for {request.camera_feat.name}")
@@ -142,7 +169,11 @@ class ReachyGRPCVideoSDKServicer:
             self._logger.warning(f"Camera {request.camera_feat.name} has no stereo feature. Returning mono view")
             request.view = View.LEFT
 
-        cam_param = self.cams_info[request.view]
+        camtype = CameraType.TELEOP
+        if request.camera_feat.name == CameraType.DEPTH.value:
+            camtype = CameraType.DEPTH
+
+        cam_param = self.cams_info[camtype][request.view]
 
         if cam_param is None:
             self._logger.warning(f"No camera parameters published for {request.camera_feat.name}")
