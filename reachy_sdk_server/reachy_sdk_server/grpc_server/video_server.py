@@ -10,6 +10,7 @@ from reachy2_sdk_api.video_pb2 import CameraFeatures, CameraParameters, Frame, F
 from reachy2_sdk_api.video_pb2_grpc import add_VideoServiceServicer_to_server
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg._compressed_image import CompressedImage
+from sensor_msgs.msg._image import Image
 
 
 class CameraType(Enum):
@@ -26,12 +27,13 @@ class ROSFrame:
 
 
 class ROSFrameRaw(ROSFrame):
-    def __init__(self, timestamp, data, height, width, encoding, step):
-        super.__init__(timestamp, data)
+    def __init__(self, timestamp, data, height, width, encoding, step, isbigendian):
+        super().__init__(timestamp, data)
         self.height = height
         self.width = width
         self.encoding = encoding
         self.step = step
+        self.isbigendian = isbigendian
 
 
 class ROSCamInfo:
@@ -122,7 +124,7 @@ class ReachyGRPCVideoSDKServicer:
         )
 
         self._depth_camera_sub = self.node.create_subscription(
-            CompressedImage,
+            Image,
             "camera/depth/image_raw",
             partial(self.on_raw_image_update, cam_type=CameraType.DEPTH, side=View.DEPTH),
             1,
@@ -155,7 +157,9 @@ class ReachyGRPCVideoSDKServicer:
             width=msg.width,
             encoding=msg.encoding,
             step=msg.step,
+            isbigendian=msg.is_bigendian,
         )
+
         self.cams_frame[cam_type][side] = frame
 
     def on_info_update(self, msg, cam_type: CameraFeatures, side: View):
@@ -193,17 +197,29 @@ class ReachyGRPCVideoSDKServicer:
 
         return Frame(data=frame.data, timestamp=frame.timestamp)
 
-    def GetDepth(self, request: CameraInfo, context: grpc.ServicerContext) -> FrameRaw:
+    def GetDepth(self, request: ViewRequest, context: grpc.ServicerContext) -> FrameRaw:
         if request.camera_feat.name not in [c.name for c in self._list_cam]:
-            self._logger.warning(f"Camera {request.camera_info.name} not opened")
-            return Frame(data=None, timestamp=None)
-        elif not request.camera_feat.depth:
-            self._logger.warning(f"Camera {request.camera_info.name} has no depth feature.")
-            return Frame(data=None, timestamp=None)
+            self._logger.warning(f"Camera {request.camera_feat.name} not opened")
+            return FrameRaw(data=None, timestamp=None, height=0, width=0)
+        elif not request.camera_feat.depth or request.view != View.DEPTH:
+            self._logger.warning(f"Camera {request.camera_feat.name} has no depth feature.")
+            return FrameRaw(data=None, timestamp=None, height=0, width=0)
 
         frame = self.cams_frame[CameraType.DEPTH][request.view]
 
-        return FrameRaw(data=frame.data, timestamp=frame.timestamp, height=frame.height, width=frame.width)
+        if frame is None:
+            self._logger.warning(f"No depth data published for {request.camera_feat.name}")
+            return FrameRaw(data=None, timestamp=None, height=0, width=0)
+
+        return FrameRaw(
+            data=frame.data,
+            timestamp=frame.timestamp,
+            height=frame.height,
+            width=frame.width,
+            step=frame.step,
+            encoding=frame.encoding,
+            isbigendian=frame.isbigendian,
+        )
 
     def GetParameters(self, request: ViewRequest, context: grpc.ServicerContext) -> CameraParameters:
         """
