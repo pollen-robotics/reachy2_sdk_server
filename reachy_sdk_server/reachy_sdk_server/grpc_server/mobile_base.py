@@ -374,7 +374,6 @@ class MobileBaseServicer(
 
         x, y are in meters and theta is in radian.
         """
-        # req = GetOdometry.Request()
         response = OdometryVector(
             x=FloatValue(value=0.0),
             y=FloatValue(value=0.0),
@@ -383,17 +382,6 @@ class MobileBaseServicer(
             vy=FloatValue(value=0.0),
             vtheta=FloatValue(value=0.0),
         )
-        # result = self.get_odometry_client.call(req)
-
-        # if result is not None:
-        #     ros_response = result
-        #     response.x.value = ros_response.x
-        #     response.y.value = ros_response.y
-        #     response.theta.value = ros_response.theta
-        #     response.vx.value = ros_response.vx
-        #     response.vy.value = ros_response.vy
-        #     response.vtheta.value = ros_response.vtheta
-        # return response
 
         if self._last_odom is not None:
             odom = self._last_odom
