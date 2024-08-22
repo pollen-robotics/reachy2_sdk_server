@@ -6,7 +6,7 @@ from typing import Dict, Optional
 import grpc
 import rclpy
 from google.protobuf.timestamp_pb2 import Timestamp
-from reachy2_sdk_api.video_pb2 import CameraFeatures, CameraParameters, Frame, ListOfCameraFeatures, View, ViewRequest
+from reachy2_sdk_api.video_pb2 import CameraFeatures, CameraParameters, Frame, FrameRaw, ListOfCameraFeatures, View, ViewRequest
 from reachy2_sdk_api.video_pb2_grpc import add_VideoServiceServicer_to_server
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg._compressed_image import CompressedImage
@@ -23,6 +23,15 @@ class ROSFrame:
     def __init__(self, timestamp, data):
         self.timestamp = timestamp
         self.data = data
+
+
+class ROSFrameRaw(ROSFrame):
+    def __init__(self, timestamp, data, height, width, encoding, step):
+        super.__init__(timestamp, data)
+        self.height = height
+        self.width = width
+        self.encoding = encoding
+        self.step = step
 
 
 class ROSCamInfo:
@@ -50,11 +59,11 @@ class ReachyGRPCVideoSDKServicer:
 
         self.cams_frame: Dict[CameraType, Dict[View, Optional[ROSFrame]]] = {
             CameraType.TELEOP: {View.LEFT: None, View.RIGHT: None},
-            CameraType.DEPTH: {View.LEFT: None},
+            CameraType.DEPTH: {View.LEFT: None, View.DEPTH: None},
         }
         self.cams_info: Dict[CameraType, Dict[View, Optional[ROSCamInfo]]] = {
             CameraType.TELEOP: {View.LEFT: None, View.RIGHT: None},
-            CameraType.DEPTH: {View.LEFT: None},
+            CameraType.DEPTH: {View.LEFT: None, View.DEPTH: None},
         }
 
         self.ros_thread = threading.Thread(target=self.spin_ros, daemon=True)
@@ -98,17 +107,31 @@ class ReachyGRPCVideoSDKServicer:
 
     def _configure_depth_camera(self) -> CameraFeatures:
         ci = CameraFeatures(name=CameraType.DEPTH.value, stereo=False, depth=True)
-        self._depth_camera_sub = self.node.create_subscription(
+        self._depth_rgb_camera_sub = self.node.create_subscription(
             CompressedImage,
             "camera/color/image_raw/compressed",
             partial(self.on_image_update, cam_type=CameraType.DEPTH, side=View.LEFT),
             1,
         )
 
-        self._depth_camera_info_sub = self.node.create_subscription(
+        self._depth_rgb_camera_info_sub = self.node.create_subscription(
             CameraInfo,
             "camera/color/camera_info",
             partial(self.on_info_update, cam_type=CameraType.DEPTH, side=View.LEFT),
+            1,
+        )
+
+        self._depth_camera_sub = self.node.create_subscription(
+            CompressedImage,
+            "camera/depth/image_raw",
+            partial(self.on_raw_image_update, cam_type=CameraType.DEPTH, side=View.DEPTH),
+            1,
+        )
+
+        self._depth_camera_info_sub = self.node.create_subscription(
+            CameraInfo,
+            "camera/depth/camera_info",
+            partial(self.on_info_update, cam_type=CameraType.DEPTH, side=View.DEPTH),
             1,
         )
 
@@ -121,6 +144,18 @@ class ReachyGRPCVideoSDKServicer:
     def on_image_update(self, msg, cam_type: CameraFeatures, side: View):
         """Get data from image. Callback for "/'side'_image "subscriber."""
         frame = ROSFrame(Timestamp(seconds=msg.header.stamp.sec, nanos=msg.header.stamp.nanosec), msg.data.tobytes())
+        self.cams_frame[cam_type][side] = frame
+
+    def on_raw_image_update(self, msg, cam_type: CameraFeatures, side: View):
+        """Get data from image. Callback for "/'side'_image "subscriber."""
+        frame = ROSFrameRaw(
+            timestamp=Timestamp(seconds=msg.header.stamp.sec, nanos=msg.header.stamp.nanosec),
+            data=msg.data.tobytes(),
+            height=msg.height,
+            width=msg.width,
+            encoding=msg.encoding,
+            step=msg.step,
+        )
         self.cams_frame[cam_type][side] = frame
 
     def on_info_update(self, msg, cam_type: CameraFeatures, side: View):
@@ -157,6 +192,18 @@ class ReachyGRPCVideoSDKServicer:
             return Frame(data=None, timestamp=None)
 
         return Frame(data=frame.data, timestamp=frame.timestamp)
+
+    def GetDepth(self, request: CameraInfo, context: grpc.ServicerContext) -> FrameRaw:
+        if request.camera_feat.name not in [c.name for c in self._list_cam]:
+            self._logger.warning(f"Camera {request.camera_info.name} not opened")
+            return Frame(data=None, timestamp=None)
+        elif not request.camera_feat.depth:
+            self._logger.warning(f"Camera {request.camera_info.name} has no depth feature.")
+            return Frame(data=None, timestamp=None)
+
+        frame = self.cams_frame[CameraType.DEPTH][request.view]
+
+        return FrameRaw(data=frame.data, timestamp=frame.timestamp, height=frame.height, width=frame.width)
 
     def GetParameters(self, request: ViewRequest, context: grpc.ServicerContext) -> CameraParameters:
         """
