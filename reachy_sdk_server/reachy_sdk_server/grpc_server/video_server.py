@@ -14,8 +14,6 @@ from sensor_msgs.msg._image import Image
 
 
 class CameraType(Enum):
-    """Camera names defined in pollen-vision"""
-
     TELEOP = "teleop_head"
     DEPTH = "depth_camera"
 
@@ -182,7 +180,7 @@ class ReachyGRPCVideoSDKServicer:
             self._logger.warning(f"Camera {request.camera_info.name} not opened")
             return Frame(data=None, timestamp=None)
         elif not request.camera_feat.stereo and request.view == View.RIGHT:
-            self._logger.warning(f"Camera {request.camera_info.name} has no stereo feature. Returning mono view")
+            self._logger.warning(f"Camera {request.camera_feat.name} has no stereo feature. Returning mono view")
             request.view = View.LEFT
 
         camtype = CameraType.TELEOP
@@ -251,75 +249,6 @@ class ReachyGRPCVideoSDKServicer:
             R=cam_param.R,
             P=cam_param.P,
         )
-
-    """
-    def GetDepthFrame(self, request: ViewRequest, context: grpc.ServicerContext) -> Frame:
-        if request.camera_info.mxid not in self._available_cams:
-            self._logger.warning(f"Camera {request.camera_info.mxid} not opened")
-            return Frame(data=None)
-        elif not request.camera_info.depth:
-            self._logger.warning(f"Camera {request.camera_info.mxid} has no depth feature")
-            return Frame(data=None)
-        elif request.camera_info.mxid not in self._captured_data:
-            self._logger.warning("No data captured. Make sure to call capture() first")
-            return Frame(data=None)
-
-        res = False
-        if request.camera_info.depth and request.view == View.LEFT:
-            res, frame = cv2.imencode(".png", self._captured_data[request.camera_info.mxid]["depthNode_left"])
-        elif request.camera_info.depth and request.view == View.RIGHT:
-            res, frame = cv2.imencode(".png", self._captured_data[request.camera_info.mxid]["depthNode_right"])
-
-        if res:
-            return Frame(data=frame.tobytes())
-        else:
-            self._logger.error("Failed to encode image")
-            return Frame(data=None)
-
-    def GetDepthMap(self, request: CameraInfo, context: grpc.ServicerContext) -> Frame:
-        if request.mxid not in self._available_cams:
-            self._logger.warning(f"Camera {request.mxid} not opened")
-            return Frame(data=None)
-        elif not request.depth:
-            self._logger.warning(f"Camera {request.mxid} has no depth feature")
-            return Frame(data=None)
-        elif request.mxid not in self._captured_data:
-            self._logger.warning(f"No data captured. Make sure to call capture() first")
-            return Frame(data=None)
-
-        res, frame = cv2.imencode(".png", self._captured_data[request.mxid]["depth"])
-        if res:
-            return Frame(data=frame.tobytes())
-        else:
-            self._logger.error("Failed to encode image")
-            return Frame(data=None)
-
-    def GetDisparity(self, request: CameraInfo, context: grpc.ServicerContext) -> Frame:
-        if request.mxid not in self._available_cams:
-            self._logger.warning(f"Camera {request.mxid} not opened")
-            return Frame(data=None)
-        elif not request.depth:
-            self._logger.warning(f"Camera {request.mxid} has no depth feature")
-            return Frame(data=None)
-        elif request.mxid not in self._captured_data:
-            self._logger.warning(f"No data captured. Make sure to call capture() first")
-            return Frame(data=None)
-
-        res, frame = cv2.imencode(".png", self._captured_data[request.mxid]["disparity"])
-        if res:
-            return Frame(data=frame.tobytes())
-        else:
-            self._logger.error("Failed to encode image")
-            return Frame(data=None)
-
-    def Capture(self, request: CameraInfo, context: grpc.ServicerContext) -> VideoAck:
-        # self._logger.info(f"Capturing {request.mxid}")
-        if request.mxid not in self._available_cams:
-            return VideoAck(success=BoolValue(value=False), error=Error(details=f"Camera {request.mxid} not opened"))
-
-        self._captured_data[request.mxid], _, _ = self._available_cams[request.mxid].get_data()
-        return VideoAck(success=BoolValue(value=True))
-    """
 
 
 def main():
