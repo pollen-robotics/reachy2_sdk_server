@@ -7,12 +7,12 @@ from subprocess import PIPE, check_output, run
 
 import grpc
 import rclpy
+import tf_transformations
 from cv_bridge import CvBridge
 from geometry_msgs.msg import Twist
-from nav_msgs.msg import Odometry
-import tf_transformations
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
+from nav_msgs.msg import Odometry
 from PIL import Image as PilImage
 from reachy2_sdk_api.mobile_base_lidar_pb2 import (
     LidarMap,
@@ -136,7 +136,6 @@ class MobileBaseServicer(
         while not self.get_battery_voltage_client.wait_for_service(timeout_sec=1.0):
             self.logger.info("service GetBatteryVoltage not available, waiting again...")
 
-
         self.get_odometry_client = self.bridge_node.create_client(GetOdometry, "GetOdometry")
         while not self.get_odometry_client.wait_for_service(timeout_sec=1.0):
             self.logger.info("service GetOdometry not available, waiting again...")
@@ -245,9 +244,9 @@ class MobileBaseServicer(
     def GetLastDirection(self, request: PartId, context) -> DirectionVector:
         """Get the last direction sent to the mobile base."""
         return DirectionVector(
-                x=self._last_direction.direction.x,
-                y=self._last_direction.direction.y,
-                theta=self._last_direction.direction.theta,
+            x=self._last_direction.direction.x,
+            y=self._last_direction.direction.y,
+            theta=self._last_direction.direction.theta,
         )
 
     def SendSetSpeed(self, request: SetSpeedVector, context) -> MobilityServiceAck:
@@ -386,7 +385,6 @@ class MobileBaseServicer(
         )
         # result = self.get_odometry_client.call(req)
 
-
         # if result is not None:
         #     ros_response = result
         #     response.x.value = ros_response.x
@@ -397,18 +395,23 @@ class MobileBaseServicer(
         #     response.vtheta.value = ros_response.vtheta
         # return response
 
-
-
         if self._last_odom is not None:
-            odom=self._last_odom
-            response.x.value=odom.pose.pose.position.x
-            response.y.value=odom.pose.pose.position.y
-            theta = tf_transformations.euler_from_quaternion([odom.pose.pose.orientation.w,odom.pose.pose.orientation.x,odom.pose.pose.orientation.y,odom.pose.pose.orientation.z])
-            response.theta.value=theta[2]
+            odom = self._last_odom
+            response.x.value = odom.pose.pose.position.x
+            response.y.value = odom.pose.pose.position.y
+            theta = tf_transformations.euler_from_quaternion(
+                [
+                    odom.pose.pose.orientation.w,
+                    odom.pose.pose.orientation.x,
+                    odom.pose.pose.orientation.y,
+                    odom.pose.pose.orientation.z,
+                ]
+            )
+            response.theta.value = theta[2]
 
-            response.vx.value=odom.twist.twist.linear.x
-            response.vy.value=odom.twist.twist.linear.y
-            response.vtheta.value=odom.twist.twist.angular.z
+            response.vx.value = odom.twist.twist.linear.x
+            response.vy.value = odom.twist.twist.linear.y
+            response.vtheta.value = odom.twist.twist.angular.z
         return response
 
     def ResetOdometry(self, request: PartId, context) -> MobilityServiceAck:
