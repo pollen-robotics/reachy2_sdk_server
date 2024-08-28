@@ -1,4 +1,5 @@
 import threading
+import subprocess
 from enum import Enum
 from functools import partial
 from typing import Dict, Optional
@@ -54,8 +55,7 @@ class ReachyGRPCVideoSDKServicer:
         self._logger.info("Reachy GRPC Video SDK Servicer initialized.")
 
         self._list_cam = []
-        self._list_cam.append(self._configure_teleop_camera())
-        self._list_cam.append(self._configure_depth_camera())
+        self._init_cameras()
 
         self.cams_frame: Dict[CameraType, Dict[View, Optional[ROSFrame]]] = {
             CameraType.TELEOP: {View.LEFT: None, View.RIGHT: None},
@@ -72,6 +72,20 @@ class ReachyGRPCVideoSDKServicer:
     def __del__(self) -> None:
         self.node.destroy_node()
         rclpy.shutdown()
+
+    def _init_cameras(self) -> None:
+        self._list_cam.clear()
+        if self._find_device("Luxonis"):
+            self._list_cam.append(self._configure_teleop_camera())
+        if self._find_device("Orbbec"):
+            self._list_cam.append(self._configure_depth_camera())
+
+    def _find_device(self, name: str) -> bool:
+        devices = subprocess.check_output("lsusb").decode().split("\n")
+        for device in devices:
+            if name in device:
+                return True
+        return False
 
     def _configure_teleop_camera(self) -> CameraFeatures:
         ci = CameraFeatures(name=CameraType.TELEOP.value, stereo=True, depth=False)
@@ -170,6 +184,7 @@ class ReachyGRPCVideoSDKServicer:
         add_VideoServiceServicer_to_server(self, server)
 
     def GetAvailableCameras(self, request: CameraInfo, context: grpc.ServicerContext) -> ListOfCameraFeatures:
+        self._init_cameras()
         return ListOfCameraFeatures(camera_feat=self._list_cam)
 
     def GetFrame(self, request: ViewRequest, context: grpc.ServicerContext) -> Frame:
