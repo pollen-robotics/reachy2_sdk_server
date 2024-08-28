@@ -7,10 +7,12 @@ from subprocess import PIPE, check_output, run
 
 import grpc
 import rclpy
+import tf_transformations
 from cv_bridge import CvBridge
 from geometry_msgs.msg import Twist
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
+from nav_msgs.msg import Odometry
 from PIL import Image as PilImage
 from reachy2_sdk_api.mobile_base_lidar_pb2 import (
     LidarMap,
@@ -23,6 +25,7 @@ from reachy2_sdk_api.mobile_base_lidar_pb2_grpc import (
     add_MobileBaseLidarServiceServicer_to_server,
 )
 from reachy2_sdk_api.mobile_base_mobility_pb2 import (
+    DirectionVector,
     DistanceToGoalVector,
     GoToVector,
     MobilityServiceAck,
@@ -104,6 +107,10 @@ class MobileBaseServicer(
 
         self.bridge = CvBridge()
         self.lidar_img_subscriber = self.bridge_node.create_subscription(Image, "lidar_image", self.get_lidar_img, 1)
+        self._last_odom = None
+        self._last_direction = TargetDirectionCommand()
+
+        self.odometry_subscriber = self.bridge_node.create_subscription(Odometry, "odom", self.odom_cb, 1)
 
         self.set_speed_client = self.bridge_node.create_client(SetSpeed, "SetSpeed")
         while not self.set_speed_client.wait_for_service(timeout_sec=1.0):
@@ -220,6 +227,9 @@ class MobileBaseServicer(
 
     def SendDirection(self, request: TargetDirectionCommand, context) -> MobilityServiceAck:
         """Send a speed command for the mobile base expressed in SI units."""
+        self._last_direction = request
+        self.logger.info(f"Sending direction: {request.direction}")
+
         twist = Twist()
         twist.linear.x = request.direction.x.value
         twist.linear.y = request.direction.y.value
@@ -230,6 +240,14 @@ class MobileBaseServicer(
         self.cmd_vel_pub.publish(twist)
 
         return MobilityServiceAck(success=BoolValue(value=True))
+
+    def GetLastDirection(self, request: PartId, context) -> DirectionVector:
+        """Get the last direction sent to the mobile base."""
+        return DirectionVector(
+            x=self._last_direction.direction.x,
+            y=self._last_direction.direction.y,
+            theta=self._last_direction.direction.theta,
+        )
 
     def SendSetSpeed(self, request: SetSpeedVector, context) -> MobilityServiceAck:
         """Send a speed command for the mobile base expressed in SI units for a given duration."""
@@ -348,24 +366,40 @@ class MobileBaseServicer(
 
         return response
 
+    def odom_cb(self, odom: Odometry):
+        self._last_odom = odom
+
     def GetOdometry(self, request: PartId, context) -> OdometryVector:
         """Get mobile base odometry.
 
         x, y are in meters and theta is in radian.
         """
-        req = GetOdometry.Request()
         response = OdometryVector(
             x=FloatValue(value=0.0),
             y=FloatValue(value=0.0),
             theta=FloatValue(value=0.0),
+            vx=FloatValue(value=0.0),
+            vy=FloatValue(value=0.0),
+            vtheta=FloatValue(value=0.0),
         )
-        result = self.get_odometry_client.call(req)
 
-        if result is not None:
-            ros_response = result
-            response.x.value = ros_response.x
-            response.y.value = ros_response.y
-            response.theta.value = ros_response.theta
+        if self._last_odom is not None:
+            odom = self._last_odom
+            response.x.value = odom.pose.pose.position.x
+            response.y.value = odom.pose.pose.position.y
+            theta = tf_transformations.euler_from_quaternion(
+                [
+                    odom.pose.pose.orientation.w,
+                    odom.pose.pose.orientation.x,
+                    odom.pose.pose.orientation.y,
+                    odom.pose.pose.orientation.z,
+                ]
+            )
+            response.theta.value = theta[2]
+
+            response.vx.value = odom.twist.twist.linear.x
+            response.vy.value = odom.twist.twist.linear.y
+            response.vtheta.value = odom.twist.twist.angular.z
         return response
 
     def ResetOdometry(self, request: PartId, context) -> MobilityServiceAck:
