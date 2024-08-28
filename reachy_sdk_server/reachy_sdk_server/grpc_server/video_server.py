@@ -1,5 +1,5 @@
-import threading
 import subprocess
+import threading
 from enum import Enum
 from functools import partial
 from typing import Dict, Optional
