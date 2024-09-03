@@ -213,9 +213,9 @@ class AbstractBridgeNode(Node):
         # 3: safety status [0: detection error, 1: no obstacle, 2: obstacle detected slowing down, 3: obstacle detected stopping]
         self.battery_voltage = msg.battery_voltage.data
         self.lidar_safety["safety_on"] = msg.safety_on.data
-        self.lidar_safety["safety_distance"] = msg.mobile_base_safety_status.data[1]
-        self.lidar_safety["critical_distance"] = msg.mobile_base_safety_status.data[2]
-        self.lidar_safety["status"] = int(msg.mobile_base_safety_status.data[3])
+        self.lidar_safety["safety_distance"] = msg.mobile_base_safety_status.data[0]
+        self.lidar_safety["critical_distance"] = msg.mobile_base_safety_status.data[1]
+        self.lidar_safety["status"] = int(msg.mobile_base_safety_status.data[2])
 
         self.zuuu_mode = msg.zuuu_mode
         self.control_mode = msg.control_mode
