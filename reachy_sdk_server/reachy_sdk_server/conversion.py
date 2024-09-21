@@ -16,8 +16,11 @@ from .parts import Part
 def rotation3d_as_extrinsinc_euler_angles(
     rot: Rotation3d,
 ) -> Tuple[float, float, float]:
-    q = rotation3d_as_quat(rot)
-    return Rotation.from_quat(q).as_euler("xyz")
+    if rot.HasField("rpy"):
+        return [rot.rpy.roll.value, rot.rpy.pitch.value, rot.rpy.yaw.value]
+    else:
+        q = rotation3d_as_quat(rot)
+        return Rotation.from_quat(q).as_euler("xyz")
 
 
 def rotation3d_as_quat(

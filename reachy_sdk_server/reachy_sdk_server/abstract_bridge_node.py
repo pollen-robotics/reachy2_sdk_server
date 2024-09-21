@@ -1,12 +1,17 @@
 from asyncio.events import AbstractEventLoop
+from collections import deque
+from functools import partial
 from threading import Event, Lock
-from typing import List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
+import prometheus_client as pc
 import rclpy
+import reachy2_monitoring as rm
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from geometry_msgs.msg import Pose, PoseStamped
 from pollen_msgs.action import Goto
+from pollen_msgs.msg import CartTarget, IKRequest, MobileBaseState, ReachabilityState
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
 from rclpy.action import ActionClient
 from rclpy.node import Node
@@ -14,6 +19,7 @@ from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import JointState
+from std_msgs.msg import Float32, Float32MultiArray
 
 from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix
@@ -22,10 +28,23 @@ from .utils import parse_reachy_config
 
 
 class AbstractBridgeNode(Node):
-    def __init__(self, reachy_config_path: str = None, asyncio_loop: AbstractEventLoop = None) -> None:
+    def __init__(self, reachy_config_path: str = None, asyncio_loop: AbstractEventLoop = None, port=0) -> None:
         super().__init__(node_name="reachy_abstract_bridge_node")
 
         self.logger = self.get_logger()
+
+        NODE_NAME = f"grpc-server_SDK{'.' + str(port) if port != 0 else ''}"
+        rm.configure_pyroscope(
+            NODE_NAME,
+            tags={
+                "server": "false",
+                "client": "true",
+            },
+        )
+        self.tracer = rm.tracer(NODE_NAME, grpc_type="server")
+
+        metrics_port = 10000 + int(port)
+        self.logger.info(f"Start port:{port}, metrics_port:{metrics_port} (port+10000).")
 
         self.asyncio_loop = asyncio_loop
 
@@ -37,6 +56,8 @@ class AbstractBridgeNode(Node):
 
         self.got_first_state = Event()
         self.joint_state_ready = Event()
+        self.got_first_mb_state_status = Event()
+        self.reachability_deque = {}
 
         self.create_subscription(
             msg_type=DynamicJointState,
@@ -44,6 +65,26 @@ class AbstractBridgeNode(Node):
             callback=self.update_state,
             qos_profile=10,
         )
+
+        # TODO create publisher
+        # self.create_subscription(
+        #     msg_type=ReachabilityState,
+        #     topic="/ReachabilityState",
+        #     callback=self.update_reachability_state,
+        #     qos_profile=10,
+        # )
+
+        for arm in ["r_arm", "l_arm"]:
+            self.create_subscription(
+                msg_type=ReachabilityState,
+                topic=f"/{arm}_reachability_states",
+                qos_profile=10,
+                callback=partial(
+                    self.update_reachability_state,
+                    name=arm,
+                ),
+            )
+            self.reachability_deque[arm] = deque(maxlen=100)
 
         self.command_pub_lock = Lock()
         self.joint_command_pub = self.create_publisher(
@@ -70,6 +111,25 @@ class AbstractBridgeNode(Node):
             qos_profile=10,
         )
 
+        # create a subscriber to the safety status topic
+        # defined in the zuu_hal.py file
+        self.create_subscription(
+            msg_type=MobileBaseState,
+            topic="/mobile_base_state",
+            callback=self.update_mobile_base_state,
+            qos_profile=10,
+        )
+        # dictionary that contains the mirror of the LidarSafety class from the zuu_hal.py file
+        # and in the GetZuuuSafety service
+        # "safety_on":          safety on/off flag
+        # "safety_distance":      obstacle safety distance
+        # "critical_distance":  obstacle critical distance
+        # "status":             safety status [0: detection error, 1: no obstacle, 2: obstacle detected slowing down, 3: obstacle detected stopping]
+        self.lidar_safety = {"safety_on": False, "safety_distance": 0.0, "critical_distance": 0.0, "status": 0}
+        self.battery_voltage = 0.0
+        self.zuuu_mode = "NONE_ZUUU_MODE"
+        self.control_mode = "NONE_CONTROL_MODE"
+
         # Setup goto action clients
         self.prefixes = ["r_arm", "l_arm", "neck"]
         self.goto_action_client = {}
@@ -77,6 +137,12 @@ class AbstractBridgeNode(Node):
             self.goto_action_client[prefix] = ActionClient(self, Goto, f"{prefix}_goto")
             self.get_logger().info(f"Waiting for action server {prefix}_goto...")
             self.goto_action_client[prefix].wait_for_server()
+
+        # Start up the server to expose the metrics.
+        pc.start_http_server(metrics_port)
+        self.sum_getreachystate = pc.Summary("sdkserver_GetReachyState_time", "Time spent during bridge reachy.GetReachyState")
+        self.sum_spin = pc.Summary("sdkserver_spin_once_time", "Time spent during bridge spin_once")
+        self.sum_spin_sanity = pc.Summary("sdkserver_time_reference_1s", "Sanity check spin, sleeps 1s")
         self.get_logger().info(f"Setup complete.")
 
     def wait_for_setup(self) -> None:
@@ -105,10 +171,69 @@ class AbstractBridgeNode(Node):
             state = dict(zip(kv.interface_names, kv.values))
             self.components.get_by_name(name).update_state(state)
 
+    def update_reachability_state(self, msg: ReachabilityState, name: str) -> None:
+        order_id = msg.order_id
+        state = msg.state
+        is_reachable = msg.is_reachable
+        self.reachability_deque[name].append((order_id, is_reachable, state))
+
     # Command updates
     def update_command(self, msg: JointState) -> None:
         for name, target in zip(msg.name, msg.position):
             self.components.get_by_name(name).update_command({"target_position": target})
+
+    # getter for the battery voltage
+    # returns the battery voltage value [V]
+    # returns 0 if no battery voltage has been received yet
+    def get_battery_voltage(self) -> float:
+        if not self.got_first_mb_state_status.is_set():
+            self.logger.error("No battery voltage received yet.")
+        return self.battery_voltage
+
+    # getter for zuuu mode
+    # returns the string of the mode
+    # returns 'NONE_ZUUU_MODE' if no info has been received yet
+    def get_zuuu_mode(self) -> str:
+        if not self.got_first_mb_state_status.is_set():
+            self.logger.error("No zuuu mode received yet.")
+        return self.zuuu_mode
+
+    # getter for mobile base control mode
+    # returns the string of the mode
+    # returns 'NONE_CONTROL_MODE' if no info has been received yet
+    def get_control_mode(self) -> str:
+        if not self.got_first_mb_state_status.is_set():
+            self.logger.error("No controle mode received yet.")
+        return self.control_mode
+
+    # function which is run when the safety status message is received
+    def update_mobile_base_state(self, msg: MobileBaseState) -> None:
+        if not self.got_first_mb_state_status.is_set():
+            self.got_first_mb_state_status.set()
+        # save the safety status value to the class variable
+        # that contains
+        # 0: safety on/off flag
+        # 1: obstacle safety distance
+        # 2: obstacle critical distance
+        # 3: safety status [0: detection error, 1: no obstacle, 2: obstacle detected slowing down, 3: obstacle detected stopping]
+        self.battery_voltage = msg.battery_voltage.data
+        self.lidar_safety["safety_on"] = msg.safety_on.data
+        self.lidar_safety["safety_distance"] = msg.mobile_base_safety_status.data[0]
+        self.lidar_safety["critical_distance"] = msg.mobile_base_safety_status.data[1]
+        self.lidar_safety["status"] = int(msg.mobile_base_safety_status.data[2])
+
+        self.zuuu_mode = msg.zuuu_mode
+        self.control_mode = msg.control_mode
+
+    # getter for the safety status
+    # returns the safety status
+    # mirroring the `LidarObstacleDetectionEnum` from `mobile_base_lidar.proto`
+    # [0: detection error, 1: no obstacle, 2: obstacle detected slowing down, 3: obstacle detected stopping]
+    def get_safety_status(self) -> Dict[str, Any]:
+        if not self.got_first_mb_state_status.is_set():
+            self.logger.error("No safety status received yet.")
+            return {"safety_on": False, "safety_distance": 0.0, "critical_distance": 0.0, "status": 0}
+        return self.lidar_safety
 
     def publish_command(self, msg: DynamicJointState) -> None:
         self.joint_command_pub.publish(msg)
@@ -123,7 +248,9 @@ class AbstractBridgeNode(Node):
         # And to /{side}_arm/target_pose
         self.forward_kinematics_clients = {}
         self.inverse_kinematics_clients = {}
-        self.target_pose_pubs = {}
+        # self.target_pose_pubs = {}
+        self.head_target_pose_pubs = {}
+        self.arm_target_pose_pubs = {}
 
         self.command_target_pub_lock = Lock()
 
@@ -155,12 +282,20 @@ class AbstractBridgeNode(Node):
                 # Other QoS settings can be adjusted as needed
             )
 
-            self.target_pose_pubs[part.id] = self.create_publisher(
-                msg_type=PoseStamped,
-                topic=f"/{part.name}/target_pose",
+            self.head_target_pose_pubs[part.id] = self.create_publisher(
+                msg_type=CartTarget,
+                topic=f"/{part.name}/cart_target_pose",
                 qos_profile=high_freq_qos_profile,
             )
-            self.logger.info(f"Publisher to topic '{self.target_pose_pubs[part.id].topic_name}' ready.")
+
+            self.arm_target_pose_pubs[part.id] = self.create_publisher(
+                msg_type=IKRequest,
+                topic=f"/{part.name}/ik_target_pose",
+                qos_profile=high_freq_qos_profile,
+            )
+
+            self.logger.info(f"Publisher to topic '{self.head_target_pose_pubs[part.id].topic_name}' ready.")
+            self.logger.info(f"Publisher to topic '{self.arm_target_pose_pubs[part.id].topic_name}' ready.")
 
     def compute_forward(self, id: PartId, joint_position: JointState) -> Tuple[bool, np.array]:
         id = self.parts.get_by_part_id(id).id
@@ -185,14 +320,13 @@ class AbstractBridgeNode(Node):
         resp = self.inverse_kinematics_clients[id].call(req)
         return resp.success, resp.joint_position
 
-    def publish_target_pose(self, id: PartId, pose: Pose) -> None:
+    def publish_head_target_pose(self, id: PartId, msg: CartTarget) -> None:
         id = self.parts.get_by_part_id(id).id
+        self.head_target_pose_pubs[id].publish(msg)
 
-        msg = PoseStamped()
-        msg.header.stamp = self.get_clock().now().to_msg()
-        msg.pose = pose
-
-        self.target_pose_pubs[id].publish(msg)
+    def publish_arm_target_pose(self, id: PartId, msg: IKRequest) -> None:
+        id = self.parts.get_by_part_id(id).id
+        self.arm_target_pose_pubs[id].publish(msg)
 
     async def send_goto_goal(
         self,

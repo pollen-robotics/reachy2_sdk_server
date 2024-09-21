@@ -21,7 +21,9 @@ from cv_bridge import CvBridge, CvBridgeError
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue
 from reachy2_sdk_api.error_pb2 import Error
-from reachy2_sdk_api.video_pb2 import CameraInfo, Frame, ListOfCameraInfo, VideoAck, View, ViewRequest, IntrinsicMatrix
+from reachy2_sdk_api.video_pb2 import Frame, VideoAck, View, ViewRequest, IntrinsicMatrix
+from reachy2_sdk_api.video_pb2 import CameraFeatures, CameraParameters, FrameRaw, ListOfCameraFeatures
+
 from reachy2_sdk_api.video_pb2_grpc import add_VideoServiceServicer_to_server
 import time
 from datetime import timedelta
@@ -238,8 +240,9 @@ class ReachyGRPCVideoSDKServicer:
 
         self._available_cams: Dict[str, RosCamWrapper] = {}
 
-        self._list_cam: List[CameraInfo] = []
-
+        self._list_cam  =[]
+        # init cameras by hand here?
+        
         self._captured_data: Dict[str, Dict[str, npt.NDArray[np.uint8]]] = {}
         self._K: Dict[str, Dict[str, npt.NDArray[np.float64]]] = {}
 
@@ -262,12 +265,12 @@ class ReachyGRPCVideoSDKServicer:
                 self._nb_grpc_client = 0
         return Empty()
 
-    def InitAllCameras(self, request: CameraInfo, context: grpc.ServicerContext) -> ListOfCameraInfo:
+    def InitAllCameras(self, request: CameraFeatures, context: grpc.ServicerContext) -> ListOfCameraFeatures:
         with self._lock:
             self._nb_grpc_client += 1
             if len(self._available_cams) != 0:
                 self._logger.info("Cameras already initialized")
-                return ListOfCameraInfo(camera_info=self._list_cam)
+                return ListOfCameraFeatures(camera_feat=self._list_cam)
 
             self._logger.info("Initializing all cameras...")
             try:
@@ -277,11 +280,11 @@ class ReachyGRPCVideoSDKServicer:
                 devices = self.bridge_node._cams
             except RuntimeError as e:
                 self._logger.error(f"List of camera cannot be retrieved {e}.")
-                return ListOfCameraInfo()
+                return ListOfCameraFeatures()
 
             self._list_cam = []
             for mxid, name in devices.items():
-                ci = CameraInfo(mxid=mxid, name=name)
+                ci = CameraFeatures(mxid=mxid, name=name)
                 if name == "other":  # hardcoded in pollen-vision
                     ci.stereo = False
                     ci.depth = True
@@ -297,11 +300,11 @@ class ReachyGRPCVideoSDKServicer:
 
         if len(self._list_cam) == 0:
             self._logger.debug("List of cam is empty")
-            return ListOfCameraInfo()
+            return ListOfCameraFeatures()
         else:
-            return ListOfCameraInfo(camera_info=self._list_cam)
+            return ListOfCameraFeatures(camera_feat=self._list_cam)
 
-    def _init_camera(self, camera_info: CameraInfo) -> VideoAck:
+    def _init_camera(self, camera_info: CameraFeatures) -> VideoAck:
         self._logger.warning(f"INIT CAMERA {camera_info}")
         try:
             if camera_info.name == "other":
@@ -333,6 +336,12 @@ class ReachyGRPCVideoSDKServicer:
             return VideoAck(success=BoolValue(value=False), error=Error(details=str(e)))
         except Exception as e:
             return VideoAck(success=BoolValue(value=False), error=Error(details=str(e)))
+        
+
+
+    def GetAvailableCameras(self, request: CameraFeatures, context: grpc.ServicerContext) -> ListOfCameraFeatures:
+        # TODO need to init all cameras before this happens?
+        return ListOfCameraFeatures(camera_feat=self._list_cam)
 
     def GetFrame(self, request: ViewRequest, context: grpc.ServicerContext) -> Frame:
         """
@@ -380,7 +389,7 @@ class ReachyGRPCVideoSDKServicer:
 
         return IntrinsicMatrix(fx=intrinsic[0][0], fy=intrinsic[1][1], cx=intrinsic[0][2], cy=intrinsic[1][2])
 
-    def GetDepthIntrinsicMatrix(self, request: CameraInfo, context: grpc.ServicerContext) -> IntrinsicMatrix:
+    def GetDepthIntrinsicMatrix(self, request: CameraFeatures, context: grpc.ServicerContext) -> IntrinsicMatrix:
         """
         Get the intrinsic matrix K for the depth camera
         """
@@ -424,7 +433,7 @@ class ReachyGRPCVideoSDKServicer:
             self._logger.error("Failed to encode image")
             return Frame(data=None)
 
-    def GetDepthMap(self, request: CameraInfo, context: grpc.ServicerContext) -> Frame:
+    def GetDepthMap(self, request: CameraFeatures, context: grpc.ServicerContext) -> Frame:
         if request.mxid not in self._available_cams:
             self._logger.warning(f"Camera {request.mxid} not opened")
             return Frame(data=None)
@@ -443,8 +452,12 @@ class ReachyGRPCVideoSDKServicer:
         else:
             self._logger.error("Failed to encode image")
             return Frame(data=None)
+    
+    def GetDepth(self, request: ViewRequest, context: grpc.ServicerContext) -> FrameRaw:
+        self._logger.warning(f"GetDepth not implemented yet in video_server_gz.py")
+        return FrameRaw(data=None, timestamp=None, height=0, width=0)
 
-    def GetDisparity(self, request: CameraInfo, context: grpc.ServicerContext) -> Frame:
+    def GetDisparity(self, request: CameraFeatures, context: grpc.ServicerContext) -> Frame:
         if request.mxid not in self._available_cams:
             self._logger.warning(f"Camera {request.mxid} not opened")
             return Frame(data=None)
@@ -462,7 +475,7 @@ class ReachyGRPCVideoSDKServicer:
             self._logger.error("Failed to encode image")
             return Frame(data=None)
 
-    def Capture(self, request: CameraInfo, context: grpc.ServicerContext) -> VideoAck:
+    def Capture(self, request: CameraFeatures, context: grpc.ServicerContext) -> VideoAck:
         # self._logger.info(f"Capturing {request.mxid}")
         if request.mxid not in self._available_cams:
             return VideoAck(success=BoolValue(value=False), error=Error(details=f"Camera {request.mxid} not opened"))
@@ -481,6 +494,36 @@ class ReachyGRPCVideoSDKServicer:
 
             await asyncio.sleep(0.001)
 
+    def GetParameters(self, request: ViewRequest, context: grpc.ServicerContext) -> CameraParameters:
+        """
+        Get camera parameters as defined in https://docs.ros.org/en/melodic/api/sensor_msgs/html/msg/CameraInfo.html
+        """
+        if request.camera_feat.name not in [c.name for c in self._list_cam]:
+            self._logger.warning(f"Camera {request.camera_feat.name} not opened")
+            return CameraParameters()
+        elif not request.camera_feat.stereo and request.view == View.RIGHT:
+            self._logger.warning(f"Camera {request.camera_feat.name} has no stereo feature. Returning mono view")
+            request.view = View.LEFT
+
+        camtype = CameraType.TELEOP
+        if request.camera_feat.name == CameraType.DEPTH.value:
+            camtype = CameraType.DEPTH
+
+        cam_param = self.cams_info[camtype][request.view]
+
+        if cam_param is None:
+            self._logger.warning(f"No camera parameters published for {request.camera_feat.name}")
+            return CameraParameters()
+
+        return CameraParameters(
+            height=cam_param.height,
+            width=cam_param.width,
+            distortion_model=cam_param.distortion_model,
+            D=cam_param.D,
+            K=cam_param.K,
+            R=cam_param.R,
+            P=cam_param.P,
+        )
 
 def main():
     import argparse
