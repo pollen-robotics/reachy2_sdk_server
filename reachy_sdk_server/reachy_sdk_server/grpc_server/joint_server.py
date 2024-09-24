@@ -17,6 +17,7 @@ from .orbita2d import Orbita2dServicer
 from .orbita3d import Orbita3dServicer
 from .reachy import ReachyServicer
 
+import prometheus_client as pc
 
 class ReachyGRPCJointSDKServicer:
     def __init__(self, reachy_config_path: str = None, port=None) -> None:
@@ -97,6 +98,21 @@ class ReachyGRPCJointSDKServicer:
                 rclpy.spin_once(node, timeout_sec=0.01)
             await asyncio.sleep(0.001)
 
+class Interceptor(grpc.ServerInterceptor):
+    summaries = {}
+    general_sum = pc.Summary("sdkserver_RPC_time", f"Time spent during sdkserver ALL RPC call")
+    def intercept_service(self, continuation, handler_call_details):
+        # key = f"sdkserver_time__{handler_call_details.method.replace('.', '_').replace('/','_')}"
+        # if key not in self.summaries:
+        #     print("joint_server.grpc.Interceptor.add summary:", key)
+        #     self.summaries[key] = pc.Summary(key, f"Time spent during {handler_call_details.method}")
+        # with self.summaries[key].time():
+        #     return continuation(handler_call_details)
+
+        with self.general_sum.time():
+            return continuation(handler_call_details)
+
+
 
 _LOGGER = logging.getLogger(__name__)
 handler = logging.StreamHandler(sys.stdout)
@@ -122,7 +138,8 @@ def main_singleprocess(_=1):
 
     # options = (("grpc.so_reuseport", 1),)
     servicer = ReachyGRPCJointSDKServicer(reachy_config_path=args.reachy_config, port=port)
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers))
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers),
+                         interceptors=[Interceptor()])
     # server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers),
     #                      options=options)
     # server = grpc.server(futures.ThreadPoolExecutor(max_workers=100))
