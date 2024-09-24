@@ -186,7 +186,6 @@ class ReachyGRPCVideoSDKServicer:
             isbigendian=msg.is_bigendian,
         )
 
-        self._logger.warning(f"Image send")
         self.cams_frame[cam_type][side] = frame
 
     def on_info_update(self, msg, cam_type: CameraFeatures, side: View):
