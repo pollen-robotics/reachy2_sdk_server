@@ -5,6 +5,7 @@ from functools import partial
 from typing import Dict, Optional
 
 import grpc
+import numpy as np
 import rclpy
 from google.protobuf.timestamp_pb2 import Timestamp
 from reachy2_sdk_api.video_pb2 import CameraFeatures, CameraParameters, Frame, FrameRaw, ListOfCameraFeatures, View, ViewRequest
@@ -47,13 +48,16 @@ class ROSCamInfo:
 
 
 class ReachyGRPCVideoSDKServicer:
-    def __init__(self) -> None:
+    def __init__(self, gazebo: bool = False) -> None:
         rclpy.init()
         self.node = rclpy.create_node("ReachyGRPCVideoSDKServicer_node")
         self._logger = self.node.get_logger()
+        self._gazebo_mode = gazebo
 
-        self._logger.info("Reachy GRPC Video SDK Servicer initialized.")
-
+        if self._gazebo_mode:
+            self._logger.info("Reachy GRPC Video SDK Servicer initialized (Gazebo mode).")
+        else:
+            self._logger.info("Reachy GRPC Video SDK Servicer initialized.")
         self._list_cam = []
         self._init_cameras()
 
@@ -75,9 +79,9 @@ class ReachyGRPCVideoSDKServicer:
 
     def _init_cameras(self) -> None:
         self._list_cam.clear()
-        if self._find_device("Luxonis"):
+        if self._find_device("Luxonis") or self._gazebo_mode:
             self._list_cam.append(self._configure_teleop_camera())
-        if self._find_device("Orbbec"):
+        if self._find_device("Orbbec") or self._gazebo_mode:
             self._list_cam.append(self._configure_depth_camera())
 
     def _find_device(self, name: str) -> bool:
@@ -91,14 +95,14 @@ class ReachyGRPCVideoSDKServicer:
         ci = CameraFeatures(name=CameraType.TELEOP.value, stereo=True, depth=False)
         self._left_camera_sub = self.node.create_subscription(
             CompressedImage,
-            "teleop_camera/left_image/compressed",
+            "teleop_camera/left_image/image_raw/compressed",
             partial(self.on_image_update, cam_type=CameraType.TELEOP, side=View.LEFT),
             1,
         )
 
         self._right_camera_sub = self.node.create_subscription(
             CompressedImage,
-            "teleop_camera/right_image/compressed",
+            "teleop_camera/right_image/image_raw/compressed",
             partial(self.on_image_update, cam_type=CameraType.TELEOP, side=View.RIGHT),
             1,
         )
@@ -162,12 +166,22 @@ class ReachyGRPCVideoSDKServicer:
 
     def on_raw_image_update(self, msg, cam_type: CameraFeatures, side: View):
         """Get data from image. Callback for "/'side'_image "subscriber."""
+
+        data = msg.data.tobytes()
+        encoding = msg.encoding
+
+        if cam_type == CameraType.DEPTH and self._gazebo_mode:
+            data = np.frombuffer(data, dtype=np.float32)  # specific conversion from Gazebo 32FC1 (in m) to 16UC1 (in mm)
+            data = data * 1000.0
+            data = data.astype(np.uint16)
+            data = data.tobytes()
+            encoding = "16UC1"
         frame = ROSFrameRaw(
             timestamp=Timestamp(seconds=msg.header.stamp.sec, nanos=msg.header.stamp.nanosec),
-            data=msg.data.tobytes(),
+            data=data,
             height=msg.height,
             width=msg.width,
-            encoding=msg.encoding,
+            encoding=encoding,
             step=msg.step,
             isbigendian=msg.is_bigendian,
         )
@@ -274,9 +288,11 @@ def main():
     parser.add_argument("--port", type=int, default=50065)
     parser.add_argument("--max-workers", type=int, default=10)
     parser.add_argument("--ros-args", action="store_true")
+    parser.add_argument("--gazebo", default=False, action="store_true")
+
     args = parser.parse_args()
 
-    servicer = ReachyGRPCVideoSDKServicer()
+    servicer = ReachyGRPCVideoSDKServicer(args.gazebo)
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers))
 
     servicer.register_to_server(server)
