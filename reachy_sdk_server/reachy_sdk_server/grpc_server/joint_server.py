@@ -5,6 +5,7 @@ import sys
 import threading
 
 import grpc
+import prometheus_client as pc
 import rclpy
 
 from ..abstract_bridge_node import AbstractBridgeNode
@@ -98,6 +99,57 @@ class ReachyGRPCJointSDKServicer:
             await asyncio.sleep(0.001)
 
 
+class Interceptor(grpc.ServerInterceptor):
+    summaries = {}
+    general_sum = pc.Summary("sdkserver_RPC_time", f"Time spent during sdkserver ALL RPC call")
+
+    @staticmethod
+    def _wrap_rpc_behavior(handler, fn):
+        """Returns a new rpc handler that wraps the given function"""
+        # ref: https://github.com/mehrdada/grpc/blob/aa477becd1a7c44f8150ad24539cf6d40af24b37/examples/python/interceptors/service-latency-interceptor/service_latency_interceptor.py
+        if handler is None:
+            return None
+
+        if handler.request_streaming and handler.response_streaming:
+            behavior_fn = handler.stream_stream
+            handler_factory = grpc.stream_stream_rpc_method_handler
+        elif handler.request_streaming and not handler.response_streaming:
+            behavior_fn = handler.stream_unary
+            handler_factory = grpc.stream_unary_rpc_method_handler
+        elif not handler.request_streaming and handler.response_streaming:
+            behavior_fn = handler.unary_stream
+            handler_factory = grpc.unary_stream_rpc_method_handler
+        else:
+            behavior_fn = handler.unary_unary
+            handler_factory = grpc.unary_unary_rpc_method_handler
+
+        return handler_factory(
+            fn(behavior_fn, handler.request_streaming, handler.response_streaming),
+            request_deserializer=handler.request_deserializer,
+            response_serializer=handler.response_serializer,
+        )
+
+    def intercept_service(self, continuation, handler_call_details):
+        # key = f"sdkserver_time__{handler_call_details.method.replace('.', '_').replace('/','_')}"
+        # if key not in self.summaries:
+        #     print("joint_server.grpc.Interceptor.add summary:", key)
+        #     self.summaries[key] = pc.Summary(key, f"Time spent during {handler_call_details.method}")
+        # with self.summaries[key].time():
+        #     return continuation(handler_call_details)
+
+        # print("call:", handler_call_details.method)
+        def metrics_wrapper(behavior, request_streaming, response_streaming):
+            def new_behavior(request_or_iterator, servicer_context):
+                with self.general_sum.time():
+                    result = behavior(request_or_iterator, servicer_context)
+                    # print("call:", handler_call_details.method, "<---- end")
+                return result
+
+            return new_behavior
+
+        return self._wrap_rpc_behavior(continuation(handler_call_details), metrics_wrapper)
+
+
 _LOGGER = logging.getLogger(__name__)
 handler = logging.StreamHandler(sys.stdout)
 formatter = logging.Formatter("[PID %(process)d] %(message)s")
@@ -122,7 +174,7 @@ def main_singleprocess(_=1):
 
     # options = (("grpc.so_reuseport", 1),)
     servicer = ReachyGRPCJointSDKServicer(reachy_config_path=args.reachy_config, port=port)
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers))
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers), interceptors=[Interceptor()])
     # server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers),
     #                      options=options)
     # server = grpc.server(futures.ThreadPoolExecutor(max_workers=100))
