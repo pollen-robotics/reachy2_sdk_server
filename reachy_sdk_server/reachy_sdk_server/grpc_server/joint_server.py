@@ -5,6 +5,7 @@ import sys
 import threading
 
 import grpc
+import prometheus_client as pc
 import rclpy
 
 from ..abstract_bridge_node import AbstractBridgeNode
@@ -17,7 +18,6 @@ from .orbita2d import Orbita2dServicer
 from .orbita3d import Orbita3dServicer
 from .reachy import ReachyServicer
 
-import prometheus_client as pc
 
 class ReachyGRPCJointSDKServicer:
     def __init__(self, reachy_config_path: str = None, port=None) -> None:
@@ -98,6 +98,7 @@ class ReachyGRPCJointSDKServicer:
                 rclpy.spin_once(node, timeout_sec=0.01)
             await asyncio.sleep(0.001)
 
+
 class Interceptor(grpc.ServerInterceptor):
     summaries = {}
     general_sum = pc.Summary("sdkserver_RPC_time", f"Time spent during sdkserver ALL RPC call")
@@ -125,7 +126,8 @@ class Interceptor(grpc.ServerInterceptor):
         return handler_factory(
             fn(behavior_fn, handler.request_streaming, handler.response_streaming),
             request_deserializer=handler.request_deserializer,
-            response_serializer=handler.response_serializer)
+            response_serializer=handler.response_serializer,
+        )
 
     def intercept_service(self, continuation, handler_call_details):
         # key = f"sdkserver_time__{handler_call_details.method.replace('.', '_').replace('/','_')}"
@@ -135,7 +137,6 @@ class Interceptor(grpc.ServerInterceptor):
         # with self.summaries[key].time():
         #     return continuation(handler_call_details)
 
-
         # print("call:", handler_call_details.method)
         def metrics_wrapper(behavior, request_streaming, response_streaming):
             def new_behavior(request_or_iterator, servicer_context):
@@ -143,10 +144,10 @@ class Interceptor(grpc.ServerInterceptor):
                     result = behavior(request_or_iterator, servicer_context)
                     # print("call:", handler_call_details.method, "<---- end")
                 return result
+
             return new_behavior
 
         return self._wrap_rpc_behavior(continuation(handler_call_details), metrics_wrapper)
-
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -173,8 +174,7 @@ def main_singleprocess(_=1):
 
     # options = (("grpc.so_reuseport", 1),)
     servicer = ReachyGRPCJointSDKServicer(reachy_config_path=args.reachy_config, port=port)
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers),
-                         interceptors=[Interceptor()])
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers), interceptors=[Interceptor()])
     # server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers),
     #                      options=options)
     # server = grpc.server(futures.ThreadPoolExecutor(max_workers=100))
