@@ -1,5 +1,6 @@
 import subprocess
 import threading
+import time
 from enum import Enum
 from functools import partial
 from typing import Dict, Optional
@@ -8,11 +9,26 @@ import grpc
 import numpy as np
 import rclpy
 from google.protobuf.timestamp_pb2 import Timestamp
-from reachy2_sdk_api.video_pb2 import CameraFeatures, CameraParameters, Frame, FrameRaw, ListOfCameraFeatures, View, ViewRequest
+from reachy2_sdk_api.kinematics_pb2 import Matrix4x4
+from reachy2_sdk_api.video_pb2 import (
+    CameraExtrinsics,
+    CameraFeatures,
+    CameraParameters,
+    Frame,
+    FrameRaw,
+    ListOfCameraFeatures,
+    View,
+    ViewRequest,
+)
 from reachy2_sdk_api.video_pb2_grpc import add_VideoServiceServicer_to_server
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg._compressed_image import CompressedImage
 from sensor_msgs.msg._image import Image
+from tf2_ros import TransformException
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
+
+from ..conversion import pose_matrix_from_quaternion
 
 
 class CameraType(Enum):
@@ -69,6 +85,9 @@ class ReachyGRPCVideoSDKServicer:
             CameraType.TELEOP: {View.LEFT: None, View.RIGHT: None},
             CameraType.DEPTH: {View.LEFT: None, View.DEPTH: None},
         }
+
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self.node)
 
         self.ros_thread = threading.Thread(target=self.spin_ros, daemon=True)
         self.ros_thread.start()
@@ -193,6 +212,16 @@ class ReachyGRPCVideoSDKServicer:
         cam_info = ROSCamInfo(msg.height, msg.width, msg.distortion_model, msg.d, msg.k, msg.r, msg.p)
         self.cams_info[cam_type][side] = cam_info
 
+    def get_transform(self, source_frame: str, target_frame: str):
+        try:
+            transform = self.tf_buffer.lookup_transform(
+                target_frame, source_frame, rclpy.time.Time(), rclpy.duration.Duration(seconds=0.5)
+            )
+            return transform
+        except TransformException as ex:
+            self._logger.error(f"Could not transform {source_frame} to {target_frame}: {ex}")
+            return None
+
     def register_to_server(self, server: grpc.Server):
         self._logger.info("Registering 'VideoServiceServicer' to server.")
         add_VideoServiceServicer_to_server(self, server)
@@ -256,7 +285,7 @@ class ReachyGRPCVideoSDKServicer:
             self._logger.warning(f"Camera {request.camera_feat.name} not opened")
             return CameraParameters()
         elif not request.camera_feat.stereo and request.view == View.RIGHT:
-            self._logger.warning(f"Camera {request.camera_feat.name} has no stereo feature. Returning mono view")
+            self._logger.warning(f"Camera {request.camera_feat.name} has no stereo feature. Returning mono parameters")
             request.view = View.LEFT
 
         camtype = CameraType.TELEOP
@@ -278,6 +307,29 @@ class ReachyGRPCVideoSDKServicer:
             R=cam_param.R,
             P=cam_param.P,
         )
+
+    def GetExtrinsics(self, request: ViewRequest, context: grpc.ServicerContext) -> CameraExtrinsics:
+        if request.camera_feat.name not in [c.name for c in self._list_cam]:
+            self._logger.warning(f"Camera {request.camera_info.name} not opened")
+            return CameraExtrinsics(extrinsics=None)
+        elif not request.camera_feat.stereo and request.view == View.RIGHT:
+            self._logger.warning(f"Camera {request.camera_feat.name} has no stereo feature. Returning mono parameters")
+            request.view = View.LEFT
+
+        tf = None
+        if request.camera_feat.name == CameraType.TELEOP.value:
+            if request.view == View.LEFT:
+                tf = self.get_transform("torso", "left_camera_optical")
+            elif request.view == View.RIGHT:
+                tf = self.get_transform("torso", "right_camera_optical")
+        elif request.camera_feat.name == CameraType.DEPTH.value:
+            # ToDo: change name with final URDF and Orbbec
+            tf = self.get_transform("torso", "depth_cam_l_optical")
+
+        M = pose_matrix_from_quaternion(tf.transform.rotation)
+        M[:3, 3] = [tf.transform.translation.x, tf.transform.translation.y, tf.transform.translation.z]
+
+        return CameraExtrinsics(extrinsics=Matrix4x4(data=M.flatten()))
 
 
 def main():
