@@ -389,10 +389,10 @@ class MobileBaseServicer(
             response.y.value = odom.pose.pose.position.y
             theta = tf_transformations.euler_from_quaternion(
                 [
-                    odom.pose.pose.orientation.w,
                     odom.pose.pose.orientation.x,
                     odom.pose.pose.orientation.y,
                     odom.pose.pose.orientation.z,
+                    odom.pose.pose.orientation.w,
                 ]
             )
             response.theta.value = theta[2]
