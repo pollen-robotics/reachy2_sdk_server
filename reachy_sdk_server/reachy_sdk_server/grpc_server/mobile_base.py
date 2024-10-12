@@ -292,7 +292,7 @@ class MobileBaseServicer(
 
         if result is not None:
             ros_response = result
-            print(ros_response)
+            # print(ros_response)
             response.delta_x.value = ros_response.delta_x
             response.delta_y.value = ros_response.delta_y
             response.delta_theta.value = ros_response.delta_theta
