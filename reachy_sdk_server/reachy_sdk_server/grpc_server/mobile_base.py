@@ -194,14 +194,19 @@ class MobileBaseServicer(
 
         res_status = LidarSafety(id=request)
         lidar_info = self.bridge_node.get_safety_status()
-        if lidar_info["status"] == 0:
+        status_number = lidar_info["status"]
+        if status_number == 0.0:
             grpc_obstacle_detection_status = LidarObstacleDetectionEnum.DETECTION_ERROR
-        elif lidar_info["status"] == 1:
+        elif status_number == 1.0:
             grpc_obstacle_detection_status = LidarObstacleDetectionEnum.NO_OBJECT_DETECTED
-        elif lidar_info["status"] == 2:
+        elif status_number == 2.0:
             grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_SLOWDOWN
-        elif lidar_info["status"] == 3:
+        elif status_number == 3.0:
             grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_STOP
+        else:
+            grpc_obstacle_detection_status = LidarObstacleDetectionEnum.DETECTION_ERROR
+            self.logger.warning(f"Unknown LIDAR safety status: {status_number}")
+            
         res_status.safety_on.value = lidar_info["safety_on"]
         res_status.safety_distance.value = lidar_info["safety_distance"]
         res_status.critical_distance.value = lidar_info["critical_distance"]
