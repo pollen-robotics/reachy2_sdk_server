@@ -20,12 +20,14 @@ from reachy2_sdk_api.goto_pb2 import (
     GoToRequest,
     InterpolationMode,
     JointsGoal,
+    OdometryGoal,
 )
 from reachy2_sdk_api.goto_pb2_grpc import add_GoToServiceServicer_to_server
 from reachy2_sdk_api.head_pb2 import NeckJointGoal, NeckOrientation
 from reachy2_sdk_api.kinematics_pb2 import ExtEulerAngles, Quaternion, Rotation3d
 from reachy2_sdk_api.orbita2d_pb2 import Pose2d
 from reachy2_sdk_api.part_pb2 import PartId
+from reachy2_sdk_api.mobile_base_mobility_pb2 import TargetDirectionCommand, DirectionVector
 from sensor_msgs.msg import JointState
 
 from ..abstract_bridge_node import AbstractBridgeNode
@@ -306,6 +308,18 @@ class GoToServicer:
         else:
             self.logger.error(f"{request} is ill formed. Expected arm_joint_goal, neck_joint_goal or custom_joint_goal")
             return GoToId(id=-1)
+    
+    def GoToOdometry(self, request: GoToRequest, context: grpc.ServicerContext) -> GoToId:
+        # TODO: send goto with given args and return GoToId 
+        x_goal = request.odometry_goal.direction.x.value
+        y_goal = request.odometry_goal.direction.y.value
+        theta_goal = request.odometry_goal.direction.theta.value
+
+        distance_tolerance = request.odometry_goal.distance_tolerance.value
+        angle_tolerance = request.odometry_goal.angle_tolerance.value
+
+        timeout = request.odometry_goal.timeout.value
+        pass
 
     def GetGoToRequest(self, goto_id: GoToId, context: grpc.ServicerContext) -> GoToRequest:
         return self.get_goal_request_by_goal_id(goto_id.id, context)
@@ -410,7 +424,7 @@ class GoToServicer:
                 f"Interpolation mode {interpolation_mode} not supported. Should be one of 'linear' or 'minimum_jerk'."
             )
             return None
-
+    
     def get_part_queue(self, part_name: str) -> GoToQueue:
         goal_ids_int = getattr(self.goal_manager, part_name + "_goal")
         goal_ids = [
@@ -429,9 +443,6 @@ class GoToServicer:
 
     def get_goal_request_by_goal_id(self, goal_id: int, context: grpc.ServicerContext) -> GoToRequest:
         goal_request = self.goal_manager.goal_requests[goal_id]
-        mode = self._get_grpc_interpolation_mode(goal_request["mode"])
-        duration = goal_request["duration"]
-        joints_goal = goal_request["goal_positions"]
         part = None
 
         if goal_id in self.goal_manager.r_arm_goal:
@@ -439,6 +450,9 @@ class GoToServicer:
         elif goal_id in self.goal_manager.l_arm_goal:
             part = self.bridge_node.parts.get_by_name("l_arm")
         if part is not None:
+            mode = self._get_grpc_interpolation_mode(goal_request["mode"])
+            duration = goal_request["duration"]
+            joints_goal = goal_request["goal_positions"]
             part_id = PartId(id=part.id, name=part.name)
             arm_joint_goal = ArmJointGoal(
                 id=part_id,
@@ -466,6 +480,9 @@ class GoToServicer:
         if goal_id in self.goal_manager.head_goal:
             part = self.bridge_node.parts.get_by_name("head")
         if part is not None:
+            mode = self._get_grpc_interpolation_mode(goal_request["mode"])
+            duration = goal_request["duration"]
+            joints_goal = goal_request["goal_positions"]
             part_id = PartId(id=part.id, name=part.name)
             neck_joint_goal = NeckJointGoal(
                 id=part_id,
@@ -484,6 +501,36 @@ class GoToServicer:
             request = GoToRequest(
                 joints_goal=JointsGoal(neck_joint_goal=neck_joint_goal),
                 interpolation_mode=GoToInterpolation(interpolation_type=mode),
+            )
+
+            return request
+    
+        # TODO: return correct elements here
+        if goal_id in self.goal_manager.mobile_base_goal:
+            # TODO: handle mobile_base id correctly. If hard-coded should be PartId(id=100, name="mobile_base")
+            part = self.bridge_node.parts.get_by_name("mobile_base")
+        if part is not None:
+            # Depending on how are stored the mobile_base request, to be filled correctly
+            odometry_goal = goal_request["odometry_goal"]
+            tolerances = goal_request["tolerances"]
+            timeout = goal_request["timeout"]
+            part_id = PartId(id=part.id, name=part.name)
+            odometry_goal = OdometryGoal(
+                odometry_goal=TargetDirectionCommand(
+                    id=part_id,
+                    direction=DirectionVector(
+                        x=FloatValue(value=odometry_goal[0]),
+                        y=FloatValue(value=odometry_goal[1]),
+                        theta=FloatValue(value=odometry_goal[2]),
+                    ),
+                ),
+                distance_tolerance=FloatValue(value=tolerances[0]),
+                angle_tolerance=FloatValue(value=tolerances[1]),
+                timeout=FloatValue(value=timeout),
+            )
+
+            request = GoToRequest(
+                odometry_goal=odometry_goal,
             )
 
             return request
@@ -527,6 +574,7 @@ class GoalManager:
         self.r_arm_goal = []
         self.l_arm_goal = []
         self.head_goal = []
+        self.mobile_base_goal = []
         self.goal_id_counter = 0
         self.lock = threading.Lock()
         self._hoarder_collector = threading.Thread(target=self._sort_goal_handles, daemon=True)
