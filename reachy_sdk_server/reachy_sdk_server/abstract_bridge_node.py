@@ -33,6 +33,8 @@ class AbstractBridgeNode(Node):
 
         self.logger = self.get_logger()
 
+        self.goto_servicer = None
+
         NODE_NAME = f"grpc-server_SDK{'.' + str(port) if port != 0 else ''}"
         rm.configure_pyroscope(
             NODE_NAME,
@@ -140,6 +142,8 @@ class AbstractBridgeNode(Node):
             self.goto_action_client[prefix] = ActionClient(self, Goto, f"{prefix}_goto")
             self.get_logger().info(f"Waiting for action server {prefix}_goto...")
             self.goto_action_client[prefix].wait_for_server()
+
+        self.joints_names_per_gotoable_part = {}
 
         # Start up the server to expose the metrics.
         pc.start_http_server(metrics_port)
@@ -425,8 +429,17 @@ class AbstractBridgeNode(Node):
         cmd = DynamicJointState()
         cmd.joint_names = []
         for part in self.parts: 
+            self.logger.info(f" part name {part.name}")
             for c in part.components:
-                    nb_rw_motor = 3 if c.type == "orbita3d" else 2
+                
+                    self.logger.info(f" c type {c.type}")
+                    self.logger.info(f" c name {c.name}")
+                    if c.type == "orbita3d":
+                        nb_rw_motor = 3
+                    elif c.type == "orbita2d":
+                        nb_rw_motor = 2
+                    else:
+                        nb_rw_motor = 1
                     for i in range(1, nb_rw_motor + 1):
                         # cmd.joint_names.append(c.name)
                         cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
@@ -441,6 +454,24 @@ class AbstractBridgeNode(Node):
 
 
     def emergency_stop(self, msg):
-        # self.set_torque_limit_to_all_motors(0.0)
+        self.set_torque_limit_to_all_motors(0.3)
+        self.goto_servicer.cancel_all_goals()
+        self.logger.info(f" joints_names_per_gotoable_part {self.joints_names_per_gotoable_part}")
+
+        # self.goto_servicer.goto_joints("r_arm")
         self.logger.info("Emergency stop called. Stopping all motors.@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+
+    
+    def get_gotoable_joints(self):
+        self.logger.info("#############################################")
+        for prefix in self.prefixes:
+            if prefix == "neck":
+                prefix = "head"
+            for part in self.parts:
+                if part.name.startswith(prefix):
+                    self.joints_names_per_gotoable_part[prefix] = self.goto_servicer.part_to_list_of_joint_names(part)   
+        # return joints_names_per_gotoable_part                 
+                
+
+
 
