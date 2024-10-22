@@ -19,7 +19,7 @@ from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import JointState
-from std_msgs.msg import Float32, Float32MultiArray
+from std_msgs.msg import Float32, Float32MultiArray, Empty
 
 from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix
@@ -59,6 +59,13 @@ class AbstractBridgeNode(Node):
             msg_type=DynamicJointState,
             topic="/dynamic_joint_states",
             callback=self.update_state,
+            qos_profile=10,
+        )
+
+        self.create_subscription(
+            msg_type=Empty,
+            topic="/emergency_stop",
+            callback=self.emergency_stop,
             qos_profile=10,
         )
 
@@ -403,3 +410,37 @@ class AbstractBridgeNode(Node):
                     )
 
         self.publish_command(cmd)
+
+    
+    def set_torque_limit_to_all_motors(self,value: float) -> None:
+        """Set torque limit to all motors if part_name is an empty string,
+        else only motors of the given part_name (e.g. r_arm) are set.
+        Note: torque limits can only be modified in motor level not in joint level."""
+
+        if not isinstance(value, float | int):
+            raise ValueError(f"Expected one of: float, int for torquelimit, got {type(value)._name}")
+        if not (0. <= value <= 1.):
+            raise ValueError(f"torque_limit must be in [0, 1], got {value}.")
+
+        cmd = DynamicJointState()
+        cmd.joint_names = []
+        for part in self.parts: 
+            for c in part.components:
+                    nb_rw_motor = 3 if c.type == "orbita3d" else 2
+                    for i in range(1, nb_rw_motor + 1):
+                        # cmd.joint_names.append(c.name)
+                        cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
+
+                        cmd.interface_values.append(
+                            InterfaceValue(
+                                interface_names=["torque_limit"],
+                                values=[value],
+                            )
+                        )
+        self.publish_command(cmd)
+
+
+    def emergency_stop(self, msg):
+        # self.set_torque_limit_to_all_motors(0.0)
+        self.logger.info("Emergency stop called. Stopping all motors.@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+
