@@ -223,10 +223,11 @@ class HeadServicer:
         self.bridge_node.publish_command(cmd)
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        self.set_stiffness(request, torque=True, context=context)
-        # Set all goal positions to the current position for safety
+        # 1. Set all goal positions to the current position for safety
         part = self.get_head_part_from_part_id(request, context)
         self.bridge_node.set_all_joints_to_current_position(part.name)
+        # 2. Turn on the motors
+        self.set_stiffness(request, torque=True, context=context)
         return Empty()
 
     def TurnOff(self, request: PartId, context: grpc.ServicerContext) -> Empty:
