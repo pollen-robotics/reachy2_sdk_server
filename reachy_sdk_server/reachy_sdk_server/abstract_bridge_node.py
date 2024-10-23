@@ -1,10 +1,11 @@
 from asyncio.events import AbstractEventLoop
 from collections import deque
 from functools import partial
-from threading import Event, Lock
+from threading import Event, Lock, Thread
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
+import time
 import prometheus_client as pc
 import rclpy
 import reachy2_monitoring as rm
@@ -429,11 +430,11 @@ class AbstractBridgeNode(Node):
         cmd = DynamicJointState()
         cmd.joint_names = []
         for part in self.parts: 
-            self.logger.info(f" part name {part.name}")
+            # self.logger.info(f" part name {part.name}")
             for c in part.components:
                 
-                    self.logger.info(f" c type {c.type}")
-                    self.logger.info(f" c name {c.name}")
+                    # self.logger.info(f" c type {c.type}")
+                    # self.logger.info(f" c name {c.name}")
                     if c.type == "orbita3d":
                         nb_rw_motor = 3
                     elif c.type == "orbita2d":
@@ -454,16 +455,33 @@ class AbstractBridgeNode(Node):
 
 
     def emergency_stop(self, msg):
-        self.set_torque_limit_to_all_motors(0.3)
-        self.goto_servicer.cancel_all_goals()
+        x = Thread(target=self.stop_robot)
+        x.start()
+
+        
+
+    def stop_robot(self):
         self.logger.info(f" joints_names_per_gotoable_part {self.joints_names_per_gotoable_part}")
 
-        # self.goto_servicer.goto_joints("r_arm")
-        self.logger.info("Emergency stop called. Stopping all motors.@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+        torque_limit_low = 0.3
+        self.set_torque_limit_to_all_motors(torque_limit_low)
+        self.goto_servicer.cancel_all_goals()
 
+        neck_joints = [0.0, 0.0, 0.0]
+        r_arm_joints = [0.0,  0.17453293, -0.17453293, 0.0, 0.0, 0.0, 0.0]
+        l_arm_joints = [0.0, -0.17453293, 0.17453293, 0.0, 0.0, 0.0, 0.0]
+
+        self.goto_servicer.goto_joints("r_arm", self.joints_names_per_gotoable_part["r_arm"], r_arm_joints, 3., mode="minimum_jerk")
+        self.goto_servicer.goto_joints("l_arm", self.joints_names_per_gotoable_part["l_arm"], l_arm_joints, 3., mode="minimum_jerk")
+        self.goto_servicer.goto_joints("neck", self.joints_names_per_gotoable_part["head"], neck_joints, 3., mode="minimum_jerk")  
+
+        for i in range(6):
+            time.sleep(0.5)
+            self.set_torque_limit_to_all_motors(torque_limit_low - i*0.05)
+
+        self.logger.info("Emergency stop called. Stopping all motors.")
     
     def get_gotoable_joints(self):
-        self.logger.info("#############################################")
         for prefix in self.prefixes:
             if prefix == "neck":
                 prefix = "head"
