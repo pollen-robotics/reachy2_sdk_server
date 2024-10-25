@@ -8,7 +8,7 @@ from subprocess import PIPE, check_output, run
 import grpc
 
 # import rclpy
-from meta_rclpy import MetaRclpy
+from .meta_rclpy import MetaRclpy
 
 import tf_transformations
 from cv_bridge import CvBridge
@@ -81,7 +81,7 @@ class MobileBaseServicer(
 ):
     """Mobile base SDK server node."""
 
-    def __init__(self, bridge_node: AbstractBridgeNode, logger: MetaRclpy.logger, reachy_config_path: str) -> None:
+    def __init__(self, bridge_node: AbstractBridgeNode, logger, reachy_config_path: str) -> None:
         """Set up the node.
 
         Get mobile base basic info such as its odometry, battery level, drive mode or control mode

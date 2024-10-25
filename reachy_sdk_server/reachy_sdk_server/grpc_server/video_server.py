@@ -9,7 +9,7 @@ import grpc
 import numpy as np
 
 # import rclpy
-from meta_rclpy import MetaRclpy
+from .meta_rclpy import MetaRclpy
 from google.protobuf.timestamp_pb2 import Timestamp
 from reachy2_sdk_api.kinematics_pb2 import Matrix4x4
 from reachy2_sdk_api.video_pb2 import (

@@ -1,22 +1,11 @@
+# TODO how to handle this ?
 ROS = True
+
+if ROS:
+    import rclpy
 
 
 class MetaRclpy:
-    if ROS:
-        import rclpy
-
-        logger = rclpy.impl.rcutils_logger.RcutilsLogger
-        time = rclpy.time
-        duration = rclpy.duration
-        node = rclpy.node
-        action = rclpy.action
-        qos = rclpy.qos
-    else:
-        logger = None
-        time = None
-        duration = None
-        node = None
-
     @staticmethod
     def init():
         if ROS:
@@ -39,9 +28,9 @@ class MetaRclpy:
             return
 
     @staticmethod
-    def spin_once(*args):
+    def spin_once(*args, **kwargs):
         if ROS:
-            return rclpy.spin_once(*args)
+            return rclpy.spin_once(*args, **kwargs)
         else:
             return None
 

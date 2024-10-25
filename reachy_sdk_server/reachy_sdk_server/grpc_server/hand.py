@@ -4,7 +4,7 @@ import grpc
 import numpy as np
 
 # import rclpy
-from meta_rclpy import MetaRclpy
+from .meta_rclpy import MetaRclpy
 import reachy2_monitoring as rm
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
@@ -36,7 +36,7 @@ class HandServicer:
     def __init__(
         self,
         bridge_node: AbstractBridgeNode,
-        logger: MetaRclpy.logger,
+        logger,
     ) -> None:
         self.bridge_node = bridge_node
         self.logger = logger

@@ -3,7 +3,7 @@ import pathlib
 import grpc
 
 # import rclpy
-from meta_rclpy import MetaRclpy
+from .meta_rclpy import MetaRclpy
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue
 from reachy2_sdk_api.component_pb2 import ComponentId

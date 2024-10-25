@@ -1,6 +1,7 @@
 from asyncio.events import AbstractEventLoop
 from collections import deque
 from functools import partial
+from sys import meta_path
 from threading import Event, Lock
 from typing import Any, Dict, List, Tuple
 
@@ -8,7 +9,7 @@ import numpy as np
 import prometheus_client as pc
 
 # import rclpy
-from grpc_server.meta_rclpy import MetaRclpy
+from .grpc_server.meta_rclpy import ROS, MetaRclpy
 import reachy2_monitoring as rm
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from geometry_msgs.msg import Pose, PoseStamped
@@ -16,9 +17,10 @@ from pollen_msgs.action import Goto
 from pollen_msgs.msg import CartTarget, IKRequest, MobileBaseState, ReachabilityState
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
 
-# from rclpy.action import ActionClient
-# from rclpy.node import Node
-# from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
+if ROS:
+    from rclpy.action import ActionClient
+    from rclpy.node import Node
+    from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 
 from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.part_pb2 import PartId
@@ -31,6 +33,7 @@ from .parts import PartsHolder
 from .utils import parse_reachy_config
 
 
+# class AbstractBridgeNode(Node):
 class AbstractBridgeNode(Node):
     def __init__(self, reachy_config_path: str = None, asyncio_loop: AbstractEventLoop = None, port=0) -> None:
         super().__init__(node_name="reachy_abstract_bridge_node")
@@ -134,7 +137,7 @@ class AbstractBridgeNode(Node):
         self.prefixes = ["r_arm", "l_arm", "neck"]
         self.goto_action_client = {}
         for prefix in self.prefixes:
-            self.goto_action_client[prefix] = MetaRclpy.action.ActionClient(self, Goto, f"{prefix}_goto")
+            self.goto_action_client[prefix] = ActionClient(self, Goto, f"{prefix}_goto")
             self.get_logger().info(f"Waiting for action server {prefix}_goto...")
             self.goto_action_client[prefix].wait_for_server()
 
@@ -274,9 +277,9 @@ class AbstractBridgeNode(Node):
             self.inverse_kinematics_clients[part.id] = c
 
             # High frequency QoS profile
-            high_freq_qos_profile = MetaRclpy.qos.QoSProfile(
-                reliability=MetaRclpy.qos.ReliabilityPolicy.BEST_EFFORT,  # Prioritizes speed over guaranteed delivery
-                history=MetaRclpy.qos.HistoryPolicy.KEEP_LAST,  # Keeps only a fixed number of messages
+            high_freq_qos_profile = QoSProfile(
+                reliability=ReliabilityPolicy.BEST_EFFORT,  # Prioritizes speed over guaranteed delivery
+                history=HistoryPolicy.KEEP_LAST,  # Keeps only a fixed number of messages
                 depth=1,  # Minimal depth, for the latest message
                 # Other QoS settings can be adjusted as needed
             )

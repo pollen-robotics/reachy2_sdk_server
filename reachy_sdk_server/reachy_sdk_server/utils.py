@@ -3,7 +3,7 @@ import queue
 import time
 
 # import rclpy
-from grpc_server.meta_rclpy import MetaRclpy
+from .grpc_server.meta_rclpy import MetaRclpy
 import yaml
 from google.protobuf.timestamp_pb2 import Timestamp
 from pollen_msgs.srv import GetDynamicState
@@ -16,7 +16,7 @@ def parse_reachy_config(reachy_config_path: str) -> dict:
     return config
 
 
-def get_uid_from_name(name: str, node: MetaRclpy.node.Node) -> int:
+def get_uid_from_name(name: str, node) -> int:
     c = node.create_client(GetDynamicState, f"/get_dynamic_state")
 
     while not c.wait_for_service(timeout_sec=1.0):
@@ -33,7 +33,7 @@ def get_uid_from_name(name: str, node: MetaRclpy.node.Node) -> int:
     return int(future.result().values[0])
 
 
-def get_component_full_state(component_name: str, node: MetaRclpy.node.Node) -> dict:
+def get_component_full_state(component_name: str, node) -> dict:
     c = node.create_client(GetDynamicState, f"/get_dynamic_state")
 
     while not c.wait_for_service(timeout_sec=1.0):
@@ -94,7 +94,7 @@ def endless_timer_get_stream_works(node, func, request, context, period):
         raise
 
 
-def get_current_timestamp(bridge_node: MetaRclpy.node.Node) -> Timestamp:
+def get_current_timestamp(bridge_node) -> Timestamp:
     t = Timestamp()
     t.FromNanoseconds(bridge_node.get_clock().now().nanoseconds)
 

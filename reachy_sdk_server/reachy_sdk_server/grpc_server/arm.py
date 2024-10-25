@@ -5,7 +5,7 @@ import grpc
 import numpy as np
 
 # import rclpy
-from meta_rclpy import MetaRclpy
+from .meta_rclpy import MetaRclpy
 import reachy2_monitoring as rm
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
@@ -51,7 +51,7 @@ class ArmServicer:
     def __init__(
         self,
         bridge_node: AbstractBridgeNode,
-        logger: MetaRclpy.logger
+        logger,
         orbita2d_servicer: Orbita2dServicer,
         orbita3d_servicer: Orbita3dServicer,
     ) -> None:

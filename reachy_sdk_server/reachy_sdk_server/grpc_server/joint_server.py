@@ -8,7 +8,7 @@ import grpc
 import prometheus_client as pc
 
 # import rclpy
-from meta_rclpy import MetaRclpy
+from .meta_rclpy import MetaRclpy
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
