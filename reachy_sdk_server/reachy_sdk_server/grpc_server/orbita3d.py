@@ -3,7 +3,9 @@ from collections import namedtuple
 from typing import Iterator
 
 import grpc
-import rclpy
+
+# import rclpy
+from meta_rclpy import MetaRclpy
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
@@ -56,7 +58,7 @@ class Orbita3dServicer:
     def __init__(
         self,
         bridge_node: AbstractBridgeNode,
-        logger: rclpy.impl.rcutils_logger.RcutilsLogger,
+        logger: MetaRclpy.logger,
     ) -> None:
         self.bridge_node = bridge_node
         self.logger = logger

@@ -1,7 +1,9 @@
 from typing import Iterator
 
 import grpc
-import rclpy
+
+# import rclpy
+from meta_rclpy import MetaRclpy
 import reachy2_monitoring as rm
 from google.protobuf.empty_pb2 import Empty
 from reachy2_sdk_api.part_pb2 import PartId
@@ -27,7 +29,7 @@ class ReachyServicer:
     def __init__(
         self,
         bridge_node: AbstractBridgeNode,
-        logger: rclpy.impl.rcutils_logger.RcutilsLogger,
+        logger: MetaRclpy.logger,
         arm_servicer: ArmServicer,
         hand_servicer: HandServicer,
         head_servicer: HeadServicer,

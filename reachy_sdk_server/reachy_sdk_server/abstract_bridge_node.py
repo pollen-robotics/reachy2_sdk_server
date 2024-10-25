@@ -6,16 +6,20 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import prometheus_client as pc
-import rclpy
+
+# import rclpy
+from grpc_server.meta_rclpy import MetaRclpy
 import reachy2_monitoring as rm
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from geometry_msgs.msg import Pose, PoseStamped
 from pollen_msgs.action import Goto
 from pollen_msgs.msg import CartTarget, IKRequest, MobileBaseState, ReachabilityState
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
-from rclpy.action import ActionClient
-from rclpy.node import Node
-from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
+
+# from rclpy.action import ActionClient
+# from rclpy.node import Node
+# from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
+
 from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import JointState
@@ -130,7 +134,7 @@ class AbstractBridgeNode(Node):
         self.prefixes = ["r_arm", "l_arm", "neck"]
         self.goto_action_client = {}
         for prefix in self.prefixes:
-            self.goto_action_client[prefix] = ActionClient(self, Goto, f"{prefix}_goto")
+            self.goto_action_client[prefix] = MetaRclpy.action.ActionClient(self, Goto, f"{prefix}_goto")
             self.get_logger().info(f"Waiting for action server {prefix}_goto...")
             self.goto_action_client[prefix].wait_for_server()
 
@@ -144,7 +148,7 @@ class AbstractBridgeNode(Node):
     def wait_for_setup(self) -> None:
         # Wait for a first /dynamic_joint_state message to get a list of all joints
         while not self.got_first_state.is_set():
-            rclpy.spin_once(self)
+            MetaRclpy.spin_once(self)
 
         # call service to get all value for each joint
         for name in self.joint_names:
@@ -270,9 +274,9 @@ class AbstractBridgeNode(Node):
             self.inverse_kinematics_clients[part.id] = c
 
             # High frequency QoS profile
-            high_freq_qos_profile = QoSProfile(
-                reliability=ReliabilityPolicy.BEST_EFFORT,  # Prioritizes speed over guaranteed delivery
-                history=HistoryPolicy.KEEP_LAST,  # Keeps only a fixed number of messages
+            high_freq_qos_profile = MetaRclpy.qos.QoSProfile(
+                reliability=MetaRclpy.qos.ReliabilityPolicy.BEST_EFFORT,  # Prioritizes speed over guaranteed delivery
+                history=MetaRclpy.qos.HistoryPolicy.KEEP_LAST,  # Keeps only a fixed number of messages
                 depth=1,  # Minimal depth, for the latest message
                 # Other QoS settings can be adjusted as needed
             )

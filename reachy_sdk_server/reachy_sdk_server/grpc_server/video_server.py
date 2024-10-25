@@ -7,7 +7,9 @@ from typing import Dict, Optional
 
 import grpc
 import numpy as np
-import rclpy
+
+# import rclpy
+from meta_rclpy import MetaRclpy
 from google.protobuf.timestamp_pb2 import Timestamp
 from reachy2_sdk_api.kinematics_pb2 import Matrix4x4
 from reachy2_sdk_api.video_pb2 import (
@@ -65,8 +67,8 @@ class ROSCamInfo:
 
 class ReachyGRPCVideoSDKServicer:
     def __init__(self, gazebo: bool = False) -> None:
-        rclpy.init()
-        self.node = rclpy.create_node("ReachyGRPCVideoSDKServicer_node")
+        MetaRclpy.init()
+        self.node = MetaRclpy.create_node("ReachyGRPCVideoSDKServicer_node")
         self._logger = self.node.get_logger()
         self._gazebo_mode = gazebo
 
@@ -94,7 +96,7 @@ class ReachyGRPCVideoSDKServicer:
 
     def __del__(self) -> None:
         self.node.destroy_node()
-        rclpy.shutdown()
+        MetaRclpy.shutdown()
 
     def _init_cameras(self) -> None:
         self._list_cam.clear()
@@ -176,7 +178,7 @@ class ReachyGRPCVideoSDKServicer:
 
     def spin_ros(self) -> None:
         self._logger.info("Spin node")
-        rclpy.spin(self.node)
+        MetaRclpy.spin(self.node)
 
     def on_image_update(self, msg, cam_type: CameraFeatures, side: View):
         """Get data from image. Callback for "/'side'_image "subscriber."""
@@ -215,7 +217,7 @@ class ReachyGRPCVideoSDKServicer:
     def get_transform(self, source_frame: str, target_frame: str):
         try:
             transform = self.tf_buffer.lookup_transform(
-                target_frame, source_frame, rclpy.time.Time(), rclpy.duration.Duration(seconds=0.5)
+                target_frame, source_frame, MetaRclpy.time.Time(), MetaRclpy.duration.Duration(seconds=0.5)
             )
             return transform
         except TransformException as ex:

@@ -6,7 +6,9 @@ import threading
 
 import grpc
 import prometheus_client as pc
-import rclpy
+
+# import rclpy
+from meta_rclpy import MetaRclpy
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
@@ -21,7 +23,7 @@ from .reachy import ReachyServicer
 
 class ReachyGRPCJointSDKServicer:
     def __init__(self, reachy_config_path: str = None, port=None) -> None:
-        rclpy.init()
+        MetaRclpy.init()
 
         # executor = rclpy.executors.MultiThreadedExecutor()
         # executor.add_node(self.bridge_node)
@@ -93,9 +95,9 @@ class ReachyGRPCJointSDKServicer:
             await asyncio.sleep(1)
 
     async def spinning(self, node):
-        while rclpy.ok():
+        while MetaRclpy.ok():
             with node.sum_spin.time():
-                rclpy.spin_once(node, timeout_sec=0.01)
+                MetaRclpy.spin_once(node, timeout_sec=0.01)
             await asyncio.sleep(0.001)
 
 

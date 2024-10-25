@@ -6,7 +6,9 @@ from typing import List, Optional, Tuple
 
 import grpc
 import numpy as np
-import rclpy
+
+# import rclpy
+from meta_rclpy import MetaRclpy
 from action_msgs.msg import GoalStatus
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import FloatValue
@@ -39,7 +41,7 @@ class GoToServicer:
     def __init__(
         self,
         bridge_node: AbstractBridgeNode,
-        logger: rclpy.impl.rcutils_logger.RcutilsLogger,
+        logger: MetaRclpy.logger,
     ) -> None:
         self.bridge_node = bridge_node
         self.logger = logger

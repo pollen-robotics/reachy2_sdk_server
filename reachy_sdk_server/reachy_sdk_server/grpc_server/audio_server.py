@@ -1,7 +1,9 @@
 import pathlib
 
 import grpc
-import rclpy
+
+# import rclpy
+from meta_rclpy import MetaRclpy
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue
 from reachy2_sdk_api.component_pb2 import ComponentId
@@ -27,8 +29,8 @@ from .audio_recorder import AudioRecorder
 
 class ReachyGRPCAudioSDKServicer:
     def __init__(self) -> None:
-        rclpy.init()
-        self.node = rclpy.create_node("ReachyGRPCAudioSDKServicer_node")
+        MetaRclpy.init()
+        self.node = MetaRclpy.create_node("ReachyGRPCAudioSDKServicer_node")
 
         self.soundhandle = SoundClient(self.node, blocking=False)
 
