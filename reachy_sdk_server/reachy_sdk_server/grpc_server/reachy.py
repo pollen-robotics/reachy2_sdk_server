@@ -7,7 +7,9 @@ from google.protobuf.empty_pb2 import Empty
 from reachy2_sdk_api.part_pb2 import PartId
 from reachy2_sdk_api.reachy_pb2 import (
     Reachy,
+    ReachyCoreMode,
     ReachyId,
+    ReachyInfo,
     ReachyState,
     ReachyStatus,
     ReachyStreamAuditRequest,
@@ -69,6 +71,18 @@ class ReachyServicer:
             if self.mobile_base_servicer.get_mobile_base(context) is not None:
                 with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachy::type=mobile_base"):
                     params["mobile_base"] = self.mobile_base_servicer.get_mobile_base(context)
+            
+            # TODO: determine conditions to choose mode. Following modes are possible:
+            core_mode = ReachyCoreMode.FAKE
+            core_mode = ReachyCoreMode.REAL
+            core_mode = ReachyCoreMode.GAZEBO
+            
+            params["info"] = ReachyInfo(
+                serial_number="",  # TODO: add serial_number as a string
+                version_hard="",  # TODO: add hardware version as a string
+                version_soft="",  # TODO: determine what is a soft version and add it as a string
+                core_mode=core_mode,
+            )
 
         return Reachy(**params)
 
