@@ -25,9 +25,9 @@ from reachy2_sdk_api.goto_pb2 import (
 from reachy2_sdk_api.goto_pb2_grpc import add_GoToServiceServicer_to_server
 from reachy2_sdk_api.head_pb2 import NeckJointGoal, NeckOrientation
 from reachy2_sdk_api.kinematics_pb2 import ExtEulerAngles, Quaternion, Rotation3d
+from reachy2_sdk_api.mobile_base_mobility_pb2 import DirectionVector, TargetDirectionCommand
 from reachy2_sdk_api.orbita2d_pb2 import Pose2d
 from reachy2_sdk_api.part_pb2 import PartId
-from reachy2_sdk_api.mobile_base_mobility_pb2 import TargetDirectionCommand, DirectionVector
 from sensor_msgs.msg import JointState
 
 from ..abstract_bridge_node import AbstractBridgeNode
@@ -308,9 +308,9 @@ class GoToServicer:
         else:
             self.logger.error(f"{request} is ill formed. Expected arm_joint_goal, neck_joint_goal or custom_joint_goal")
             return GoToId(id=-1)
-    
+
     def GoToOdometry(self, request: GoToRequest, context: grpc.ServicerContext) -> GoToId:
-        # TODO: send goto with given args and return GoToId 
+        # TODO: send goto with given args and return GoToId
         x_goal = request.odometry_goal.direction.x.value
         y_goal = request.odometry_goal.direction.y.value
         theta_goal = request.odometry_goal.direction.theta.value
@@ -424,7 +424,7 @@ class GoToServicer:
                 f"Interpolation mode {interpolation_mode} not supported. Should be one of 'linear' or 'minimum_jerk'."
             )
             return None
-    
+
     def get_part_queue(self, part_name: str) -> GoToQueue:
         goal_ids_int = getattr(self.goal_manager, part_name + "_goal")
         goal_ids = [
@@ -504,7 +504,7 @@ class GoToServicer:
             )
 
             return request
-    
+
         # TODO: return correct elements here
         if goal_id in self.goal_manager.mobile_base_goal:
             # TODO: handle mobile_base id correctly. If hard-coded should be PartId(id=100, name="mobile_base")

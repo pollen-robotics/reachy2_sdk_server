@@ -205,7 +205,7 @@ class MobileBaseServicer(
         else:
             grpc_obstacle_detection_status = LidarObstacleDetectionEnum.DETECTION_ERROR
             self.logger.warning(f"Unknown LIDAR safety status: {status_number}")
-            
+
         res_status.safety_on.value = lidar_info["safety_on"]
         res_status.safety_distance.value = lidar_info["safety_distance"]
         res_status.critical_distance.value = lidar_info["critical_distance"]
@@ -262,20 +262,6 @@ class MobileBaseServicer(
         req.rot_vel = request.rot_vel.value
 
         self.set_speed_client.call_async(req)
-        return MobilityServiceAck(success=BoolValue(value=True))
-
-    def SendGoTo(self, request: GoToVector, context) -> MobilityServiceAck:
-        """Send a target to the mobile base in the odom frame.
-
-        The origin of the frame is initialised when the hal is started or whenever the odometry
-        is reset. x and y are in meters and theta in radian.
-        """
-        req = GoToXYTheta.Request()
-        req.x_goal = request.x_goal.value
-        req.y_goal = request.y_goal.value
-        req.theta_goal = request.theta_goal.value
-
-        self.go_to_client.call_async(req)
         return MobilityServiceAck(success=BoolValue(value=True))
 
     def DistanceToGoal(self, request: PartId, context):
