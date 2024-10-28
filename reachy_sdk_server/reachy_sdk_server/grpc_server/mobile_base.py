@@ -27,7 +27,6 @@ from reachy2_sdk_api.mobile_base_lidar_pb2_grpc import (
 from reachy2_sdk_api.mobile_base_mobility_pb2 import (
     DirectionVector,
     DistanceToGoalVector,
-    GoToVector,
     MobilityServiceAck,
     SetSpeedVector,
     TargetDirectionCommand,
