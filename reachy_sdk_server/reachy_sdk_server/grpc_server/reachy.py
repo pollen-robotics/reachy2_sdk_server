@@ -1,3 +1,4 @@
+import os
 from typing import Iterator
 
 import grpc
@@ -81,9 +82,8 @@ class ReachyServicer:
                     params["mobile_base"] = self.mobile_base_servicer.get_mobile_base(context)
 
             params["info"] = ReachyInfo(
-                serial_number=str(self.config["mobile_base"]["serial_number"]),
-                version_hard=str(self.config["mobile_base"]["version_hard"]),
-                version_soft=str(self.config["mobile_base"]["version_soft"]),
+                serial_number=str(self.config["serial_number"]),
+                version_soft=os.getenv("IMAGE_VERSION_TAG", ""),
                 core_mode=self.core_mode,
             )
 
