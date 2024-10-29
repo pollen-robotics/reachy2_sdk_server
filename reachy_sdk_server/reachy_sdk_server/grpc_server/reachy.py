@@ -18,7 +18,12 @@ from reachy2_sdk_api.reachy_pb2 import (
 from reachy2_sdk_api.reachy_pb2_grpc import add_ReachyServiceServicer_to_server
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..utils import endless_timer_get_stream, endless_timer_get_stream_works, get_current_timestamp
+from ..utils import (
+    endless_timer_get_stream,
+    endless_timer_get_stream_works,
+    get_current_timestamp,
+    parse_reachy_config,
+)
 from .arm import ArmServicer
 from .hand import HandServicer
 from .head import HeadServicer
@@ -34,6 +39,8 @@ class ReachyServicer:
         hand_servicer: HandServicer,
         head_servicer: HeadServicer,
         mobile_base_servicer: MobileBaseServicer,
+        reachy_config_path: str = None,
+        core_mode: ReachyCoreMode = ReachyCoreMode.FAKE,
     ):
         self.bridge_node = bridge_node
         self.logger = logger
@@ -42,8 +49,9 @@ class ReachyServicer:
         self.hand_servicer = hand_servicer
         self.head_servicer = head_servicer
         self.mobile_base_servicer = mobile_base_servicer
-
+        self.core_mode = core_mode
         self.reachy_id = ReachyId(id=1, name="reachy")
+        self.config = parse_reachy_config(reachy_config_path)
 
     def register_to_server(self, server: grpc.Server):
         self.logger.info("Registering 'ArmServiceServicer' to server.")
@@ -71,17 +79,12 @@ class ReachyServicer:
             if self.mobile_base_servicer.get_mobile_base(context) is not None:
                 with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachy::type=mobile_base"):
                     params["mobile_base"] = self.mobile_base_servicer.get_mobile_base(context)
-            
-            # TODO: determine conditions to choose mode. Following modes are possible:
-            core_mode = ReachyCoreMode.FAKE
-            core_mode = ReachyCoreMode.REAL
-            core_mode = ReachyCoreMode.GAZEBO
-            
+
             params["info"] = ReachyInfo(
-                serial_number="",  # TODO: add serial_number as a string
-                version_hard="",  # TODO: add hardware version as a string
-                version_soft="",  # TODO: determine what is a soft version and add it as a string
-                core_mode=core_mode,
+                serial_number=str(self.config["mobile_base"]["serial_number"]),
+                version_hard=str(self.config["mobile_base"]["version_hard"]),
+                version_soft=str(self.config["mobile_base"]["version_soft"]),
+                core_mode=self.core_mode,
             )
 
         return Reachy(**params)
