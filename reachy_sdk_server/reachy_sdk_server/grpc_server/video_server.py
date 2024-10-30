@@ -128,14 +128,14 @@ class ReachyGRPCVideoSDKServicer:
 
         self._left_camera_info_sub = self.node.create_subscription(
             CameraInfo,
-            "teleop_camera/left_image/camera_info",
+            "teleop_camera/left_image/image_raw/camera_info",
             partial(self.on_info_update, cam_type=CameraType.TELEOP, side=View.LEFT),
             1,
         )
 
         self._right_camera_info_sub = self.node.create_subscription(
             CameraInfo,
-            "teleop_camera/right_image/camera_info",
+            "teleop_camera/right_image/image_raw/camera_info",
             partial(self.on_info_update, cam_type=CameraType.TELEOP, side=View.RIGHT),
             1,
         )
