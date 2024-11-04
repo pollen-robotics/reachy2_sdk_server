@@ -1,11 +1,11 @@
+import time
 from asyncio.events import AbstractEventLoop
 from collections import deque
 from functools import partial
-from threading import Event, Lock, Thread
+from threading import Event, Lock
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
-import time
 import prometheus_client as pc
 import rclpy
 import reachy2_monitoring as rm
@@ -20,7 +20,7 @@ from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import JointState
-from std_msgs.msg import Float32, Float32MultiArray, Empty
+from std_msgs.msg import Empty, Float32, Float32MultiArray
 
 from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix
@@ -33,8 +33,6 @@ class AbstractBridgeNode(Node):
         super().__init__(node_name="reachy_abstract_bridge_node")
 
         self.logger = self.get_logger()
-
-        self.goto_servicer = None
 
         NODE_NAME = f"grpc-server_SDK{'.' + str(port) if port != 0 else ''}"
         rm.configure_pyroscope(
@@ -143,8 +141,6 @@ class AbstractBridgeNode(Node):
             self.goto_action_client[prefix] = ActionClient(self, Goto, f"{prefix}_goto")
             self.get_logger().info(f"Waiting for action server {prefix}_goto...")
             self.goto_action_client[prefix].wait_for_server()
-
-        self.joints_names_per_gotoable_part = {}
 
         # Start up the server to expose the metrics.
         pc.start_http_server(metrics_port)
@@ -416,80 +412,42 @@ class AbstractBridgeNode(Node):
 
         self.publish_command(cmd)
 
-    
-    def set_torque_limit_to_all_motors(self,value: float) -> None:
+    def set_torque_limit_to_all_motors(self, value: float) -> None:
         """Set torque limit to all motors if part_name is an empty string,
         else only motors of the given part_name (e.g. r_arm) are set.
         Note: torque limits can only be modified in motor level not in joint level."""
 
         if not isinstance(value, float | int):
             raise ValueError(f"Expected one of: float, int for torquelimit, got {type(value)._name}")
-        if not (0. <= value <= 1.):
+        if not (0.0 <= value <= 1.0):
             raise ValueError(f"torque_limit must be in [0, 1], got {value}.")
 
         cmd = DynamicJointState()
         cmd.joint_names = []
-        for part in self.parts: 
+        for part in self.parts:
             # self.logger.info(f" part name {part.name}")
             for c in part.components:
-                
-                    # self.logger.info(f" c type {c.type}")
-                    # self.logger.info(f" c name {c.name}")
-                    if c.type == "orbita3d":
-                        nb_rw_motor = 3
-                    elif c.type == "orbita2d":
-                        nb_rw_motor = 2
-                    else:
-                        nb_rw_motor = 1
-                    for i in range(1, nb_rw_motor + 1):
-                        # cmd.joint_names.append(c.name)
-                        cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
+                if c.type == "orbita3d":
+                    nb_rw_motor = 3
+                elif c.type == "orbita2d":
+                    nb_rw_motor = 2
+                else:
+                    nb_rw_motor = 1
+                for i in range(1, nb_rw_motor + 1):
+                    # cmd.joint_names.append(c.name)
+                    cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
 
-                        cmd.interface_values.append(
-                            InterfaceValue(
-                                interface_names=["torque_limit"],
-                                values=[value],
-                            )
+                    cmd.interface_values.append(
+                        InterfaceValue(
+                            interface_names=["torque_limit"],
+                            values=[value],
                         )
+                    )
         self.publish_command(cmd)
 
-
     def emergency_stop(self, msg):
-        x = Thread(target=self.stop_robot)
-        x.start()
-
-        
-
-    def stop_robot(self):
-        self.logger.info(f" joints_names_per_gotoable_part {self.joints_names_per_gotoable_part}")
-
         torque_limit_low = 0.3
         self.set_torque_limit_to_all_motors(torque_limit_low)
-        self.goto_servicer.cancel_all_goals()
-
-        neck_joints = [0.0, 0.0, 0.0]
-        r_arm_joints = [0.0,  0.17453293, -0.17453293, 0.0, 0.0, 0.0, 0.0]
-        l_arm_joints = [0.0, -0.17453293, 0.17453293, 0.0, 0.0, 0.0, 0.0]
-
-        self.goto_servicer.goto_joints("r_arm", self.joints_names_per_gotoable_part["r_arm"], r_arm_joints, 3., mode="minimum_jerk")
-        self.goto_servicer.goto_joints("l_arm", self.joints_names_per_gotoable_part["l_arm"], l_arm_joints, 3., mode="minimum_jerk")
-        self.goto_servicer.goto_joints("neck", self.joints_names_per_gotoable_part["head"], neck_joints, 3., mode="minimum_jerk")  
-
         for i in range(6):
             time.sleep(0.5)
-            self.set_torque_limit_to_all_motors(torque_limit_low - i*0.05)
-
-        self.logger.info("Emergency stop called. Stopping all motors.")
-    
-    def get_gotoable_joints(self):
-        for prefix in self.prefixes:
-            if prefix == "neck":
-                prefix = "head"
-            for part in self.parts:
-                if part.name.startswith(prefix):
-                    self.joints_names_per_gotoable_part[prefix] = self.goto_servicer.part_to_list_of_joint_names(part)   
-        # return joints_names_per_gotoable_part                 
-                
-
-
-
+            self.set_torque_limit_to_all_motors(torque_limit_low - i * 0.05)
