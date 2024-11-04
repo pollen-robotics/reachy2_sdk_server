@@ -7,6 +7,7 @@ import threading
 import grpc
 import prometheus_client as pc
 import rclpy
+from reachy2_sdk_api.reachy_pb2 import ReachyCoreMode
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
@@ -20,7 +21,7 @@ from .reachy import ReachyServicer
 
 
 class ReachyGRPCJointSDKServicer:
-    def __init__(self, reachy_config_path: str = None, port=None) -> None:
+    def __init__(self, reachy_config_path: str = None, port=None, core_mode=ReachyCoreMode.REAL) -> None:
         rclpy.init()
 
         # executor = rclpy.executors.MultiThreadedExecutor()
@@ -61,6 +62,8 @@ class ReachyGRPCJointSDKServicer:
             hand_servicer,
             head_servicer,
             mobile_base_servicer,
+            reachy_config_path,
+            core_mode,
         )
 
         self.services = [
@@ -167,13 +170,14 @@ def main_singleprocess(_=1):
     parser.add_argument("--max-workers", type=int, default=10)
     parser.add_argument("--ros-args", action="store_true")
     parser.add_argument("reachy_config", type=str)
+    parser.add_argument("core_mode", type=int)
     args = parser.parse_args()
 
     port = f"{args.port}{_}"
     _LOGGER.info(f"Starting grpc server at {port}")
 
     # options = (("grpc.so_reuseport", 1),)
-    servicer = ReachyGRPCJointSDKServicer(reachy_config_path=args.reachy_config, port=port)
+    servicer = ReachyGRPCJointSDKServicer(reachy_config_path=args.reachy_config, port=port, core_mode=args.core_mode)
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers), interceptors=[Interceptor()])
     # server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers),
     #                      options=options)

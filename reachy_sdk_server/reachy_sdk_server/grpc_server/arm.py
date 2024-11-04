@@ -203,10 +203,11 @@ class ArmServicer:
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"TurnOn"):
-            self.set_stiffness(request, torque=True, context=context)
-            # Set all goal positions to the current position for safety
+            # 1. Set all goal positions to the current position for safety
             part = self.get_arm_part_by_part_id(request, context)
             self.bridge_node.set_all_joints_to_current_position(part.name)
+            # 2. enable the motors
+            self.set_stiffness(request, torque=True, context=context)
 
         return Empty()
 
