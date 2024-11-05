@@ -311,15 +311,32 @@ class GoToServicer:
 
     def GoToOdometry(self, request: GoToRequest, context: grpc.ServicerContext) -> GoToId:
         # TODO: send goto with given args and return GoToId
-        x_goal = request.odometry_goal.direction.x.value
-        y_goal = request.odometry_goal.direction.y.value
-        theta_goal = request.odometry_goal.direction.theta.value
+        self.logger.warning(f"XXX Revceived GoToOdometry request {request}")
+        self.logger.warning(f"XXX request.odometry_goal {request.odometry_goal}")
+        self.logger.warning(f"XXX request.odometry_goal.odometry_goal {request.odometry_goal.odometry_goal}")
 
-        distance_tolerance = request.odometry_goal.distance_tolerance.value
-        angle_tolerance = request.odometry_goal.angle_tolerance.value
-
-        timeout = request.odometry_goal.timeout.value
-        pass
+        self.logger.warning(f"XXX request.odometry_goal.odometry_goal.direction.theta.value {request.odometry_goal.odometry_goal.direction.theta.value}")
+        self.logger.warning(f"XXX request.odometry_goal.odometry_goal.direction.x.value {request.odometry_goal.odometry_goal.direction.x.value}")
+        
+        
+        return self.goto_zuuu(
+            request.odometry_goal.odometry_goal.direction.x.value,
+            request.odometry_goal.odometry_goal.direction.y.value,
+            request.odometry_goal.odometry_goal.direction.theta.value,
+            dist_tol=request.odometry_goal.distance_tolerance.value,
+            angle_tol=request.odometry_goal.angle_tolerance.value,
+            timeout=request.odometry_goal.timeout.value,
+            keep_control_on_arrival=True,
+            distance_p=5.0,
+            distance_i=0.0,
+            distance_d=0.0,
+            distance_max_command=0.4,
+            angle_p=5.0,
+            angle_i=0.0,
+            angle_d=0.0,
+            angle_max_command=1.0,
+        )
+        
 
     def GetGoToRequest(self, goto_id: GoToId, context: grpc.ServicerContext) -> GoToRequest:
         return self.get_goal_request_by_goal_id(goto_id.id, context)
@@ -421,6 +438,7 @@ class GoToServicer:
         """Sends an action request to the mobile base goto action server in an async (non-blocking) way.
         The goal handle is then stored for future use and monitoring.
         """
+        self.logger.info(f"XXXXX Sending ZuuuGotoGoal request to mobile base")
         future = asyncio.run_coroutine_threadsafe(
             self.bridge_node.send_zuuu_goto_goal(
                 x_goal,
@@ -444,6 +462,8 @@ class GoToServicer:
             self.bridge_node.asyncio_loop,
         )
         # Note: we could have used **goal_request instead of listing all the arguments, but it would have been less readable
+
+        self.logger.info(f"XXXXX Waiting for handle")
 
         # Wait for the result and get it => This has to be fast
         goal_handle = future.result()
@@ -469,9 +489,11 @@ class GoToServicer:
             self.logger.info("ZuuuGotoGoal was rejected")
             return GoToId(id=-1)
 
+        self.logger.info(f"XXXXX Storing goal")
 
         goal_id = self.goal_manager.store_goal_handle("mobile_base", goal_handle, goal_request)
-
+        self.logger.info(f"XXXXX Done. ID: {goal_id}")
+        
         return GoToId(id=goal_id)
 
     def get_interpolation_mode(self, request: GoToRequest) -> str:
@@ -580,7 +602,9 @@ class GoToServicer:
         # TODO: return correct elements here
         if goal_id in self.goal_manager.mobile_base_goal:
             # TODO: handle mobile_base id correctly. If hard-coded should be PartId(id=100, name="mobile_base")
-            part = self.bridge_node.parts.get_by_name("mobile_base")
+            # TODO Rémi : decide if the mobile base should be a part or not. The fit is not that good, because it would be a componentless part, so maybe keep it as a special case.
+            # part = self.bridge_node.parts.get_by_name("mobile_base")
+            part = PartId(id=100, name="mobile_base")
         if part is not None:
             # Depending on how are stored the mobile_base request, to be filled correctly
             odometry_goal = goal_request["odometry_goal"]

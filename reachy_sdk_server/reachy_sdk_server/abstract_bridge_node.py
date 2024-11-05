@@ -135,6 +135,10 @@ class AbstractBridgeNode(Node):
             self.get_logger().info(f"Waiting for action server {prefix}_goto...")
             self.goto_action_client[prefix].wait_for_server()
 
+        self.goto_zuuu_action_client = ActionClient(self, ZuuuGoto, "mobile_base_goto")
+        self.get_logger().info(f"Waiting for action server mobile_base_goto...")
+        self.goto_zuuu_action_client.wait_for_server()
+
         # Start up the server to expose the metrics.
         pc.start_http_server(metrics_port)
         self.sum_getreachystate = pc.Summary("sdkserver_GetReachyState_time", "Time spent during bridge reachy.GetReachyState")
@@ -423,18 +427,19 @@ class AbstractBridgeNode(Node):
         request.angle_max_command = angle_max_command
         
 
-        self.get_logger().debug("Sending zuuu goto goal request...")
+        self.get_logger().warning(f"Sending zuuu goto goal request: {request}")
 
-        goal_handle = await self.goto_action_client.send_goal_async(
+        goal_handle = await self.goto_zuuu_action_client.send_goal_async(
             goal_msg, feedback_callback=feedback_callback
         )
-        self.get_logger().debug("zuuu goto feedback_callback setuped")
+
+        self.get_logger().warning("zuuu goto feedback_callback setuped")
 
         if not goal_handle.accepted:
             self.get_logger().error("zuuu goto Goal rejected!")
             return None
 
-        self.get_logger().debug("zuuu goto goal accepted")
+        self.get_logger().warning("zuuu goto goal accepted")
 
         if return_handle:
             return goal_handle
@@ -442,7 +447,7 @@ class AbstractBridgeNode(Node):
             res = await goal_handle.get_result_async()
             result = res.result
             status = res.status
-            self.get_logger().debug(f"zuuu goto goto finished. Result: {result.result.status}")
+            self.get_logger().warning(f"zuuu goto goto finished. Result: {result.result.status}")
             return result, status
 
     def set_all_joints_to_current_position(self, part_name: str = "") -> None:
