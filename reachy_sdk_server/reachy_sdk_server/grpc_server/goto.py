@@ -339,7 +339,7 @@ class GoToServicer:
 
     def goto_joints(self, part_name, joint_names, goal_positions, duration, mode="minimum_jerk"):
         """Sends an action request to the goto action server in an async (non-blocking) way.
-        The goal handle is then stored for future use and monotoring.
+        The goal handle is then stored for future use and monitoring.
         """
         future = asyncio.run_coroutine_threadsafe(
             self.bridge_node.send_goto_goal(
@@ -401,6 +401,78 @@ class GoToServicer:
             duration,
             mode=interpolation_mode,
         )
+    
+    def goto_zuuu(self, 
+        x_goal,
+        y_goal,
+        theta_goal,
+        dist_tol=0.05,
+        angle_tol=np.deg2rad(5),
+        timeout=10.0,
+        keep_control_on_arrival=True,
+        distance_p=5.0,
+        distance_i=0.0,
+        distance_d=0.0,
+        distance_max_command=0.4,
+        angle_p=5.0,
+        angle_i=0.0,
+        angle_d=0.0,
+        angle_max_command=1.0):
+        """Sends an action request to the mobile base goto action server in an async (non-blocking) way.
+        The goal handle is then stored for future use and monitoring.
+        """
+        future = asyncio.run_coroutine_threadsafe(
+            self.bridge_node.send_zuuu_goto_goal(
+                x_goal,
+                y_goal,
+                theta_goal,
+                dist_tol=dist_tol,
+                angle_tol=angle_tol,
+                timeout=timeout,
+                keep_control_on_arrival=keep_control_on_arrival,
+                distance_p=distance_p,
+                distance_i=distance_i,
+                distance_d=distance_d,
+                distance_max_command=distance_max_command,
+                angle_p=angle_p,
+                angle_i=angle_i,
+                angle_d=angle_d,
+                angle_max_command=angle_max_command,
+                feedback_callback=None,
+                return_handle=True,
+            ),
+            self.bridge_node.asyncio_loop,
+        )
+        # Note: we could have used **goal_request instead of listing all the arguments, but it would have been less readable
+
+        # Wait for the result and get it => This has to be fast
+        goal_handle = future.result()
+
+        goal_request = {}
+        goal_request["x_goal"] = x_goal
+        goal_request["y_goal"] = y_goal
+        goal_request["theta_goal"] = theta_goal
+        goal_request["dist_tol"] = dist_tol
+        goal_request["angle_tol"] = angle_tol
+        goal_request["timeout"] = timeout
+        goal_request["keep_control_on_arrival"] = keep_control_on_arrival
+        goal_request["distance_p"] = distance_p
+        goal_request["distance_i"] = distance_i
+        goal_request["distance_d"] = distance_d
+        goal_request["distance_max_command"] = distance_max_command
+        goal_request["angle_p"] = angle_p
+        goal_request["angle_i"] = angle_i
+        goal_request["angle_d"] = angle_d
+        goal_request["angle_max_command"] = angle_max_command
+         
+        if goal_handle is None:
+            self.logger.info("ZuuuGotoGoal was rejected")
+            return GoToId(id=-1)
+
+
+        goal_id = self.goal_manager.store_goal_handle("mobile_base", goal_handle, goal_request)
+
+        return GoToId(id=goal_id)
 
     def get_interpolation_mode(self, request: GoToRequest) -> str:
         interpolation_mode = request.interpolation_mode.interpolation_type
