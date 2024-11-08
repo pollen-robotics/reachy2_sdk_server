@@ -478,7 +478,7 @@ class MobileBaseServicer(
         return Empty()
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        zuuu_mode = ZuuuModeCommand(id=request, mode=ZuuuModePossiblities.BRAKE)
+        zuuu_mode = ZuuuModeCommand(id=request, mode=ZuuuModePossiblities.CMD_GOTO)
         self.SetZuuuMode(zuuu_mode, context)
         return Empty()
 
