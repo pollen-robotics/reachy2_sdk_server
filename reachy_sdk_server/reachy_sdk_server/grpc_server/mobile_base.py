@@ -228,7 +228,7 @@ class MobileBaseServicer(
     def SendDirection(self, request: TargetDirectionCommand, context) -> MobilityServiceAck:
         """Send a speed command for the mobile base expressed in SI units."""
         self._last_direction = request
-        self.logger.info(f"Sending direction: {request.direction}")
+        # self.logger.info(f"Sending direction: {request.direction}")
 
         twist = Twist()
         twist.linear.x = request.direction.x.value
