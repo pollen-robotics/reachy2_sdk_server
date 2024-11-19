@@ -191,10 +191,14 @@ class ReachyGRPCVideoSDKServicer:
 
         if cam_type == CameraType.DEPTH and self._gazebo_mode:
             data = np.frombuffer(data, dtype=np.float32)  # specific conversion from Gazebo 32FC1 (in m) to 16UC1 (in mm)
+            data=data.astype(np.float64)
             data = data * 1000.0
+            data = np.nan_to_num(data)
+            data = np.clip(data, 0, 65535)
             data = data.astype(np.uint16)
             data = data.tobytes()
             encoding = "16UC1"
+
         frame = ROSFrameRaw(
             timestamp=Timestamp(seconds=msg.header.stamp.sec, nanos=msg.header.stamp.nanosec),
             data=data,
