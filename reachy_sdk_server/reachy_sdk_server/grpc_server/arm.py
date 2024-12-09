@@ -112,7 +112,6 @@ class ArmServicer:
         else:
             description = ReachabilityError.NO_ERROR
 
-        # self.logger.info(f"description={description}")
         return ReachabilityAnswer(
             order_id=Int32Value(value=order_id),
             is_reachable=BoolValue(value=is_reachable),
