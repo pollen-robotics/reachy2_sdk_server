@@ -11,6 +11,7 @@ from reachy2_sdk_api.reachy_pb2 import ReachyCoreMode
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
+from .dynamixel_motor import DynamixelMotorServicer
 from .goto import GoToServicer
 from .hand import HandServicer
 from .head import HeadServicer
@@ -45,6 +46,7 @@ class ReachyGRPCJointSDKServicer:
 
         orbita2d_servicer = Orbita2dServicer(self.bridge_node, self.logger)
         orbita3d_servicer = Orbita3dServicer(self.bridge_node, self.logger)
+        dynamixel_motor_servicer = DynamixelMotorServicer(self.bridge_node, self.logger)
         arm_servicer = ArmServicer(
             self.bridge_node,
             self.logger,
@@ -52,7 +54,7 @@ class ReachyGRPCJointSDKServicer:
             orbita3d_servicer,
         )
         hand_servicer = HandServicer(self.bridge_node, self.logger)
-        head_servicer = HeadServicer(self.bridge_node, self.logger, orbita3d_servicer)
+        head_servicer = HeadServicer(self.bridge_node, self.logger, orbita3d_servicer, dynamixel_motor_servicer)
         goto_servicer = GoToServicer(self.bridge_node, self.logger)
         mobile_base_servicer = MobileBaseServicer(self.bridge_node, self.logger, reachy_config_path)
         reachy_servicer = ReachyServicer(
@@ -68,6 +70,7 @@ class ReachyGRPCJointSDKServicer:
 
         self.services = [
             arm_servicer,
+            dynamixel_motor_servicer,
             goto_servicer,
             hand_servicer,
             head_servicer,

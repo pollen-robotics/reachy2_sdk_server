@@ -43,6 +43,7 @@ from ..conversion import (
 from ..parts import Part
 from ..utils import get_current_timestamp
 from .orbita3d import Orbita3dCommand, Orbita3dsCommand, Orbita3dServicer, Orbita3dStateRequest
+from .dynamixel_motor import DynamixelMotorServicer, DynamixelStateRequest
 
 
 class HeadServicer:
@@ -51,11 +52,13 @@ class HeadServicer:
         bridge_node: AbstractBridgeNode,
         logger: rclpy.impl.rcutils_logger.RcutilsLogger,
         orbita3d_servicer: Orbita3dServicer,
+        dynamixel_motor_servicer: DynamixelMotorServicer,
     ) -> None:
         self.bridge_node = bridge_node
         self.logger = logger
 
         self.orbita3d_servicer = orbita3d_servicer
+        self.dynamixel_servicer = dynamixel_motor_servicer
 
         self.heads = self.bridge_node.parts.get_by_type("head")
 
@@ -68,12 +71,12 @@ class HeadServicer:
             part_id=PartId(name=head.name, id=head.id),
             description=HeadDescription(
                 neck=Orbita3dServicer.get_info(self.bridge_node.components.get_by_name(head.components[0].name)),
-                # l_antenna=DynamixelMotor.get_info(
-                #     self.bridge_node.components.get_by_name(head.components[1].name)
-                # ),
-                # r_antenna=DynamixelMotor.get_info(
-                #     self.bridge_node.components.get_by_name(head.components[2].name)
-                # ),
+                l_antenna=DynamixelMotorServicer.get_info(
+                    self.bridge_node.components.get_by_name(head.components[1].name)
+                ),
+                r_antenna=DynamixelMotorServicer.get_info(
+                    self.bridge_node.components.get_by_name(head.components[2].name)
+                ),
             ),
         )
 
@@ -108,20 +111,20 @@ class HeadServicer:
                 ),
                 context,
             ),
-            # l_antenna_state=self.dynamixel_servicer.GetState(
-            #     DynamixelStateRequest(
-            #         fields=self.dynamixel_servicer.default_fields,
-            #         id=ComponentId(id=head.components[1].id),
-            #     ),
-            #     context,
-            # ),
-            # r_antenna_state=self.dynamixel_servicer.GetState(
-            #     DynamixelStateRequest(
-            #         fields=self.dynamixel_servicer.default_fields,
-            #         id=ComponentId(id=head.components[2].id),
-            #     ),
-            #     context,
-            # ),
+            l_antenna_state=self.dynamixel_servicer.GetState(
+                DynamixelStateRequest(
+                    fields=self.dynamixel_servicer.default_fields,
+                    id=ComponentId(id=head.components[1].id),
+                ),
+                context,
+            ),
+            r_antenna_state=self.dynamixel_servicer.GetState(
+                DynamixelStateRequest(
+                    fields=self.dynamixel_servicer.default_fields,
+                    id=ComponentId(id=head.components[2].id),
+                ),
+                context,
+            ),
         )
 
     def ComputeNeckFK(self, request: NeckFKRequest, context: grpc.ServicerContext) -> NeckFKSolution:
