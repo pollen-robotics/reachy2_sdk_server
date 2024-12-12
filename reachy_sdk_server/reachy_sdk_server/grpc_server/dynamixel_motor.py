@@ -1,5 +1,5 @@
-from typing import Iterator
 import math
+from typing import Iterator
 
 import grpc
 import numpy as np
@@ -9,25 +9,24 @@ from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
 from reachy2_sdk_api.component_pb2 import ComponentId, JointLimits, PIDGains
-
 from reachy2_sdk_api.dynamixel_motor_pb2 import (
     DynamixelMotor,
+    DynamixelMotorCommand,
     DynamixelMotorField,
+    DynamixelMotorGoal,
+    DynamixelMotorsCommand,
     DynamixelMotorState,
     DynamixelMotorStateRequest,
-    DynamixelMotorStreamStateRequest,
-    DynamixelMotorGoal,
-    DynamixelMotorCommand,
-    DynamixelMotorsCommand,
-    ListOfDynamixelMotor,
     DynamixelMotorStatus,
+    DynamixelMotorStreamStateRequest,
+    ListOfDynamixelMotor,
 )
 from reachy2_sdk_api.dynamixel_motor_pb2_grpc import add_DynamixelMotorServiceServicer_to_server
 from sensor_msgs.msg import JointState
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..components import Component
-from ..utils import get_current_timestamp, endless_get_stream
+from ..utils import endless_get_stream, extract_fields, get_current_timestamp
 
 
 class DynamixelMotorServicer:
@@ -53,19 +52,24 @@ class DynamixelMotorServicer:
         )
 
     def GetAllDynamixelMotor(self, request: Empty, context: grpc.ServicerContext) -> ListOfDynamixelMotor:
-        return ListOfDynamixelMotor(orbita2d=[self.get_info(o) for o in self.bridge_node.components.get_by_type("dynamixel_motor")])
+        return ListOfDynamixelMotor(
+            orbita2d=[self.get_info(o) for o in self.bridge_node.components.get_by_type("dynamixel_motor")]
+        )
 
     # State
     def GetState(self, request: DynamixelMotorStateRequest, context: grpc.ServicerContext) -> DynamixelMotorState:
-        orbita2d_components = self.get_orbita2d_components(request.id, context=context)
-        state = extract_fields(Orbita2dField, request.fields, conversion_table, orbita2d_components)
+        components = self.bridge_node.components
+        dxl_motor = components.get_by_component_id(request.id)
+        state = extract_fields(DynamixelMotorField, request.fields, conversion_table, dxl_motor)
 
         state["timestamp"] = get_current_timestamp(self.bridge_node)
         state["temperature"] = FloatValue(value=40.0)
         state["joint_limits"] = JointLimits(min=FloatValue(value=0.0), max=FloatValue(value=100.0))
         return DynamixelMotorState(**state)
 
-    def StreamState(self, request: DynamixelMotorStreamStateRequest, context: grpc.ServicerContext) -> Iterator[DynamixelMotorState]:
+    def StreamState(
+        self, request: DynamixelMotorStreamStateRequest, context: grpc.ServicerContext
+    ) -> Iterator[DynamixelMotorState]:
         return endless_get_stream(
             self.GetState,
             request.req,
@@ -79,10 +83,59 @@ class DynamixelMotorServicer:
         cmd = DynamicJointState()
         cmd.joint_names = []
 
+        for req_cmd in request.cmd:
+            if not req_cmd.HasField("id"):
+                context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Missing 'id' field.")
+
+            components = self.bridge_node.components
+            dxl_motor = components.get_by_component_id(request.id)
+
+            if dxl_motor is None:
+                context.abort(grpc.StatusCode.NOT_FOUND, "Component not found.")
+            else:
+                if req_cmd.HasField("compliant"):
+                    cmd.joint_names.append(dxl_motor.name)
+                    cmd.interface_values.append(
+                        InterfaceValue(
+                            interface_names=["torque"],
+                            values=[not req_cmd.compliant.value],
+                        )
+                    )
+
+                if req_cmd.HasField("goal_position"):
+                    cmd.joint_names.append(dxl_motor.name)
+                    cmd.interface_values.append(
+                        InterfaceValue(
+                            interface_names=["position"],
+                            values=[req_cmd.goal_position.value],
+                        )
+                    )
+
+                if req_cmd.HasField("speed_limit"):
+                    cmd.joint_names.append(dxl_motor.name)
+                    cmd.interface_values.append(
+                        InterfaceValue(
+                            interface_names=["speed_limit"],
+                            values=[req_cmd.speed_limit.value],
+                        )
+                    )
+
+                if req_cmd.HasField("torque_limit"):
+                    cmd.joint_names.append(dxl_motor.name)
+                    cmd.interface_values.append(
+                        InterfaceValue(
+                            interface_names=["torque_limit"],
+                            values=[req_cmd.torque_limit.value],
+                        )
+                    )
+
+        if cmd.joint_names:
+            self.bridge_node.publish_command(cmd)
+
         return Empty()
 
     def SetPosition(self, request: DynamixelMotorGoal, context: grpc.ServicerContext) -> Empty:
-        pass
+        return Empty()
 
     def StreamCommand(self, request_stream: Iterator[DynamixelMotorsCommand], context: grpc.ServicerContext) -> Empty:
         for request in request_stream:
@@ -110,20 +163,20 @@ conversion_table = {
     "speed_limit": lambda o: FloatValue(value=o.actuator.state["speed_limit"]),
     "torque_limit": lambda o: FloatValue(value=o.actuator.state["torque_limit"]),
     "pid": lambda o: PIDGains(
-            p=(
-                FloatValue(value=o.raw_motor_1.state["p_gain"])
-                if not math.isnan(o.raw_motor_1.state["p_gain"])
-                else FloatValue(value=100.0)
-            ),
-            i=(
-                FloatValue(value=o.raw_motor_1.state["i_gain"])
-                if not math.isnan(o.raw_motor_1.state["i_gain"])
-                else FloatValue(value=100.0)
-            ),
-            d=(
-                FloatValue(value=o.raw_motor_1.state["d_gain"])
-                if not math.isnan(o.raw_motor_1.state["d_gain"])
-                else FloatValue(value=100.0)
-            ),
+        p=(
+            FloatValue(value=o.raw_motor_1.state["p_gain"])
+            if not math.isnan(o.raw_motor_1.state["p_gain"])
+            else FloatValue(value=100.0)
         ),
+        i=(
+            FloatValue(value=o.raw_motor_1.state["i_gain"])
+            if not math.isnan(o.raw_motor_1.state["i_gain"])
+            else FloatValue(value=100.0)
+        ),
+        d=(
+            FloatValue(value=o.raw_motor_1.state["d_gain"])
+            if not math.isnan(o.raw_motor_1.state["d_gain"])
+            else FloatValue(value=100.0)
+        ),
+    ),
 }

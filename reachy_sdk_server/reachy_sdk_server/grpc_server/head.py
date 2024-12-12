@@ -42,8 +42,8 @@ from ..conversion import (
 )
 from ..parts import Part
 from ..utils import get_current_timestamp
-from .orbita3d import Orbita3dCommand, Orbita3dsCommand, Orbita3dServicer, Orbita3dStateRequest
 from .dynamixel_motor import DynamixelMotorServicer, DynamixelStateRequest
+from .orbita3d import Orbita3dCommand, Orbita3dsCommand, Orbita3dServicer, Orbita3dStateRequest
 
 
 class HeadServicer:
@@ -71,12 +71,8 @@ class HeadServicer:
             part_id=PartId(name=head.name, id=head.id),
             description=HeadDescription(
                 neck=Orbita3dServicer.get_info(self.bridge_node.components.get_by_name(head.components[0].name)),
-                l_antenna=DynamixelMotorServicer.get_info(
-                    self.bridge_node.components.get_by_name(head.components[1].name)
-                ),
-                r_antenna=DynamixelMotorServicer.get_info(
-                    self.bridge_node.components.get_by_name(head.components[2].name)
-                ),
+                l_antenna=DynamixelMotorServicer.get_info(self.bridge_node.components.get_by_name(head.components[1].name)),
+                r_antenna=DynamixelMotorServicer.get_info(self.bridge_node.components.get_by_name(head.components[2].name)),
             ),
         )
 
