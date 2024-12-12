@@ -71,8 +71,8 @@ class HeadServicer:
             part_id=PartId(name=head.name, id=head.id),
             description=HeadDescription(
                 neck=Orbita3dServicer.get_info(self.bridge_node.components.get_by_name(head.components[0].name)),
-                l_antenna=DynamixelMotorServicer.get_info(self.bridge_node.components.get_by_name(head.components[1].name)),
-                r_antenna=DynamixelMotorServicer.get_info(self.bridge_node.components.get_by_name(head.components[2].name)),
+                l_antenna=DynamixelMotorServicer.get_info(self.bridge_node.components.get_by_name("antenna_left")),
+                r_antenna=DynamixelMotorServicer.get_info(self.bridge_node.components.get_by_name("antenna_right")),
             ),
         )
 
@@ -110,17 +110,17 @@ class HeadServicer:
             l_antenna_state=self.dynamixel_servicer.GetState(
                 DynamixelMotorStateRequest(
                     fields=self.dynamixel_servicer.default_fields,
-                    id=ComponentId(id=head.components[1].id),
+                    id=ComponentId(id=self.bridge_node.components.get_by_name("antenna_left").id),
                 ),
                 context,
             ),
-            r_antenna_state=self.dynamixel_servicer.GetState(
-                DynamixelMotorStateRequest(
-                    fields=self.dynamixel_servicer.default_fields,
-                    id=ComponentId(id=head.components[2].id),
-                ),
-                context,
-            ),
+            # r_antenna_state=self.dynamixel_servicer.GetState(
+            #     DynamixelMotorStateRequest(
+            #         fields=self.dynamixel_servicer.default_fields,
+            #         id=ComponentId(id=head.components[2].id),
+            #     ),
+            #     context,
+            # ),
         )
 
     def ComputeNeckFK(self, request: NeckFKRequest, context: grpc.ServicerContext) -> NeckFKSolution:

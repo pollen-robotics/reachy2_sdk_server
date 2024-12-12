@@ -30,6 +30,15 @@ from ..utils import endless_get_stream, extract_fields, get_current_timestamp
 
 
 class DynamixelMotorServicer:
+    default_fields = [
+        DynamixelMotorField.PRESENT_POSITION,
+        DynamixelMotorField.GOAL_POSITION,
+        DynamixelMotorField.TEMPERATURE,
+        # DynamixelMotorField.TORQUE_LIMIT,
+        # DynamixelMotorField.SPEED_LIMIT,
+        DynamixelMotorField.COMPLIANT,
+    ]
+
     def __init__(
         self,
         bridge_node: AbstractBridgeNode,
@@ -154,14 +163,14 @@ class DynamixelMotorServicer:
 
 
 conversion_table = {
-    "id": lambda o: ComponentId(id=o.actuator.id, name=o.actuator.name),
-    "present_position": lambda o: FloatValue(value=o.actuator.state["position"]),
-    "present_speed": lambda o: FloatValue(value=o.actuator.state["velocity"]),
-    "present_load": lambda o: FloatValue(value=o.actuator.state["effort"]),
-    "compliant": lambda o: BoolValue(value=not o.actuator.state["torque"]),
-    "goal_position": lambda o: FloatValue(value=o.actuator.state["target_position"]),
-    "speed_limit": lambda o: FloatValue(value=o.actuator.state["speed_limit"]),
-    "torque_limit": lambda o: FloatValue(value=o.actuator.state["torque_limit"]),
+    "id": lambda o: ComponentId(id=o.id, name=o.name),
+    "present_position": lambda o: FloatValue(value=o.state["position"]),
+    "present_speed": lambda o: FloatValue(value=o.state["velocity"]),
+    "present_load": lambda o: FloatValue(value=o.state["effort"]),
+    "compliant": lambda o: BoolValue(value=not o.state["torque"]),
+    "goal_position": lambda o: FloatValue(value=o.state["target_position"]),
+    "speed_limit": lambda o: FloatValue(value=o.state["speed_limit"]),
+    "torque_limit": lambda o: FloatValue(value=o.state["torque_limit"]),
     "pid": lambda o: PIDGains(
         p=(
             FloatValue(value=o.raw_motor_1.state["p_gain"])
