@@ -42,7 +42,7 @@ from ..conversion import (
 )
 from ..parts import Part
 from ..utils import get_current_timestamp
-from .dynamixel_motor import DynamixelMotorServicer, DynamixelStateRequest
+from .dynamixel_motor import DynamixelMotorServicer, DynamixelMotorStateRequest
 from .orbita3d import Orbita3dCommand, Orbita3dsCommand, Orbita3dServicer, Orbita3dStateRequest
 
 
@@ -108,14 +108,14 @@ class HeadServicer:
                 context,
             ),
             l_antenna_state=self.dynamixel_servicer.GetState(
-                DynamixelStateRequest(
+                DynamixelMotorStateRequest(
                     fields=self.dynamixel_servicer.default_fields,
                     id=ComponentId(id=head.components[1].id),
                 ),
                 context,
             ),
             r_antenna_state=self.dynamixel_servicer.GetState(
-                DynamixelStateRequest(
+                DynamixelMotorStateRequest(
                     fields=self.dynamixel_servicer.default_fields,
                     id=ComponentId(id=head.components[2].id),
                 ),
