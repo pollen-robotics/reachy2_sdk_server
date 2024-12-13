@@ -114,13 +114,13 @@ class HeadServicer:
                 ),
                 context,
             ),
-            # r_antenna_state=self.dynamixel_servicer.GetState(
-            #     DynamixelMotorStateRequest(
-            #         fields=self.dynamixel_servicer.default_fields,
-            #         id=ComponentId(id=head.components[2].id),
-            #     ),
-            #     context,
-            # ),
+            r_antenna_state=self.dynamixel_servicer.GetState(
+                DynamixelMotorStateRequest(
+                    fields=self.dynamixel_servicer.default_fields,
+                    id=ComponentId(id=self.bridge_node.components.get_by_name("antenna_right").id),
+                ),
+                context,
+            ),
         )
 
     def ComputeNeckFK(self, request: NeckFKRequest, context: grpc.ServicerContext) -> NeckFKSolution:
