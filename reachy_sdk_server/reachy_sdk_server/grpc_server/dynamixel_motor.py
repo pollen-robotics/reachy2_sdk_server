@@ -89,6 +89,7 @@ class DynamixelMotorServicer:
 
     # Command
     def SendCommand(self, request: DynamixelMotorsCommand, context: grpc.ServicerContext) -> Empty:
+
         cmd = DynamicJointState()
         cmd.joint_names = []
 
@@ -99,6 +100,8 @@ class DynamixelMotorServicer:
             components = self.bridge_node.components
 
             dxl_motor = components.get_by_component_id(req_cmd.id)
+            if dxl_motor is None:
+                dxl_motor = components.get_by_component_name(req_cmd.name)
 
             if dxl_motor is None:
                 context.abort(grpc.StatusCode.NOT_FOUND, "Component not found.")
