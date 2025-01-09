@@ -89,7 +89,6 @@ class DynamixelMotorServicer:
 
     # Command
     def SendCommand(self, request: DynamixelMotorsCommand, context: grpc.ServicerContext) -> Empty:
-
         cmd = DynamicJointState()
         cmd.joint_names = []
 
