@@ -25,7 +25,6 @@ setup(
     entry_points={
         "console_scripts": [
             "reachy_grpc_joint_sdk_server = reachy_sdk_server.grpc_server.joint_server:main",
-            "reachy_grpc_audio_sdk_server = reachy_sdk_server.grpc_server.audio_server:main",
             "reachy_grpc_video_sdk_server = reachy_sdk_server.grpc_server.video_server:main",
         ],
     },
