@@ -62,6 +62,19 @@ class AbstractBridgeNode(Node):
             callback=self.update_state,
             qos_profile=10,
         )
+        
+        self.mobile_base_enabled = True 
+
+        config = parse_reachy_config(reachy_config_path)
+        self.info = {
+            "serial_number": config["mobile_base"]["serial_number"],
+            "version_hard": config["mobile_base"]["version_hard"],
+            "version_soft": config["mobile_base"]["version_soft"],
+        }
+
+        if not config["mobile_base"]["serial_number"]:
+            self.logger.info("No mobile base found in the config file. Mobile base server not initialized.")
+            self.mobile_base_enabled = False
 
         # TODO create publisher
         # self.create_subscription(
@@ -135,9 +148,10 @@ class AbstractBridgeNode(Node):
             self.get_logger().info(f"Waiting for action server {prefix}_goto...")
             self.goto_action_client[prefix].wait_for_server()
 
-        self.goto_zuuu_action_client = ActionClient(self, ZuuuGoto, "mobile_base_goto")
-        self.get_logger().info(f"Waiting for action server mobile_base_goto...")
-        self.goto_zuuu_action_client.wait_for_server()
+        if self.mobile_base_enabled:
+            self.goto_zuuu_action_client = ActionClient(self, ZuuuGoto, "mobile_base_goto")
+            self.get_logger().info(f"Waiting for action server mobile_base_goto...")
+            self.goto_zuuu_action_client.wait_for_server()
 
         # Start up the server to expose the metrics.
         pc.start_http_server(metrics_port)
