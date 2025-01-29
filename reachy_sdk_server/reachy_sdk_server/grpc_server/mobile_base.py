@@ -78,7 +78,7 @@ class MobileBaseServicer(
     """Mobile base SDK server node."""
 
     def __init__(
-        self, bridge_node: AbstractBridgeNode, logger: rclpy.impl.rcutils_logger.RcutilsLogger, reachy_config_path: str
+        self, bridge_node: AbstractBridgeNode, logger: rclpy.impl.rcutils_logger.RcutilsLogger, mobile_base_config: dict
     ) -> None:
         """Set up the node.
 
@@ -90,14 +90,14 @@ class MobileBaseServicer(
         self.bridge_node = bridge_node
         self.mobile_base_enabled = True  # Keep track of mobile base status in order to return None for teleop
 
-        config = parse_reachy_config(reachy_config_path)
+        # config = parse_reachy_config(reachy_config_path)
         self.info = {
-            "serial_number": config["mobile_base"]["serial_number"],
-            "version_hard": config["mobile_base"]["version_hard"],
-            "version_soft": config["mobile_base"]["version_soft"],
+            "serial_number": mobile_base_config["serial_number"],
+            "version_hard": mobile_base_config["version_hard"],
+            "version_soft": mobile_base_config["version_soft"],
         }
 
-        if not config["mobile_base"]["serial_number"]:
+        if not mobile_base_config["enable"]:
             self.logger.info("No mobile base found in the config file. Mobile base server not initialized.")
             self.mobile_base_enabled = False
             return

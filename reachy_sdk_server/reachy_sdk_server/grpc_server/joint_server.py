@@ -8,6 +8,7 @@ import grpc
 import prometheus_client as pc
 import rclpy
 from reachy2_sdk_api.reachy_pb2 import ReachyCoreMode
+from reachy_config import ReachyConfig
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from .arm import ArmServicer
@@ -22,7 +23,9 @@ from .reachy import ReachyServicer
 
 
 class ReachyGRPCJointSDKServicer:
-    def __init__(self, reachy_config_path: str = None, port=None, core_mode=ReachyCoreMode.REAL) -> None:
+    def __init__(
+        self, reachy_config_path: str = None, port=None, core_mode=ReachyCoreMode.REAL, reachy_config: dict = {}
+    ) -> None:
         rclpy.init()
 
         # executor = rclpy.executors.MultiThreadedExecutor()
@@ -56,7 +59,9 @@ class ReachyGRPCJointSDKServicer:
         hand_servicer = HandServicer(self.bridge_node, self.logger)
         head_servicer = HeadServicer(self.bridge_node, self.logger, orbita3d_servicer, dynamixel_motor_servicer)
         goto_servicer = GoToServicer(self.bridge_node, self.logger)
-        mobile_base_servicer = MobileBaseServicer(self.bridge_node, self.logger, reachy_config_path)
+        mobile_base_servicer = MobileBaseServicer(
+            self.bridge_node, self.logger, reachy_config.config["reachy"]["config"]["mobile_base"]
+        )
         reachy_servicer = ReachyServicer(
             self.bridge_node,
             self.logger,
@@ -180,7 +185,11 @@ def main_singleprocess(_=1):
     _LOGGER.info(f"Starting grpc server at {port}")
 
     # options = (("grpc.so_reuseport", 1),)
-    servicer = ReachyGRPCJointSDKServicer(reachy_config_path=args.reachy_config, port=port, core_mode=args.core_mode)
+    reachy_config = ReachyConfig(no_print=True)
+
+    servicer = ReachyGRPCJointSDKServicer(
+        reachy_config_path=args.reachy_config, port=port, core_mode=args.core_mode, reachy_config=reachy_config
+    )
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers), interceptors=[Interceptor()])
     # server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers),
     #                      options=options)
