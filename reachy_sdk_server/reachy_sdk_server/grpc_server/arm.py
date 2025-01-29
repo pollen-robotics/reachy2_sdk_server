@@ -102,7 +102,9 @@ class ArmServicer:
             "limited by shoulder": ReachabilityError.SHOULDER_LIMIT,
             "limited by elbow": ReachabilityError.ELBOW_LIMIT,
             "limited by wrist": ReachabilityError.WRIST_LIMIT,
-            "continuity limit": ReachabilityError.CONTINUITY_LIMIT,
+            "avoid singularity": ReachabilityError.SINGULARITY_AVOIDANCE,
+            "EMERGENCY STOP : discontinuity": ReachabilityError.DISCONTINUITY_FREEZE,
+            "EMERGENCY STOP : multiturn": ReachabilityError.MULTITURN_FREEZE,
         }
 
         if not is_reachable:
@@ -341,6 +343,7 @@ class ArmServicer:
             continuous_mode_dict = {
                 IKContinuousMode.CONTINUOUS: "continuous",
                 IKContinuousMode.DISCRETE: "discrete",
+                IKContinuousMode.UNFREEZE: "unfreeze",
                 IKContinuousMode.UNDEFINED_CONTINUOUS_MODE: "undefined",
             }
 

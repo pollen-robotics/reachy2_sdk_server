@@ -232,7 +232,7 @@ class MobileBaseServicer(
     def SendDirection(self, request: TargetDirectionCommand, context) -> MobilityServiceAck:
         """Send a speed command for the mobile base expressed in SI units."""
         self._last_direction = request
-        self.logger.info(f"Sending direction: {request.direction}")
+        # self.logger.info(f"Sending direction: {request.direction}")
 
         twist = Twist()
         twist.linear.x = request.direction.x.value
@@ -468,8 +468,8 @@ class MobileBaseServicer(
         return Empty()
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        zuuu_mode = ZuuuModeCommand(id=request, mode=ZuuuModePossiblities.BRAKE)
-        self.SetZuuuMode(zuuu_mode, context)
+        # zuuu_mode = ZuuuModeCommand(id=request, mode=ZuuuModePossiblities.CMD_GOTO)
+        # self.SetZuuuMode(zuuu_mode, context)
         return Empty()
 
     def TurnOff(self, request: PartId, context: grpc.ServicerContext) -> Empty:
