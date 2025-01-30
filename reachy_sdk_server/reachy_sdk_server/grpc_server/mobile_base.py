@@ -4,6 +4,7 @@ import io
 import zlib
 from queue import Empty
 from subprocess import PIPE, check_output, run
+from typing import Optional
 
 import grpc
 import rclpy
@@ -67,6 +68,7 @@ from zuuu_interfaces.srv import (
 )
 
 from ..abstract_bridge_node import AbstractBridgeNode
+from ..parts import Part
 from ..utils import get_current_timestamp, parse_reachy_config
 
 
@@ -152,7 +154,7 @@ class MobileBaseServicer(
             self.logger.info("service GetZuuuSafety not available, waiting again...")
 
         # TODO: handle part_id correctly
-        self._part_id = PartId(id=100, name="mobile_base")
+        self.mobile_bases = self.bridge_node.parts.get_by_type("mobile_base")
         self.logger.info("Initialized mobile base server.")
 
     def register_to_server(self, server: grpc.Server) -> None:
@@ -162,11 +164,13 @@ class MobileBaseServicer(
         add_MobileBaseMobilityServiceServicer_to_server(self, server)
         add_MobileBaseUtilityServiceServicer_to_server(self, server)
 
-    def get_mobile_base(self, context: grpc.ServicerContext) -> MobileBase:
+    def get_mobile_base(self, mobile_base: Optional[Part], context: grpc.ServicerContext) -> MobileBase:
         """Get mobile base basic info."""
         if self.mobile_base_enabled:
+            if mobile_base is None:
+                mobile_base = self.mobile_bases[0]
             return MobileBase(
-                part_id=self._part_id,
+                part_id=PartId(name=mobile_base.name, id=mobile_base.id),
                 info=PartInfo(
                     serial_number=self.info["serial_number"],
                     version_hard=str(self.info["version_hard"]),
@@ -184,7 +188,7 @@ class MobileBaseServicer(
 
     def GetMobileBase(self, request: Empty, context) -> PartInfo:
         """Get mobile base basic info."""
-        return self.get_mobile_base(context)
+        return self.get_mobile_base(None, context)
 
     def GetState(self, request: PartId, context) -> MobileBaseState:
         """Get mobile base state."""
@@ -211,9 +215,9 @@ class MobileBaseServicer(
         res_status.critical_distance.value = lidar_info["critical_distance"]
         res_status.obstacle_detection_status.status = grpc_obstacle_detection_status
 
-        res_zuuu_mode = ZuuuModeCommand(id=self._part_id, mode=getattr(ZuuuModePossiblities, self.bridge_node.get_zuuu_mode()))
+        res_zuuu_mode = ZuuuModeCommand(id=request, mode=getattr(ZuuuModePossiblities, self.bridge_node.get_zuuu_mode()))
         res_control_mode = ControlModeCommand(
-            id=self._part_id, mode=getattr(ControlModePossiblities, self.bridge_node.get_control_mode())
+            id=request, mode=getattr(ControlModePossiblities, self.bridge_node.get_control_mode())
         )
 
         res_bat = BatteryLevel(level=FloatValue(value=self.bridge_node.get_battery_voltage()))
@@ -312,7 +316,7 @@ class MobileBaseServicer(
         mode = output.split(": ")[-1].split()[0]
 
         mode_grpc = getattr(ControlModePossiblities, mode)
-        return ControlModeCommand(id=self._part_id, mode=mode_grpc)
+        return ControlModeCommand(id=PartId(name=self.mobile_bases[0].name, id=self.mobile_bases[0].id), mode=mode_grpc)
 
     def SetZuuuMode(self, request: ZuuuModeCommand, context) -> MobilityServiceAck:
         """Set mobile base drive mode.
@@ -340,7 +344,7 @@ class MobileBaseServicer(
             mode = result.mode
             mode = getattr(ZuuuModePossiblities, mode)
 
-        return ZuuuModeCommand(id=self._part_id, mode=mode)
+        return ZuuuModeCommand(id=PartId(name=self.mobile_bases[0].name, id=self.mobile_bases[0].id), mode=mode)
 
     def GetBatteryLevel(self, request: PartId, context) -> BatteryLevel:
         """Get mobile base battery level in Volt."""
@@ -411,7 +415,7 @@ class MobileBaseServicer(
 
         if result is not None:
             ros_response = result
-            response.id = self._part_id
+            response.id = request
             response.safety_on.value = ros_response.safety_on
             response.safety_distance.value = ros_response.safety_distance
             response.critical_distance.value = ros_response.critical_distance
