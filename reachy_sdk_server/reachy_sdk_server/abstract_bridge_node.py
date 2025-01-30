@@ -11,7 +11,6 @@ import reachy2_monitoring as rm
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from geometry_msgs.msg import Pose, PoseStamped
 from pollen_msgs.action import Goto
-from zuuu_interfaces.action import ZuuuGoto
 from pollen_msgs.msg import CartTarget, IKRequest, MobileBaseState, ReachabilityState
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
 from rclpy.action import ActionClient
@@ -19,17 +18,18 @@ from rclpy.node import Node
 from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.part_pb2 import PartId
+from reachy_config import ReachyConfig
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float32, Float32MultiArray
+from zuuu_interfaces.action import ZuuuGoto
 
 from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix
 from .parts import PartsHolder
-from .utils import parse_reachy_config
 
 
 class AbstractBridgeNode(Node):
-    def __init__(self, reachy_config_path: str = None, asyncio_loop: AbstractEventLoop = None, port=0) -> None:
+    def __init__(self, reachy_config: ReachyConfig, asyncio_loop: AbstractEventLoop = None, port=0) -> None:
         super().__init__(node_name="reachy_abstract_bridge_node")
 
         self.logger = self.get_logger()
@@ -43,12 +43,11 @@ class AbstractBridgeNode(Node):
             },
         )
         self.tracer = rm.tracer(NODE_NAME, grpc_type="server")
-
+        self.config = reachy_config.config["reachy"]["config"]
         metrics_port = 10000 + int(port)
         self.logger.info(f"Start port:{port}, metrics_port:{metrics_port} (port+10000).")
 
         self.asyncio_loop = asyncio_loop
-        self.config = parse_reachy_config(reachy_config_path)
         self.components = ComponentsHolder(self.config)
 
         self.got_first_state = Event()
@@ -62,19 +61,16 @@ class AbstractBridgeNode(Node):
             callback=self.update_state,
             qos_profile=10,
         )
-        
-        self.mobile_base_enabled = True 
 
-        config = parse_reachy_config(reachy_config_path)
-        self.info = {
-            "serial_number": config["mobile_base"]["serial_number"],
-            "version_hard": config["mobile_base"]["version_hard"],
-            "version_soft": config["mobile_base"]["version_soft"],
-        }
-
-        if not config["mobile_base"]["serial_number"]:
+        self.mobile_base_enabled = reachy_config.mobile_base["enable"]
+        if not self.mobile_base_enabled:
             self.logger.info("No mobile base found in the config file. Mobile base server not initialized.")
-            self.mobile_base_enabled = False
+
+        self.info = {
+            "serial_number": reachy_config.mobile_base["serial_number"],
+            "version_hard": reachy_config.mobile_base["version_hard"],
+            "version_soft": reachy_config.mobile_base["version_soft"],
+        }
 
         # TODO create publisher
         # self.create_subscription(
@@ -387,7 +383,7 @@ class AbstractBridgeNode(Node):
             status = res.status
             self.get_logger().debug(f"Goto finished. Result: {result.result.status}")
             return result, status
-        
+
     async def send_zuuu_goto_goal(
         self,
         x_goal,
@@ -407,7 +403,7 @@ class AbstractBridgeNode(Node):
         angle_max_command=1.0,
         feedback_callback=None,
         return_handle=False,
-    ):  
+    ):
         """Send a goal to the zuuu_goto action server.
         x_goal (m), y_goal (m), theta_goal (rads) ->  goal pose in the odom frame
         dist_tol (m), angle_tol (rads) -> distance and angle tolerance for the goal
@@ -418,12 +414,12 @@ class AbstractBridgeNode(Node):
         angle_p, angle_i, angle_d -> PID gains for the angle control loop
         angle_max_command (rads/s -ish) -> limits the maximum command for the angle PID controller
         feedback_callback -> callback function to be called when feedback is received
-        return_handle (bool) -> if True, the function will return the goal handle, else it will wait for the goal to finish and return the result and status            
+        return_handle (bool) -> if True, the function will return the goal handle, else it will wait for the goal to finish and return the result and status
         """
         goal_msg = ZuuuGoto.Goal()
-        
+
         request = goal_msg.request  # This is of type zuuu_interfaces/ZuuuGotoRequest
-        
+
         request.x_goal = x_goal
         request.y_goal = y_goal
         request.theta_goal = theta_goal
@@ -439,13 +435,10 @@ class AbstractBridgeNode(Node):
         request.angle_i = angle_i
         request.angle_d = angle_d
         request.angle_max_command = angle_max_command
-        
 
         self.get_logger().warning(f"Sending zuuu goto goal request: {request}")
 
-        goal_handle = await self.goto_zuuu_action_client.send_goal_async(
-            goal_msg, feedback_callback=feedback_callback
-        )
+        goal_handle = await self.goto_zuuu_action_client.send_goal_async(goal_msg, feedback_callback=feedback_callback)
 
         self.get_logger().warning("zuuu goto feedback_callback setuped")
 

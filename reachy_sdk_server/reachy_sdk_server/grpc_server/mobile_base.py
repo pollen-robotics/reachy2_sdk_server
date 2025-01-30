@@ -67,7 +67,7 @@ from zuuu_interfaces.srv import (
 )
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..utils import get_current_timestamp, parse_reachy_config
+from ..utils import get_current_timestamp
 
 
 class MobileBaseServicer(

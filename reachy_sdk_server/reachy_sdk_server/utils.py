@@ -9,12 +9,6 @@ from pollen_msgs.srv import GetDynamicState
 from reachy2_sdk_api import orbita2d_pb2
 
 
-def parse_reachy_config(reachy_config_path: str) -> dict:
-    with open(reachy_config_path, "r") as f:
-        config = yaml.safe_load(f)
-    return config
-
-
 def get_uid_from_name(name: str, node: rclpy.node.Node) -> int:
     c = node.create_client(GetDynamicState, f"/get_dynamic_state")
 
