@@ -603,30 +603,22 @@ class GoToServicer:
 
             return request
 
-        # TODO: return correct elements here
         if goal_id in self.goal_manager.mobile_base_goal:
-            # TODO: handle mobile_base id correctly. If hard-coded should be PartId(id=100, name="mobile_base")
-            # TODO Rémi : decide if the mobile base should be a part or not. The fit is not that good, because it would be a componentless part, so maybe keep it as a special case.
-            # part = self.bridge_node.parts.get_by_name("mobile_base")
-            part = PartId(id=100, name="mobile_base")
+            part = self.bridge_node.parts.get_by_name("mobile_base")
         if part is not None:
-            # Depending on how are stored the mobile_base request, to be filled correctly
-            odometry_goal = goal_request["odometry_goal"]
-            tolerances = goal_request["tolerances"]
-            timeout = goal_request["timeout"]
             part_id = PartId(id=part.id, name=part.name)
             odometry_goal = OdometryGoal(
                 odometry_goal=TargetDirectionCommand(
                     id=part_id,
                     direction=DirectionVector(
-                        x=FloatValue(value=odometry_goal[0]),
-                        y=FloatValue(value=odometry_goal[1]),
-                        theta=FloatValue(value=odometry_goal[2]),
+                        x=FloatValue(value=goal_request["x_goal"]),
+                        y=FloatValue(value=goal_request["y_goal"]),
+                        theta=FloatValue(value=goal_request["theta_goal"]),
                     ),
                 ),
-                distance_tolerance=FloatValue(value=tolerances[0]),
-                angle_tolerance=FloatValue(value=tolerances[1]),
-                timeout=FloatValue(value=timeout),
+                distance_tolerance=FloatValue(value=goal_request["distance_max_command"]),
+                angle_tolerance=FloatValue(value=goal_request["angle_max_command"]),
+                timeout=FloatValue(value=goal_request["timeout"]),
             )
 
             request = GoToRequest(
