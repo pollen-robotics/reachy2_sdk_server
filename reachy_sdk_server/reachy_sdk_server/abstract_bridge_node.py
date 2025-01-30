@@ -11,7 +11,6 @@ import reachy2_monitoring as rm
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from geometry_msgs.msg import Pose, PoseStamped
 from pollen_msgs.action import Goto
-from zuuu_interfaces.action import ZuuuGoto
 from pollen_msgs.msg import CartTarget, IKRequest, MobileBaseState, ReachabilityState
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
 from rclpy.action import ActionClient
@@ -21,6 +20,7 @@ from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float32, Float32MultiArray
+from zuuu_interfaces.action import ZuuuGoto
 
 from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix
