@@ -440,17 +440,12 @@ class AbstractBridgeNode(Node):
         request.angle_d = angle_d
         request.angle_max_command = angle_max_command
 
-        self.get_logger().warning(f"Sending zuuu goto goal request: {request}")
-
         goal_handle = await self.goto_zuuu_action_client.send_goal_async(goal_msg, feedback_callback=feedback_callback)
 
-        self.get_logger().warning("zuuu goto feedback_callback setuped")
 
         if not goal_handle.accepted:
-            self.get_logger().error("zuuu goto Goal rejected!")
+            self.get_logger().warning("zuuu goto Goal rejected!")
             return None
-
-        self.get_logger().warning("zuuu goto goal accepted")
 
         if return_handle:
             return goal_handle
@@ -458,7 +453,7 @@ class AbstractBridgeNode(Node):
             res = await goal_handle.get_result_async()
             result = res.result
             status = res.status
-            self.get_logger().warning(f"zuuu goto goto finished. Result: {result.result.status}")
+            self.get_logger().info(f"zuuu goto goto finished. Result: {result.result.status}")
             return result, status
 
     def set_all_joints_to_current_position(self, part_name: str = "") -> None:
