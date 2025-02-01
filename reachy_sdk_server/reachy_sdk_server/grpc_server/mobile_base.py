@@ -117,10 +117,6 @@ class MobileBaseServicer(
         while not self.set_speed_client.wait_for_service(timeout_sec=1.0):
             self.logger.info("service SetSpeed not available, waiting again...")
 
-        self.go_to_client = self.bridge_node.create_client(GoToXYTheta, "GoToXYTheta")
-        while not self.go_to_client.wait_for_service(timeout_sec=1.0):
-            self.logger.info("service GoToXYTheta not available, waiting again...")
-
         self.distance_to_goal_client = self.bridge_node.create_client(DistanceToGoal, "DistanceToGoal")
         while not self.distance_to_goal_client.wait_for_service(timeout_sec=1.0):
             self.logger.info("service DistanceToGoal not available, waiting again...")

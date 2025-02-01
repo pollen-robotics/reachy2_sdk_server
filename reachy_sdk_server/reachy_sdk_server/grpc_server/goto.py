@@ -310,18 +310,6 @@ class GoToServicer:
             return GoToId(id=-1)
 
     def GoToOdometry(self, request: GoToRequest, context: grpc.ServicerContext) -> GoToId:
-        # TODO: send goto with given args and return GoToId
-        self.logger.warning(f"XXX Revceived GoToOdometry request {request}")
-        self.logger.warning(f"XXX request.odometry_goal {request.odometry_goal}")
-        self.logger.warning(f"XXX request.odometry_goal.odometry_goal {request.odometry_goal.odometry_goal}")
-
-        self.logger.warning(
-            f"XXX request.odometry_goal.odometry_goal.direction.theta.value {request.odometry_goal.odometry_goal.direction.theta.value}"
-        )
-        self.logger.warning(
-            f"XXX request.odometry_goal.odometry_goal.direction.x.value {request.odometry_goal.odometry_goal.direction.x.value}"
-        )
-
         return self.goto_zuuu(
             request.odometry_goal.odometry_goal.direction.x.value,
             request.odometry_goal.odometry_goal.direction.y.value,
