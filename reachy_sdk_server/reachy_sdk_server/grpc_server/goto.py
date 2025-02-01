@@ -315,10 +315,13 @@ class GoToServicer:
         self.logger.warning(f"XXX request.odometry_goal {request.odometry_goal}")
         self.logger.warning(f"XXX request.odometry_goal.odometry_goal {request.odometry_goal.odometry_goal}")
 
-        self.logger.warning(f"XXX request.odometry_goal.odometry_goal.direction.theta.value {request.odometry_goal.odometry_goal.direction.theta.value}")
-        self.logger.warning(f"XXX request.odometry_goal.odometry_goal.direction.x.value {request.odometry_goal.odometry_goal.direction.x.value}")
-        
-        
+        self.logger.warning(
+            f"XXX request.odometry_goal.odometry_goal.direction.theta.value {request.odometry_goal.odometry_goal.direction.theta.value}"
+        )
+        self.logger.warning(
+            f"XXX request.odometry_goal.odometry_goal.direction.x.value {request.odometry_goal.odometry_goal.direction.x.value}"
+        )
+
         return self.goto_zuuu(
             request.odometry_goal.odometry_goal.direction.x.value,
             request.odometry_goal.odometry_goal.direction.y.value,
@@ -336,7 +339,6 @@ class GoToServicer:
             angle_d=0.0,
             angle_max_command=1.0,
         )
-        
 
     def GetGoToRequest(self, goto_id: GoToId, context: grpc.ServicerContext) -> GoToRequest:
         return self.get_goal_request_by_goal_id(goto_id.id, context)
@@ -418,8 +420,9 @@ class GoToServicer:
             duration,
             mode=interpolation_mode,
         )
-    
-    def goto_zuuu(self, 
+
+    def goto_zuuu(
+        self,
         x_goal,
         y_goal,
         theta_goal,
@@ -434,7 +437,8 @@ class GoToServicer:
         angle_p=5.0,
         angle_i=0.0,
         angle_d=0.0,
-        angle_max_command=1.0):
+        angle_max_command=1.0,
+    ):
         """Sends an action request to the mobile base goto action server in an async (non-blocking) way.
         The goal handle is then stored for future use and monitoring.
         """
@@ -484,7 +488,7 @@ class GoToServicer:
         goal_request["angle_i"] = angle_i
         goal_request["angle_d"] = angle_d
         goal_request["angle_max_command"] = angle_max_command
-         
+
         if goal_handle is None:
             self.logger.info("ZuuuGotoGoal was rejected")
             return GoToId(id=-1)
@@ -493,7 +497,7 @@ class GoToServicer:
 
         goal_id = self.goal_manager.store_goal_handle("mobile_base", goal_handle, goal_request)
         self.logger.info(f"XXXXX Done. ID: {goal_id}")
-        
+
         return GoToId(id=goal_id)
 
     def get_interpolation_mode(self, request: GoToRequest) -> str:
@@ -599,30 +603,22 @@ class GoToServicer:
 
             return request
 
-        # TODO: return correct elements here
         if goal_id in self.goal_manager.mobile_base_goal:
-            # TODO: handle mobile_base id correctly. If hard-coded should be PartId(id=100, name="mobile_base")
-            # TODO Rémi : decide if the mobile base should be a part or not. The fit is not that good, because it would be a componentless part, so maybe keep it as a special case.
-            # part = self.bridge_node.parts.get_by_name("mobile_base")
-            part = PartId(id=100, name="mobile_base")
+            part = self.bridge_node.parts.get_by_name("mobile_base")
         if part is not None:
-            # Depending on how are stored the mobile_base request, to be filled correctly
-            odometry_goal = goal_request["odometry_goal"]
-            tolerances = goal_request["tolerances"]
-            timeout = goal_request["timeout"]
             part_id = PartId(id=part.id, name=part.name)
             odometry_goal = OdometryGoal(
                 odometry_goal=TargetDirectionCommand(
                     id=part_id,
                     direction=DirectionVector(
-                        x=FloatValue(value=odometry_goal[0]),
-                        y=FloatValue(value=odometry_goal[1]),
-                        theta=FloatValue(value=odometry_goal[2]),
+                        x=FloatValue(value=goal_request["x_goal"]),
+                        y=FloatValue(value=goal_request["y_goal"]),
+                        theta=FloatValue(value=goal_request["theta_goal"]),
                     ),
                 ),
-                distance_tolerance=FloatValue(value=tolerances[0]),
-                angle_tolerance=FloatValue(value=tolerances[1]),
-                timeout=FloatValue(value=timeout),
+                distance_tolerance=FloatValue(value=goal_request["distance_max_command"]),
+                angle_tolerance=FloatValue(value=goal_request["angle_max_command"]),
+                timeout=FloatValue(value=goal_request["timeout"]),
             )
 
             request = GoToRequest(

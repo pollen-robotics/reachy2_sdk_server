@@ -11,7 +11,6 @@ import reachy2_monitoring as rm
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from geometry_msgs.msg import Pose, PoseStamped
 from pollen_msgs.action import Goto
-from zuuu_interfaces.action import ZuuuGoto
 from pollen_msgs.msg import CartTarget, IKRequest, MobileBaseState, ReachabilityState
 from pollen_msgs.srv import GetForwardKinematics, GetInverseKinematics
 from rclpy.action import ActionClient
@@ -21,6 +20,7 @@ from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float32, Float32MultiArray
+from zuuu_interfaces.action import ZuuuGoto
 
 from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix
@@ -62,8 +62,8 @@ class AbstractBridgeNode(Node):
             callback=self.update_state,
             qos_profile=10,
         )
-        
-        self.mobile_base_enabled = True 
+
+        self.mobile_base_enabled = True
 
         config = parse_reachy_config(reachy_config_path)
         self.info = {
@@ -387,7 +387,7 @@ class AbstractBridgeNode(Node):
             status = res.status
             self.get_logger().debug(f"Goto finished. Result: {result.result.status}")
             return result, status
-        
+
     async def send_zuuu_goto_goal(
         self,
         x_goal,
@@ -407,7 +407,7 @@ class AbstractBridgeNode(Node):
         angle_max_command=1.0,
         feedback_callback=None,
         return_handle=False,
-    ):  
+    ):
         """Send a goal to the zuuu_goto action server.
         x_goal (m), y_goal (m), theta_goal (rads) ->  goal pose in the odom frame
         dist_tol (m), angle_tol (rads) -> distance and angle tolerance for the goal
@@ -418,12 +418,12 @@ class AbstractBridgeNode(Node):
         angle_p, angle_i, angle_d -> PID gains for the angle control loop
         angle_max_command (rads/s -ish) -> limits the maximum command for the angle PID controller
         feedback_callback -> callback function to be called when feedback is received
-        return_handle (bool) -> if True, the function will return the goal handle, else it will wait for the goal to finish and return the result and status            
+        return_handle (bool) -> if True, the function will return the goal handle, else it will wait for the goal to finish and return the result and status
         """
         goal_msg = ZuuuGoto.Goal()
-        
+
         request = goal_msg.request  # This is of type zuuu_interfaces/ZuuuGotoRequest
-        
+
         request.x_goal = x_goal
         request.y_goal = y_goal
         request.theta_goal = theta_goal
@@ -439,13 +439,10 @@ class AbstractBridgeNode(Node):
         request.angle_i = angle_i
         request.angle_d = angle_d
         request.angle_max_command = angle_max_command
-        
 
         self.get_logger().warning(f"Sending zuuu goto goal request: {request}")
 
-        goal_handle = await self.goto_zuuu_action_client.send_goal_async(
-            goal_msg, feedback_callback=feedback_callback
-        )
+        goal_handle = await self.goto_zuuu_action_client.send_goal_async(goal_msg, feedback_callback=feedback_callback)
 
         self.get_logger().warning("zuuu goto feedback_callback setuped")
 

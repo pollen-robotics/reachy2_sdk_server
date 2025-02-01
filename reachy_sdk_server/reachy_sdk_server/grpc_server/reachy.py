@@ -72,9 +72,9 @@ class ReachyServicer:
                     with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachy::type=hand"):
                         params[p.name] = self.hand_servicer.get_hand(p, context)
 
-            if self.mobile_base_servicer.get_mobile_base(context) is not None:
+            if self.mobile_base_servicer.get_mobile_base(None, context) is not None:
                 with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachy::type=mobile_base"):
-                    params["mobile_base"] = self.mobile_base_servicer.get_mobile_base(context)
+                    params["mobile_base"] = self.mobile_base_servicer.get_mobile_base(None, context)
 
             params["info"] = ReachyInfo(
                 serial_number=str(self.config["serial_number"]),
@@ -115,9 +115,9 @@ class ReachyServicer:
                     elif p.type == "hand":
                         with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachyState::type=hand"):
                             params[f"{p.name}_state"] = self.hand_servicer.GetState(PartId(id=p.id), context)
-
-                with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachyState::type=mobile_base"):
-                    params["mobile_base_state"] = self.mobile_base_servicer.GetState(PartId(id=100), context)
+                    elif p.type == "mobile_base":
+                        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachyState::type=mobile_base"):
+                            params["mobile_base_state"] = self.mobile_base_servicer.GetState(PartId(id=100), context)
 
         return ReachyState(**params)
 
