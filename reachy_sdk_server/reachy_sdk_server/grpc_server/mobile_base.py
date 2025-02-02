@@ -60,7 +60,6 @@ from zuuu_interfaces.srv import (
     GetOdometry,
     GetZuuuMode,
     GetZuuuSafety,
-    GoToXYTheta,
     ResetOdometry,
     SetSpeed,
     SetZuuuMode,
@@ -86,7 +85,7 @@ class MobileBaseServicer(
 
         Get mobile base basic info such as its odometry, battery level, drive mode or control mode
         from the mobile base hal.
-        Send commands through the GoToXYTheta or SetSpeed services or by publishing to cmd_vel topic.
+        Send commands through the SetSpeed service or by publishing to cmd_vel topic.
         """
         self.logger = logger
         self.bridge_node = bridge_node
