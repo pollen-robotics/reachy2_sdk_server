@@ -601,8 +601,8 @@ class GoToServicer:
                         theta=FloatValue(value=goal_request["theta_goal"]),
                     ),
                 ),
-                distance_tolerance=FloatValue(value=goal_request["distance_max_command"]),
-                angle_tolerance=FloatValue(value=goal_request["angle_max_command"]),
+                distance_tolerance=FloatValue(value=goal_request["dist_tol"]),
+                angle_tolerance=FloatValue(value=goal_request["angle_tol"]),
                 timeout=FloatValue(value=goal_request["timeout"]),
             )
 
