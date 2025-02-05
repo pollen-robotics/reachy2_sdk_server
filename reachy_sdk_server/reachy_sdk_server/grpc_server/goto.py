@@ -455,7 +455,6 @@ class GoToServicer:
         )
         # Note: we could have used **goal_request instead of listing all the arguments, but it would have been less readable
 
-
         # Wait for the result and get it => This must be fast
         goal_handle = future.result()
 
@@ -479,7 +478,6 @@ class GoToServicer:
         if goal_handle is None:
             self.logger.info("ZuuuGotoGoal was rejected")
             return GoToId(id=-1)
-
 
         goal_id = self.goal_manager.store_goal_handle("mobile_base", goal_handle, goal_request)
 
@@ -636,7 +634,7 @@ class GoToServicer:
     def cancel_part_all_goals(self, part_name: str) -> None:
         part_goal_ids = getattr(self.goal_manager, part_name + "_goal")
         self.logger.info(f"Removing all gotos goals for {part_name}")
-        
+
         for goal_id in part_goal_ids:
             self.logger.info(f"Cancelling goal_id {goal_id}")
             self.cancel_goal_by_goal_id(goal_id)
