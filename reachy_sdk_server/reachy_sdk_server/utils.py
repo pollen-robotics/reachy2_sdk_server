@@ -120,18 +120,6 @@ def extract_fields(FieldEnum, fields, conversion_table, component) -> dict:
     return grpc_state
 
 
-def get_list_audio_files(directory):
-    audio_files = []
-
-    for root, dirs, files in os.walk(directory):
-        for file in files:
-            if file.lower().endswith((".wav", ".ogg")):
-                audio_files.append(os.path.join(root, file))
-
-    # Return the list of audio file paths
-    return audio_files
-
-
 BOARD_STATUS = {
     0: "Ok",
     1: "InitError",
