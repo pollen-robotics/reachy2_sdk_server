@@ -51,6 +51,7 @@ class ReachyServicer:
         self.head_servicer = head_servicer
         self.mobile_base_servicer = mobile_base_servicer
         self.core_mode = core_mode
+        self.reachy_config = reachy_config
         self.reachy_id = ReachyId(id=1, name="reachy")
 
     def register_to_server(self, server: grpc.Server):
@@ -81,7 +82,7 @@ class ReachyServicer:
                     params["mobile_base"] = self.mobile_base_servicer.get_mobile_base(None, context)
 
             params["info"] = ReachyInfo(
-                serial_number=str(self.config["serial_number"]),
+                serial_number=str(self.reachy_config.config["reachy"]["config"]["serial_number"]),
                 version_soft=os.getenv("IMAGE_VERSION_TAG", ""),
                 core_mode=self.core_mode,
             )
