@@ -19,7 +19,11 @@ from reachy2_sdk_api.reachy_pb2 import (
 from reachy2_sdk_api.reachy_pb2_grpc import add_ReachyServiceServicer_to_server
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..utils import endless_timer_get_stream, endless_timer_get_stream_works, get_current_timestamp, parse_reachy_config
+from ..utils import (
+    endless_timer_get_stream,
+    endless_timer_get_stream_works,
+    get_current_timestamp,
+)
 from .arm import ArmServicer
 from .hand import HandServicer
 from .head import HeadServicer
@@ -35,7 +39,7 @@ class ReachyServicer:
         hand_servicer: HandServicer,
         head_servicer: HeadServicer,
         mobile_base_servicer: MobileBaseServicer,
-        reachy_config_path: str = None,
+        reachy_config: dict = {},
         core_mode: ReachyCoreMode = ReachyCoreMode.FAKE,
     ):
         self.bridge_node = bridge_node
@@ -47,7 +51,7 @@ class ReachyServicer:
         self.mobile_base_servicer = mobile_base_servicer
         self.core_mode = core_mode
         self.reachy_id = ReachyId(id=1, name="reachy")
-        self.config = parse_reachy_config(reachy_config_path)
+        self.config = reachy_config
 
     def register_to_server(self, server: grpc.Server):
         self.logger.info("Registering 'ArmServiceServicer' to server.")

@@ -5,7 +5,7 @@ from reachy2_sdk_api.part_pb2 import PartId
 
 from .components import ComponentsHolder
 
-Part = namedtuple("Part", ["name", "id", "type", "components"])
+Part = namedtuple("Part", ["name", "id", "type", "components", "components_dict"])
 
 
 class PartsHolder:
@@ -27,12 +27,17 @@ class PartsHolder:
         for part in ("r_arm", "l_arm", "head", "l_hand", "r_hand"):
             if part in config:
                 part_config = config[part]
-
+                prefix = "" if not "_" in part else part.split("_")[0] + "_"
                 p = Part(
                     name=part,
                     id=part_id,
                     type=self.guess_part_type(part, part_config),
                     components=[components.get_by_name(actuator["name"]) for actuator in part_config.values()],
+                    # if part has prefix, remove prefix from dict key, for generic parsing later
+                    components_dict={
+                        actuator["name"].replace(prefix, ""): components.get_by_name(actuator["name"])
+                        for actuator in part_config.values()
+                    },
                 )
 
                 self.parts[part] = p

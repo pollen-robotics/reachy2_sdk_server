@@ -24,11 +24,10 @@ from std_msgs.msg import Float32, Float32MultiArray
 from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix
 from .parts import PartsHolder
-from .utils import parse_reachy_config
 
 
 class AbstractBridgeNode(Node):
-    def __init__(self, reachy_config_path: str = None, asyncio_loop: AbstractEventLoop = None, port=0) -> None:
+    def __init__(self, reachy_config: dict = None, asyncio_loop: AbstractEventLoop = None, port=0) -> None:
         super().__init__(node_name="reachy_abstract_bridge_node")
 
         self.logger = self.get_logger()
@@ -47,7 +46,7 @@ class AbstractBridgeNode(Node):
         self.logger.info(f"Start port:{port}, metrics_port:{metrics_port} (port+10000).")
 
         self.asyncio_loop = asyncio_loop
-        self.config = parse_reachy_config(reachy_config_path)
+        self.config = reachy_config
         self.components = ComponentsHolder(self.config)
 
         self.got_first_state = Event()

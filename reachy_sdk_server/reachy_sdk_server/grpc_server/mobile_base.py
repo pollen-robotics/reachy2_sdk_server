@@ -68,7 +68,7 @@ from zuuu_interfaces.srv import (
 )
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..utils import get_current_timestamp, parse_reachy_config
+from ..utils import get_current_timestamp
 
 
 class MobileBaseServicer(
@@ -91,7 +91,6 @@ class MobileBaseServicer(
         self.bridge_node = bridge_node
         self.mobile_base_enabled = True  # Keep track of mobile base status in order to return None for teleop
 
-        # config = parse_reachy_config(reachy_config_path)
         self.info = {
             "serial_number": mobile_base_config["serial_number"],
             "version_hard": mobile_base_config["version_hard"],
