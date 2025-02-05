@@ -98,6 +98,9 @@ class MobileBaseServicer(
             "version_soft": mobile_base_config["version_soft"],
         }
 
+        # TODO: handle part_id correctly
+        self._part_id = PartId(id=100, name="mobile_base")
+
         if not mobile_base_config["enable"]:
             self.logger.info("No mobile base found in the config file. Mobile base server not initialized.")
             self.mobile_base_enabled = False
@@ -152,8 +155,6 @@ class MobileBaseServicer(
         while not self.get_zuuu_safety_client.wait_for_service(timeout_sec=1.0):
             self.logger.info("service GetZuuuSafety not available, waiting again...")
 
-        # TODO: handle part_id correctly
-        self._part_id = PartId(id=100, name="mobile_base")
         self.logger.info("Initialized mobile base server.")
 
     def register_to_server(self, server: grpc.Server) -> None:
