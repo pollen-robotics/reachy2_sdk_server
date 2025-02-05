@@ -187,7 +187,7 @@ class MobileBaseServicer(
 
     def GetState(self, request: PartId, context) -> MobileBaseState:
         """Get mobile base state."""
-        if self.info["serial_number"] is None:
+        if not self.mobile_base_enabled:
             return MobileBaseState()
 
         res_status = LidarSafety(id=request)
