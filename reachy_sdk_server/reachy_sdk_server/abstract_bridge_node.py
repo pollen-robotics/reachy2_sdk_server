@@ -18,6 +18,7 @@ from rclpy.node import Node
 from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.part_pb2 import PartId
+from reachy_config import ReachyConfig
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float32, Float32MultiArray
 from zuuu_interfaces.action import ZuuuGoto
@@ -25,11 +26,10 @@ from zuuu_interfaces.action import ZuuuGoto
 from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix
 from .parts import PartsHolder
-from .utils import parse_reachy_config
 
 
 class AbstractBridgeNode(Node):
-    def __init__(self, reachy_config_path: str = None, asyncio_loop: AbstractEventLoop = None, port=0) -> None:
+    def __init__(self, reachy_config: ReachyConfig, asyncio_loop: AbstractEventLoop = None, port=0) -> None:
         super().__init__(node_name="reachy_abstract_bridge_node")
 
         self.logger = self.get_logger()
@@ -43,12 +43,11 @@ class AbstractBridgeNode(Node):
             },
         )
         self.tracer = rm.tracer(NODE_NAME, grpc_type="server")
-
+        self.config = reachy_config.config["reachy"]["config"]
         metrics_port = 10000 + int(port)
         self.logger.info(f"Start port:{port}, metrics_port:{metrics_port} (port+10000).")
 
         self.asyncio_loop = asyncio_loop
-        self.config = parse_reachy_config(reachy_config_path)
         self.components = ComponentsHolder(self.config)
 
         self.got_first_state = Event()
@@ -63,18 +62,15 @@ class AbstractBridgeNode(Node):
             qos_profile=10,
         )
 
-        self.mobile_base_enabled = True
-
-        config = parse_reachy_config(reachy_config_path)
-        self.info = {
-            "serial_number": config["mobile_base"]["serial_number"],
-            "version_hard": config["mobile_base"]["version_hard"],
-            "version_soft": config["mobile_base"]["version_soft"],
-        }
-
-        if not config["mobile_base"]["serial_number"]:
+        self.mobile_base_enabled = reachy_config.mobile_base["enable"]
+        if not self.mobile_base_enabled:
             self.logger.info("No mobile base found in the config file. Mobile base server not initialized.")
-            self.mobile_base_enabled = False
+
+        self.info = {
+            "serial_number": reachy_config.mobile_base["serial_number"],
+            "version_hard": reachy_config.mobile_base["version_hard"],
+            "version_soft": reachy_config.mobile_base["version_soft"],
+        }
 
         # TODO create publisher
         # self.create_subscription(
@@ -442,6 +438,7 @@ class AbstractBridgeNode(Node):
 
         goal_handle = await self.goto_zuuu_action_client.send_goal_async(goal_msg, feedback_callback=feedback_callback)
 
+        self.get_logger().warning("zuuu goto feedback_callback setuped")
 
         if not goal_handle.accepted:
             self.get_logger().warning("zuuu goto Goal rejected!")
