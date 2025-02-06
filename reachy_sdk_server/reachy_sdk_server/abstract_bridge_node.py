@@ -43,7 +43,6 @@ class AbstractBridgeNode(Node):
             },
         )
         self.tracer = rm.tracer(NODE_NAME, grpc_type="server")
-        self.config = reachy_config.config["reachy"]["config"]
         metrics_port = 10000 + int(port)
         self.logger.info(f"Start port:{port}, metrics_port:{metrics_port} (port+10000).")
 
@@ -63,14 +62,14 @@ class AbstractBridgeNode(Node):
             qos_profile=10,
         )
 
-        self.mobile_base_enabled = reachy_config.mobile_base["enable"]
+        self.mobile_base_enabled = reachy_config["mobile_base"]["enable"]
         if not self.mobile_base_enabled:
             self.logger.info("No mobile base found in the config file. Mobile base server not initialized.")
 
         self.info = {
-            "serial_number": reachy_config.mobile_base["serial_number"],
-            "version_hard": reachy_config.mobile_base["version_hard"],
-            "version_soft": reachy_config.mobile_base["version_soft"],
+            "serial_number": reachy_config["mobile_base"]["serial_number"],
+            "version_hard": reachy_config["mobile_base"]["version_hard"],
+            "version_soft": reachy_config["mobile_base"]["version_soft"],
         }
 
         # TODO create publisher

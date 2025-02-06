@@ -57,6 +57,7 @@ class PartsHolder:
                 id=part_id,
                 type=self.guess_part_type(part, dict()),
                 components=[],  # No components for the mobile base
+                components_dict=dict(),
             )
 
             self.parts[part] = p
