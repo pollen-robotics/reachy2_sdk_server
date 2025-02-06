@@ -20,7 +20,11 @@ from reachy2_sdk_api.reachy_pb2_grpc import add_ReachyServiceServicer_to_server
 from reachy_config import ReachyConfig
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..utils import endless_timer_get_stream, endless_timer_get_stream_works, get_current_timestamp
+from ..utils import (
+    endless_timer_get_stream,
+    endless_timer_get_stream_works,
+    get_current_timestamp,
+)
 from .arm import ArmServicer
 from .hand import HandServicer
 from .head import HeadServicer
@@ -36,7 +40,7 @@ class ReachyServicer:
         hand_servicer: HandServicer,
         head_servicer: HeadServicer,
         mobile_base_servicer: MobileBaseServicer,
-        reachy_config: ReachyConfig,
+        reachy_config: dict = {},
         core_mode: ReachyCoreMode = ReachyCoreMode.FAKE,
     ):
         self.bridge_node = bridge_node
@@ -77,7 +81,7 @@ class ReachyServicer:
                         params[p.name] = self.mobile_base_servicer.get_mobile_base(p, context)
 
             params["info"] = ReachyInfo(
-                serial_number=str(self.reachy_config.config["reachy"]["config"]["serial_number"]),
+                serial_number=str(self.reachy_config["serial_number"]),
                 version_soft=os.getenv("IMAGE_VERSION_TAG", ""),
                 core_mode=self.core_mode,
             )

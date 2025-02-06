@@ -38,7 +38,9 @@ class ReachyGRPCJointSDKServicer:
         # self.asyncio_loop = asyncio.get_event_loop()
         self.asyncio_loop = asyncio.new_event_loop()
 
-        self.bridge_node = AbstractBridgeNode(reachy_config=reachy_config, asyncio_loop=self.asyncio_loop, port=port)
+        self.bridge_node = AbstractBridgeNode(
+            reachy_config=reachy_config.config["reachy"]["config"], asyncio_loop=self.asyncio_loop, port=port
+        )
         self.asyncio_thread = threading.Thread(target=self.spin_asyncio)
         self.asyncio_thread.start()
 
@@ -69,7 +71,7 @@ class ReachyGRPCJointSDKServicer:
             hand_servicer,
             head_servicer,
             mobile_base_servicer,
-            reachy_config,
+            reachy_config.config["reachy"]["config"],
             core_mode,
         )
 

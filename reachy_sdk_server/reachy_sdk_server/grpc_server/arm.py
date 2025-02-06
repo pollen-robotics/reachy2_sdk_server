@@ -38,11 +38,26 @@ from reachy2_sdk_api.orbita3d_pb2 import Orbita3dStatus
 from reachy2_sdk_api.part_pb2 import PartId
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..conversion import arm_position_to_joint_state, joint_state_to_arm_position, matrix_to_pose
+from ..conversion import (
+    arm_position_to_joint_state,
+    joint_state_to_arm_position,
+    matrix_to_pose,
+)
 from ..parts import Part
 from ..utils import get_current_timestamp
-from .orbita2d import ComponentId, Orbita2dCommand, Orbita2dsCommand, Orbita2dServicer, Orbita2dStateRequest
-from .orbita3d import Orbita3dCommand, Orbita3dsCommand, Orbita3dServicer, Orbita3dStateRequest
+from .orbita2d import (
+    ComponentId,
+    Orbita2dCommand,
+    Orbita2dsCommand,
+    Orbita2dServicer,
+    Orbita2dStateRequest,
+)
+from .orbita3d import (
+    Orbita3dCommand,
+    Orbita3dsCommand,
+    Orbita3dServicer,
+    Orbita3dStateRequest,
+)
 
 
 class ArmServicer:
@@ -72,9 +87,11 @@ class ArmServicer:
         return Arm(
             part_id=PartId(name=arm.name, id=arm.id),
             description=ArmDescription(
-                shoulder=Orbita2dServicer.get_info(self.bridge_node.components.get_by_name(arm.components[0].name)),
-                elbow=Orbita2dServicer.get_info(self.bridge_node.components.get_by_name(arm.components[1].name)),
-                wrist=Orbita3dServicer.get_info(self.bridge_node.components.get_by_name(arm.components[2].name)),
+                shoulder=Orbita2dServicer.get_info(
+                    self.bridge_node.components.get_by_name(arm.components_dict["shoulder"].name)
+                ),
+                elbow=Orbita2dServicer.get_info(self.bridge_node.components.get_by_name(arm.components_dict["elbow"].name)),
+                wrist=Orbita3dServicer.get_info(self.bridge_node.components.get_by_name(arm.components_dict["wrist"].name)),
             ),
         )
 
@@ -135,21 +152,21 @@ class ArmServicer:
             shoulder_state=self.orbita2d_servicer.GetState(
                 Orbita2dStateRequest(
                     fields=self.orbita2d_servicer.default_fields,
-                    id=ComponentId(id=arm.components[0].id),
+                    id=ComponentId(id=arm.components_dict["shoulder"].id),
                 ),
                 context,
             ),
             elbow_state=self.orbita2d_servicer.GetState(
                 Orbita2dStateRequest(
                     fields=self.orbita2d_servicer.default_fields,
-                    id=ComponentId(id=arm.components[1].id),
+                    id=ComponentId(id=arm.components_dict["elbow"].id),
                 ),
                 context,
             ),
             wrist_state=self.orbita3d_servicer.GetState(
                 Orbita3dStateRequest(
                     fields=self.orbita3d_servicer.default_fields,
-                    id=ComponentId(id=arm.components[2].id),
+                    id=ComponentId(id=arm.components_dict["wrist"].id),
                 ),
                 context,
             ),
@@ -310,15 +327,15 @@ class ArmServicer:
 
         return ArmStatus(
             shoulder_status=self.orbita2d_servicer.Audit(
-                ComponentId(id=arm.components[0].id),
+                ComponentId(id=arm.components_dict["shoulder"].id),
                 context,
             ),
             elbow_status=self.orbita2d_servicer.Audit(
-                ComponentId(id=arm.components[1].id),
+                ComponentId(id=arm.components_dict["elbow"].id),
                 context,
             ),
             wrist_status=self.orbita3d_servicer.Audit(
-                ComponentId(id=arm.components[2].id),
+                ComponentId(id=arm.components_dict["wrist"].id),
                 context,
             ),
         )
