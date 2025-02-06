@@ -20,11 +20,7 @@ from reachy2_sdk_api.reachy_pb2_grpc import add_ReachyServiceServicer_to_server
 from reachy_config import ReachyConfig
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..utils import (
-    endless_timer_get_stream,
-    endless_timer_get_stream_works,
-    get_current_timestamp,
-)
+from ..utils import endless_timer_get_stream, endless_timer_get_stream_works, get_current_timestamp
 from .arm import ArmServicer
 from .hand import HandServicer
 from .head import HeadServicer
