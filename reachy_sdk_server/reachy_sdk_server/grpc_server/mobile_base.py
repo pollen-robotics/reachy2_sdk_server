@@ -461,9 +461,9 @@ class MobileBaseServicer(
     def Restart(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         return Empty()
 
-    def ResetDefaultValues(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        self._stub.SetZuuuSafety(LidarSafety(critical_distance=FloatValue(value=0.55), safety_distance=FloatValue(value=0.7)))
-        return Empty()
+    def ResetDefaultSafetyDistances(self, request: PartId, context: grpc.ServicerContext) -> MobilityServiceAck:
+        ack = self.SetZuuuSafety(LidarSafety(critical_distance=FloatValue(value=0.55), safety_distance=FloatValue(value=0.7)))
+        return ack
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         zuuu_mode = ZuuuModeCommand(id=request, mode=ZuuuModePossiblities.CMD_GOTO)
