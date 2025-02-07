@@ -102,7 +102,7 @@ class MobileBaseServicer(
             self.mobile_base_enabled = False
             return
 
-        self.cmd_vel_pub = self.bridge_node.create_publisher(Twist, "cmd_vel_zuuu", 10)
+        self.cmd_vel_pub = self.bridge_node.create_publisher(Twist, "cmd_vel", 10)
 
         self.bridge = CvBridge()
         self.lidar_img_subscriber = self.bridge_node.create_subscription(Image, "lidar_image", self.get_lidar_img, 1)
