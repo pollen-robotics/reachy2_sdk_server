@@ -405,11 +405,10 @@ class MobileBaseServicer(
 
         result = self.get_zuuu_safety_client.call(req)
 
-        response = LidarSafety()
+        response = LidarSafety(id=request)
 
         if result is not None:
             ros_response = result
-            response.id = request
             response.safety_on.value = ros_response.safety_on
             response.safety_distance.value = ros_response.safety_distance
             response.critical_distance.value = ros_response.critical_distance
