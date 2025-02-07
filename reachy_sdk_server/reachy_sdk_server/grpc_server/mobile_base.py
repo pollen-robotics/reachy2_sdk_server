@@ -462,7 +462,9 @@ class MobileBaseServicer(
         return Empty()
 
     def ResetDefaultSafetyDistances(self, request: PartId, context: grpc.ServicerContext) -> MobilityServiceAck:
-        ack = self.SetZuuuSafety(LidarSafety(critical_distance=FloatValue(value=0.55), safety_distance=FloatValue(value=0.7)))
+        ack = self.SetZuuuSafety(
+            LidarSafety(critical_distance=FloatValue(value=0.55), safety_distance=FloatValue(value=0.7)), context
+        )
         return ack
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
