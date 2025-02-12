@@ -13,6 +13,7 @@ from pollen_msgs.msg import IKRequest
 from reachy2_sdk_api.arm_pb2 import (
     Arm,
     ArmCartesianGoal,
+    ArmComponentsCommands,
     ArmDescription,
     ArmFKRequest,
     ArmFKSolution,
@@ -390,4 +391,13 @@ class ArmServicer:
                 )
 
         # self.bridge_node.logger.info(f"Received goal pose for arm : request {request}  \nmsg : {msg}'.")
+        return Empty()
+
+    def SendComponentsCommands(self, request: ArmComponentsCommands, context: grpc.ServicerContext) -> Empty:
+        if request.HasField("shoulder_command"):
+            self.orbita2d_servicer.SendCommand(request.shoulder_command, context)
+        if request.HasField("elbow_command"):
+            self.orbita2d_servicer.SendCommand(request.elbow_command, context)
+        if request.HasField("wrist_command"):
+            self.orbita3d_servicer.SendCommand(request.wrist_command, context)
         return Empty()

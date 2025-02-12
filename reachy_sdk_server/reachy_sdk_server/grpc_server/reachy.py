@@ -8,6 +8,7 @@ from google.protobuf.empty_pb2 import Empty
 from reachy2_sdk_api.part_pb2 import PartId
 from reachy2_sdk_api.reachy_pb2 import (
     Reachy,
+    ReachyComponentsCommands,
     ReachyCoreMode,
     ReachyId,
     ReachyInfo,
@@ -168,3 +169,16 @@ class ReachyServicer:
             context,
             1 / request.publish_frequency,
         )
+
+    def SendComponentsCommands(self, request: ReachyComponentsCommands, context: grpc.ServicerContext) -> Empty:
+        if request.HasField("r_arm_commands"):
+            self.arm_servicer.SendComponentsCommands(request.r_arm_commands, context)
+        if request.HasField("l_arm_commands"):
+            self.arm_servicer.SendComponentsCommands(request.l_arm_commands, context)
+        if request.HasField("head_commands"):
+            self.head_servicer.SendComponentsCommands(request.head_commands, context)
+        if request.HasField("r_hand_command"):
+            self.hand_servicer.SetHandPosition(request.r_hand_command, context)
+        if request.HasField("l_hand_command"):
+            self.hand_servicer.SetHandPosition(request.l_hand_command, context)
+        return Empty()

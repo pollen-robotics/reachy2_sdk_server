@@ -8,6 +8,7 @@ from pollen_msgs.msg import CartTarget
 from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.head_pb2 import (
     Head,
+    HeadComponentsCommands,
     HeadDescription,
     HeadPosition,
     HeadState,
@@ -350,4 +351,9 @@ class HeadServicer:
                     msg,
                 )
 
+        return Empty()
+
+    def SendComponentsCommands(self, request: HeadComponentsCommands, context: grpc.ServicerContext) -> Empty:
+        if request.HasField("neck_command"):
+            self.orbita3d_servicer.SendCommand(request.neck_command, context)
         return Empty()
