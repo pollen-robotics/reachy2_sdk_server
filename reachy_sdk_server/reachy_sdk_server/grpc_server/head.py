@@ -356,4 +356,8 @@ class HeadServicer:
     def SendComponentsCommands(self, request: HeadComponentsCommands, context: grpc.ServicerContext) -> Empty:
         if request.HasField("neck_command"):
             self.orbita3d_servicer.SendCommand(request.neck_command, context)
+        if request.HasField("l_antenna_command"):
+            self.dynamixel_servicer.SendCommand(request.l_antenna_command, context)
+        if request.HasField("r_antenna_command"):
+            self.dynamixel_servicer.SendCommand(request.r_antenna_command, context)
         return Empty()
