@@ -13,6 +13,7 @@ from pollen_msgs.msg import IKRequest
 from reachy2_sdk_api.arm_pb2 import (
     Arm,
     ArmCartesianGoal,
+    ArmComponentsCommands,
     ArmDescription,
     ArmFKRequest,
     ArmFKSolution,
@@ -38,26 +39,11 @@ from reachy2_sdk_api.orbita3d_pb2 import Orbita3dStatus
 from reachy2_sdk_api.part_pb2 import PartId
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..conversion import (
-    arm_position_to_joint_state,
-    joint_state_to_arm_position,
-    matrix_to_pose,
-)
+from ..conversion import arm_position_to_joint_state, joint_state_to_arm_position, matrix_to_pose
 from ..parts import Part
 from ..utils import get_current_timestamp
-from .orbita2d import (
-    ComponentId,
-    Orbita2dCommand,
-    Orbita2dsCommand,
-    Orbita2dServicer,
-    Orbita2dStateRequest,
-)
-from .orbita3d import (
-    Orbita3dCommand,
-    Orbita3dsCommand,
-    Orbita3dServicer,
-    Orbita3dStateRequest,
-)
+from .orbita2d import ComponentId, Orbita2dCommand, Orbita2dsCommand, Orbita2dServicer, Orbita2dStateRequest
+from .orbita3d import Orbita3dCommand, Orbita3dsCommand, Orbita3dServicer, Orbita3dStateRequest
 
 
 class ArmServicer:
@@ -405,4 +391,13 @@ class ArmServicer:
                 )
 
         # self.bridge_node.logger.info(f"Received goal pose for arm : request {request}  \nmsg : {msg}'.")
+        return Empty()
+
+    def SendComponentsCommands(self, request: ArmComponentsCommands, context: grpc.ServicerContext) -> Empty:
+        if request.HasField("shoulder_command"):
+            self.orbita2d_servicer.SendCommand(request.shoulder_command, context)
+        if request.HasField("elbow_command"):
+            self.orbita2d_servicer.SendCommand(request.elbow_command, context)
+        if request.HasField("wrist_command"):
+            self.orbita3d_servicer.SendCommand(request.wrist_command, context)
         return Empty()

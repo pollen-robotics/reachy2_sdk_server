@@ -8,8 +8,8 @@ from google.protobuf.empty_pb2 import Empty
 from reachy2_sdk_api.part_pb2 import PartId
 from reachy2_sdk_api.reachy_pb2 import (
     Reachy,
-    ReachyCoreMode,
     ReachyComponentsCommands,
+    ReachyCoreMode,
     ReachyId,
     ReachyInfo,
     ReachyState,
@@ -20,11 +20,7 @@ from reachy2_sdk_api.reachy_pb2 import (
 from reachy2_sdk_api.reachy_pb2_grpc import add_ReachyServiceServicer_to_server
 
 from ..abstract_bridge_node import AbstractBridgeNode
-from ..utils import (
-    endless_timer_get_stream,
-    endless_timer_get_stream_works,
-    get_current_timestamp,
-)
+from ..utils import endless_timer_get_stream, endless_timer_get_stream_works, get_current_timestamp
 from .arm import ArmServicer
 from .hand import HandServicer
 from .head import HeadServicer
@@ -175,4 +171,14 @@ class ReachyServicer:
         )
 
     def SendComponentsCommands(self, request: ReachyComponentsCommands, context: grpc.ServicerContext) -> Empty:
-        pass
+        if request.HasField("r_arm_commands"):
+            self.arm_servicer.SendComponentsCommands(request.r_arm_commands, context)
+        if request.HasField("l_arm_commands"):
+            self.arm_servicer.SendComponentsCommands(request.l_arm_commands, context)
+        if request.HasField("head_commands"):
+            self.head_servicer.SendComponentsCommands(request.head_commands, context)
+        if request.HasField("r_hand_command"):
+            self.hand_servicer.SetHandPosition(request.r_hand_command, context)
+        if request.HasField("l_hand_command"):
+            self.hand_servicer.SetHandPosition(request.l_hand_command, context)
+        return Empty()
