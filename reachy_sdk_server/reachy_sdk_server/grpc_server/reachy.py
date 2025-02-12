@@ -9,6 +9,7 @@ from reachy2_sdk_api.part_pb2 import PartId
 from reachy2_sdk_api.reachy_pb2 import (
     Reachy,
     ReachyCoreMode,
+    ReachyComponentsCommands,
     ReachyId,
     ReachyInfo,
     ReachyState,
@@ -172,3 +173,6 @@ class ReachyServicer:
             context,
             1 / request.publish_frequency,
         )
+
+    def SendComponentsCommands(self, request: ReachyComponentsCommands, context: grpc.ServicerContext) -> Empty:
+        pass
