@@ -20,10 +20,12 @@ from reachy2_sdk_api.goto_pb2 import (
     GoToRequest,
     InterpolationMode,
     JointsGoal,
+    OdometryGoal,
 )
 from reachy2_sdk_api.goto_pb2_grpc import add_GoToServiceServicer_to_server
 from reachy2_sdk_api.head_pb2 import NeckJointGoal, NeckOrientation
 from reachy2_sdk_api.kinematics_pb2 import ExtEulerAngles, Quaternion, Rotation3d
+from reachy2_sdk_api.mobile_base_mobility_pb2 import DirectionVector, TargetDirectionCommand
 from reachy2_sdk_api.orbita2d_pb2 import Pose2d
 from reachy2_sdk_api.part_pb2 import PartId
 from sensor_msgs.msg import JointState
@@ -307,6 +309,25 @@ class GoToServicer:
             self.logger.error(f"{request} is ill formed. Expected arm_joint_goal, neck_joint_goal or custom_joint_goal")
             return GoToId(id=-1)
 
+    def GoToOdometry(self, request: GoToRequest, context: grpc.ServicerContext) -> GoToId:
+        return self.goto_zuuu(
+            request.odometry_goal.odometry_goal.direction.x.value,
+            request.odometry_goal.odometry_goal.direction.y.value,
+            request.odometry_goal.odometry_goal.direction.theta.value,
+            dist_tol=request.odometry_goal.distance_tolerance.value,
+            angle_tol=request.odometry_goal.angle_tolerance.value,
+            timeout=request.odometry_goal.timeout.value,
+            keep_control_on_arrival=True,
+            distance_p=5.0,
+            distance_i=0.0,
+            distance_d=0.0,
+            distance_max_command=0.4,
+            angle_p=5.0,
+            angle_i=0.0,
+            angle_d=0.0,
+            angle_max_command=1.0,
+        )
+
     def GetGoToRequest(self, goto_id: GoToId, context: grpc.ServicerContext) -> GoToRequest:
         return self.get_goal_request_by_goal_id(goto_id.id, context)
 
@@ -325,7 +346,7 @@ class GoToServicer:
 
     def goto_joints(self, part_name, joint_names, goal_positions, duration, mode="minimum_jerk"):
         """Sends an action request to the goto action server in an async (non-blocking) way.
-        The goal handle is then stored for future use and monotoring.
+        The goal handle is then stored for future use and monitoring.
         """
         future = asyncio.run_coroutine_threadsafe(
             self.bridge_node.send_goto_goal(
@@ -388,6 +409,80 @@ class GoToServicer:
             mode=interpolation_mode,
         )
 
+    def goto_zuuu(
+        self,
+        x_goal,
+        y_goal,
+        theta_goal,
+        dist_tol=0.05,
+        angle_tol=np.deg2rad(5),
+        timeout=10.0,
+        keep_control_on_arrival=True,
+        distance_p=5.0,
+        distance_i=0.0,
+        distance_d=0.0,
+        distance_max_command=0.4,
+        angle_p=5.0,
+        angle_i=0.0,
+        angle_d=0.0,
+        angle_max_command=1.0,
+    ):
+        """Sends an action request to the mobile base goto action server in an async (non-blocking) way.
+        The goal handle is then stored for future use and monitoring.
+        """
+        self.logger.info(f"XXXXX Sending ZuuuGotoGoal request to mobile base")
+        future = asyncio.run_coroutine_threadsafe(
+            self.bridge_node.send_zuuu_goto_goal(
+                x_goal,
+                y_goal,
+                theta_goal,
+                dist_tol=dist_tol,
+                angle_tol=angle_tol,
+                timeout=timeout,
+                keep_control_on_arrival=keep_control_on_arrival,
+                distance_p=distance_p,
+                distance_i=distance_i,
+                distance_d=distance_d,
+                distance_max_command=distance_max_command,
+                angle_p=angle_p,
+                angle_i=angle_i,
+                angle_d=angle_d,
+                angle_max_command=angle_max_command,
+                feedback_callback=None,
+                return_handle=True,
+            ),
+            self.bridge_node.asyncio_loop,
+        )
+        # Note: we could have used **goal_request instead of listing all the arguments, but it would have been less readable
+
+        # Wait for the result and get it => This must be fast
+        goal_handle = future.result()
+
+        goal_request = {}
+        goal_request["x_goal"] = x_goal
+        goal_request["y_goal"] = y_goal
+        goal_request["theta_goal"] = theta_goal
+        goal_request["dist_tol"] = dist_tol
+        goal_request["angle_tol"] = angle_tol
+        goal_request["timeout"] = timeout
+        goal_request["keep_control_on_arrival"] = keep_control_on_arrival
+        goal_request["distance_p"] = distance_p
+        goal_request["distance_i"] = distance_i
+        goal_request["distance_d"] = distance_d
+        goal_request["distance_max_command"] = distance_max_command
+        goal_request["angle_p"] = angle_p
+        goal_request["angle_i"] = angle_i
+        goal_request["angle_d"] = angle_d
+        goal_request["angle_max_command"] = angle_max_command
+
+        if goal_handle is None:
+            self.logger.info("ZuuuGotoGoal was rejected")
+            return GoToId(id=-1)
+
+        goal_id = self.goal_manager.store_goal_handle("mobile_base", goal_handle, goal_request)
+
+        return GoToId(id=goal_id)
+
     def get_interpolation_mode(self, request: GoToRequest) -> str:
         interpolation_mode = request.interpolation_mode.interpolation_type
         if interpolation_mode == InterpolationMode.LINEAR:
@@ -429,9 +524,6 @@ class GoToServicer:
 
     def get_goal_request_by_goal_id(self, goal_id: int, context: grpc.ServicerContext) -> GoToRequest:
         goal_request = self.goal_manager.goal_requests[goal_id]
-        mode = self._get_grpc_interpolation_mode(goal_request["mode"])
-        duration = goal_request["duration"]
-        joints_goal = goal_request["goal_positions"]
         part = None
 
         if goal_id in self.goal_manager.r_arm_goal:
@@ -439,6 +531,9 @@ class GoToServicer:
         elif goal_id in self.goal_manager.l_arm_goal:
             part = self.bridge_node.parts.get_by_name("l_arm")
         if part is not None:
+            mode = self._get_grpc_interpolation_mode(goal_request["mode"])
+            duration = goal_request["duration"]
+            joints_goal = goal_request["goal_positions"]
             part_id = PartId(id=part.id, name=part.name)
             arm_joint_goal = ArmJointGoal(
                 id=part_id,
@@ -466,6 +561,9 @@ class GoToServicer:
         if goal_id in self.goal_manager.head_goal:
             part = self.bridge_node.parts.get_by_name("head")
         if part is not None:
+            mode = self._get_grpc_interpolation_mode(goal_request["mode"])
+            duration = goal_request["duration"]
+            joints_goal = goal_request["goal_positions"]
             part_id = PartId(id=part.id, name=part.name)
             neck_joint_goal = NeckJointGoal(
                 id=part_id,
@@ -484,6 +582,30 @@ class GoToServicer:
             request = GoToRequest(
                 joints_goal=JointsGoal(neck_joint_goal=neck_joint_goal),
                 interpolation_mode=GoToInterpolation(interpolation_type=mode),
+            )
+
+            return request
+
+        if goal_id in self.goal_manager.mobile_base_goal:
+            part = self.bridge_node.parts.get_by_name("mobile_base")
+        if part is not None:
+            part_id = PartId(id=part.id, name=part.name)
+            odometry_goal = OdometryGoal(
+                odometry_goal=TargetDirectionCommand(
+                    id=part_id,
+                    direction=DirectionVector(
+                        x=FloatValue(value=goal_request["x_goal"]),
+                        y=FloatValue(value=goal_request["y_goal"]),
+                        theta=FloatValue(value=goal_request["theta_goal"]),
+                    ),
+                ),
+                distance_tolerance=FloatValue(value=goal_request["dist_tol"]),
+                angle_tolerance=FloatValue(value=goal_request["angle_tol"]),
+                timeout=FloatValue(value=goal_request["timeout"]),
+            )
+
+            request = GoToRequest(
+                odometry_goal=odometry_goal,
             )
 
             return request
@@ -511,7 +633,10 @@ class GoToServicer:
 
     def cancel_part_all_goals(self, part_name: str) -> None:
         part_goal_ids = getattr(self.goal_manager, part_name + "_goal")
+        self.logger.info(f"Removing all gotos goals for {part_name}")
+
         for goal_id in part_goal_ids:
+            self.logger.info(f"Cancelling goal_id {goal_id}")
             self.cancel_goal_by_goal_id(goal_id)
 
     def cancel_all_goals(self) -> None:
@@ -527,6 +652,7 @@ class GoalManager:
         self.r_arm_goal = []
         self.l_arm_goal = []
         self.head_goal = []
+        self.mobile_base_goal = []
         self.goal_id_counter = 0
         self.lock = threading.Lock()
         self._hoarder_collector = threading.Thread(target=self._sort_goal_handles, daemon=True)

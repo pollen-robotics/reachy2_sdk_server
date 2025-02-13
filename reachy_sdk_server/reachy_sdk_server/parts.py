@@ -14,6 +14,7 @@ class PartsHolder:
 
         self.logger.info("Creating parts.")
 
+        mobile_base_config = config["mobile_base"]
         config = config["reachy"]
 
         self.parts = {}
@@ -48,6 +49,24 @@ class PartsHolder:
                 part_id += 1
 
                 self.logger.info(f"\t - {p}")
+
+        if mobile_base_config["serial_number"] != "null":
+            part = "mobile_base"
+            p = Part(
+                name=part,
+                id=part_id,
+                type=self.guess_part_type(part, dict()),
+                components=[],  # No components for the mobile base
+                components_dict=dict(),
+            )
+
+            self.parts[part] = p
+            self.by_name[p.name] = p
+            self.by_id[p.id] = p
+            self.by_type[p.type].append(p)
+
+            self.logger.info(f"\t - {p}")
+
         self.logger.info(f"Parts created (nb_parts={len(self.parts)}).\n")
 
     def __iter__(self):
@@ -84,5 +103,7 @@ class PartsHolder:
             return "head"
         elif part_name.endswith("_hand"):
             return "hand"
+        elif part_name == "mobile_base":
+            return "mobile_base"
         else:
             raise ValueError(f"Unknown part type for {part_name}.")
