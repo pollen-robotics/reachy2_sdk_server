@@ -384,6 +384,49 @@ class AbstractBridgeNode(Node):
             self.get_logger().debug(f"Goto finished. Result: {result.result.status}")
             return result, status
 
+    async def send_goto_cartesian_goal(
+        self,
+        part: str,
+        goal_pose: np.array,
+        duration: float,
+        mode: str = "minimum_jerk",  # "linear" or "minimum_jerk"
+        sampling_freq: float = 150.0,
+        feedback_callback=None,
+        return_handle=False,
+    ):
+        self.get_logger().error("In bridge node send_goto_cartesian_goal")
+
+        goal_msg = Goto.Goal()
+        request = goal_msg.request  # This is of type pollen_msgs/GotoRequest
+
+        request.duration = duration
+        request.mode = mode
+        request.sampling_freq = sampling_freq
+        request.safety_on = False
+
+        request.goal_pose = IKRequest()
+        request.goal_pose.pose = matrix_to_pose(goal_pose)
+
+        self.get_logger().error("Sending goal request...")
+
+        goal_handle = await self.goto_action_client[part].send_goal_async(goal_msg, feedback_callback=feedback_callback)
+        self.get_logger().error("feedback_callback setuped")
+
+        if not goal_handle.accepted:
+            self.get_logger().warning("Goal rejected!")
+            return None
+
+        self.get_logger().error("Goal accepted")
+
+        if return_handle:
+            return goal_handle
+        else:
+            res = await goal_handle.get_result_async()
+            result = res.result
+            status = res.status
+            self.get_logger().debug(f"Goto finished. Result: {result.result.status}")
+            return result, status
+
     async def send_zuuu_goto_goal(
         self,
         x_goal,

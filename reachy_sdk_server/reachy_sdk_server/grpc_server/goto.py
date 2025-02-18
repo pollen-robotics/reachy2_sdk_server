@@ -19,6 +19,7 @@ from reachy2_sdk_api.goto_pb2 import (
     GoToQueue,
     GoToRequest,
     InterpolationMode,
+    InterpolationSpace,
     JointsGoal,
     OdometryGoal,
 )
@@ -130,6 +131,7 @@ class GoToServicer:
         In both cases, the IK is called and a goto_joints is performed to reach the computed joint positions.
         """
         interpolation_mode = self.get_interpolation_mode(request)
+        interpolation_space = self.get_interpolation_space(request)
 
         if request.cartesian_goal.HasField("arm_cartesian_goal"):
             # this is an ArmCartesianGoal
@@ -157,27 +159,40 @@ class GoToServicer:
                 default_q0_position = [0.0, 0.0, 0.0, -math.pi / 2, 0.0, 0.0, 0.0]
                 q0.position = default_q0_position
 
-            success, joint_position = self.bridge_node.compute_inverse(
-                arm_cartesian_goal.id,
-                arm_cartesian_goal.goal_pose.data,
-                q0,
-            )  # 'joint_position': 'sensor_msgs/JointState'
-            if not success:
-                self.logger.error(f"Could not compute inverse kinematics for arm {arm_cartesian_goal.id}")
-                return GoToId(id=-1)
-
-            joint_names = joint_position.name
-            goal_positions = joint_position.position
-
             arm = self.get_arm_part_by_part_id(arm_cartesian_goal.id, context)
 
-            return self.goto_joints(
-                arm.name,
-                joint_names,
-                goal_positions,
-                duration,
-                mode=interpolation_mode,
-            )
+            if interpolation_space == "joints":
+                success, joint_position = self.bridge_node.compute_inverse(
+                    arm_cartesian_goal.id,
+                    arm_cartesian_goal.goal_pose.data,
+                    q0,
+                )  # 'joint_position': 'sensor_msgs/JointState'
+                if not success:
+                    self.logger.error(f"Could not compute inverse kinematics for arm {arm_cartesian_goal.id}")
+                    return GoToId(id=-1)
+
+                joint_names = joint_position.name
+                goal_positions = joint_position.position
+
+                return self.goto_joints(
+                    arm.name,
+                    joint_names,
+                    goal_positions,
+                    duration,
+                    mode=interpolation_mode,
+                )
+
+            elif interpolation_space == "cartesian":
+
+                goal_pose = np.reshape(arm_cartesian_goal.goal_pose.data, (4, 4))
+                self.logger.error(f"goal_pose: {goal_pose}")
+
+                return self.goto_cartesian(
+                    arm.name,
+                    goal_pose,
+                    duration,
+                    mode=interpolation_mode,
+                )
 
         elif request.cartesian_goal.HasField("neck_cartesian_goal"):
             # this is a NeckCartesianGoal https://github.com/pollen-robotics/reachy2-sdk-api/blob/81-adjust-goto-methods/protos/head.proto
@@ -344,6 +359,44 @@ class GoToServicer:
         self.cancel_part_all_goals(part_name.name)
         return GoToAck(ack=True)
 
+    # NEW TODO
+    def goto_cartesian(self, part_name: str, goal_pose: np.array, duration: float, mode: str = "minimum_jerk"):
+        """Sends an action request to the goto action server in an async (non-blocking) way.
+        The goal handle is then stored for future use and monitoring.
+        """
+
+        self.logger.error("In Goto_cartesian")
+
+        future = asyncio.run_coroutine_threadsafe(
+            self.bridge_node.send_goto_cartesian_goal(
+                part_name,
+                goal_pose,
+                duration,
+                mode=mode,
+                feedback_callback=None,
+                return_handle=True,
+            ),
+            self.bridge_node.asyncio_loop,
+        )
+
+        # Wait for the result and get it => This has to be fast
+        goal_handle = future.result()
+
+        goal_request = {}
+        goal_request["goal_pose"] = goal_pose
+        goal_request["duration"] = duration
+        goal_request["mode"] = mode
+
+        if goal_handle is None:
+            self.logger.info("GotoGoal was rejected")
+            return GoToId(id=-1)
+
+        if part_name == "neck":
+            part_name = "head"
+        goal_id = self.goal_manager.store_goal_handle(part_name, goal_handle, goal_request)
+
+        return GoToId(id=goal_id)
+
     def goto_joints(self, part_name, joint_names, goal_positions, duration, mode="minimum_jerk"):
         """Sends an action request to the goto action server in an async (non-blocking) way.
         The goal handle is then stored for future use and monitoring.
@@ -492,6 +545,18 @@ class GoToServicer:
         else:
             self.logger.error(
                 f"Interpolation mode {interpolation_mode} not supported. Should be one of 'linear' or 'minimum_jerk'."
+            )
+            return None
+    
+    def get_interpolation_space(self, request: GoToRequest) -> str:
+        interpolation_space = request.interpolation_space.interpolation_space
+        if interpolation_space == InterpolationSpace.JOINTS:
+            return "joints"
+        elif interpolation_space == InterpolationSpace.CARTESIAN:
+            return "cartesian"
+        else:
+            self.logger.error(
+                f"Interpolation space {interpolation_space} not supported. Should be one of 'joints' or 'cartesian'."
             )
             return None
 
