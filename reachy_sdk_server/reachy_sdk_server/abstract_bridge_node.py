@@ -350,10 +350,13 @@ class AbstractBridgeNode(Node):
         feedback_callback=None,
         return_handle=False,
     ):
+        self.logger.error("in send_goto_goal")
+
         goal_msg = Goto.Goal()
         request = goal_msg.request  # This is of type pollen_msgs/GotoRequest
 
         request.duration = duration
+        request.interpolation_space = "joints"
         request.mode = mode
         request.sampling_freq = sampling_freq
         request.safety_on = False
@@ -364,16 +367,16 @@ class AbstractBridgeNode(Node):
         request.goal_joints.velocity = goal_velocities
         request.goal_joints.effort = []  # Not implemented for now
 
-        self.get_logger().debug("Sending goal request...")
+        self.get_logger().error("Sending goal request...")
 
         goal_handle = await self.goto_action_client[part].send_goal_async(goal_msg, feedback_callback=feedback_callback)
-        self.get_logger().debug("feedback_callback setuped")
+        self.get_logger().error("feedback_callback setuped")
 
         if not goal_handle.accepted:
             self.get_logger().warning("Goal rejected!")
             return None
 
-        self.get_logger().debug("Goal accepted")
+        self.get_logger().error("Goal accepted")
 
         if return_handle:
             return goal_handle
@@ -381,12 +384,13 @@ class AbstractBridgeNode(Node):
             res = await goal_handle.get_result_async()
             result = res.result
             status = res.status
-            self.get_logger().debug(f"Goto finished. Result: {result.result.status}")
+            self.get_logger().error(f"Goto finished. Result: {result.result.status}")
             return result, status
 
     async def send_goto_cartesian_goal(
         self,
         part: str,
+        joint_names: List[str],
         goal_pose: np.array,
         duration: float,
         mode: str = "minimum_jerk",  # "linear" or "minimum_jerk"
@@ -400,11 +404,15 @@ class AbstractBridgeNode(Node):
         request = goal_msg.request  # This is of type pollen_msgs/GotoRequest
 
         request.duration = duration
+        request.interpolation_space = "cartesian"
         request.mode = mode
         request.sampling_freq = sampling_freq
         request.safety_on = False
 
-        request.goal_pose = IKRequest()
+        request.goal_joints = JointState()
+        request.goal_joints.name = joint_names
+
+        request.goal_pose = PoseStamped()
         request.goal_pose.pose = matrix_to_pose(goal_pose)
 
         self.get_logger().error("Sending goal request...")

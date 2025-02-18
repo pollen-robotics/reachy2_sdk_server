@@ -128,7 +128,7 @@ class GoToServicer:
         For an arm, a full pose is expected in the torso frame.
         For the neck, a point is expected in the torso frame.
         At the end of the movement, the robot should look at that point.
-        In both cases, the IK is called and a goto_joints is performed to reach the computed joint positions.
+        In both cases, the IK is called and a goto_joints_space is performed to reach the computed joint positions.
         """
         interpolation_mode = self.get_interpolation_mode(request)
         interpolation_space = self.get_interpolation_space(request)
@@ -174,7 +174,7 @@ class GoToServicer:
                 joint_names = joint_position.name
                 goal_positions = joint_position.position
 
-                return self.goto_joints(
+                return self.goto_joints_space(
                     arm.name,
                     joint_names,
                     goal_positions,
@@ -183,12 +183,17 @@ class GoToServicer:
                 )
 
             elif interpolation_space == "cartesian":
+                joint_names = []
+                for c in arm.components:
+                    joint_names.extend(c.get_all_joints())
 
                 goal_pose = np.reshape(arm_cartesian_goal.goal_pose.data, (4, 4))
                 self.logger.error(f"goal_pose: {goal_pose}")
+                self.logger.error(f"joint_names: {joint_names}")
 
                 return self.goto_cartesian(
                     arm.name,
+                    joint_names,
                     goal_pose,
                     duration,
                     mode=interpolation_mode,
@@ -207,7 +212,7 @@ class GoToServicer:
             z = neck_cartesian_goal.point.z
 
             q_numpy = _find_neck_quaternion_transform((1, 0, 0), (x, y, z))
-            return self.goto_joints_from_quat(neck_cartesian_goal.id, q_numpy, duration, interpolation_mode)
+            return self.goto_joints_space_from_quat(neck_cartesian_goal.id, q_numpy, duration, interpolation_mode)
 
         else:
             self.logger.error(f"{request} is ill formed. Expected arm_cartesian_goal or neck_cartesian_goal")
@@ -215,9 +220,9 @@ class GoToServicer:
 
     def GoToJoints(self, request: GoToRequest, context: grpc.ServicerContext) -> GoToId:
         """This function can be called for an arm or the neck.
-        In both cases, a goto_joints is performed to reach the goal positions in joint space.
+        In both cases, a goto_joints_space is performed to reach the goal positions in joint space.
         """
-        self.logger.debug(f"GoToJoints: {request}")
+        self.logger.error(f"GoToJoints: {request}")
         interpolation_mode = self.get_interpolation_mode(request)
         if not interpolation_mode:
             return GoToId(id=-1)
@@ -241,7 +246,7 @@ class GoToServicer:
                 arm_joint_goal.joints_goal.wrist_position.rpy.yaw.value,
             ]
 
-            return self.goto_joints(
+            return self.goto_joints_space(
                 arm.name,
                 joint_names,
                 goal_positions,
@@ -260,7 +265,7 @@ class GoToServicer:
             if request.joints_goal.neck_joint_goal.joints_goal.rotation.HasField("rpy"):
                 goal_positions = rotation3d_as_extrinsinc_euler_angles(neck_joint_goal.joints_goal.rotation)
 
-                return self.goto_joints(
+                return self.goto_joints_space(
                     "neck",
                     joint_names,
                     goal_positions,
@@ -270,7 +275,7 @@ class GoToServicer:
 
             else:
                 q_numpy = rotation3d_as_quat(neck_joint_goal.joints_goal.rotation)
-                return self.goto_joints_from_quat(neck_joint_goal.id, q_numpy, duration, interpolation_mode)
+                return self.goto_joints_space_from_quat(neck_joint_goal.id, q_numpy, duration, interpolation_mode)
 
         elif request.joints_goal.HasField("custom_joint_goal"):
             custom_joint_goal = request.joints_goal.custom_joint_goal
@@ -289,7 +294,7 @@ class GoToServicer:
                 for goal in custom_joint_goal.joints_goals:
                     goal_positions.append(goal.value)
 
-                return self.goto_joints(
+                return self.goto_joints_space(
                     "neck",
                     joint_names,
                     goal_positions,
@@ -313,7 +318,7 @@ class GoToServicer:
 
                 self.logger.warning(f"{goal_positions}")
 
-                return self.goto_joints(
+                return self.goto_joints_space(
                     arm.name,
                     joint_names,
                     goal_positions,
@@ -360,7 +365,7 @@ class GoToServicer:
         return GoToAck(ack=True)
 
     # NEW TODO
-    def goto_cartesian(self, part_name: str, goal_pose: np.array, duration: float, mode: str = "minimum_jerk"):
+    def goto_cartesian(self, part_name: str, joint_names, goal_pose: np.array, duration: float, mode: str = "minimum_jerk"):
         """Sends an action request to the goto action server in an async (non-blocking) way.
         The goal handle is then stored for future use and monitoring.
         """
@@ -370,6 +375,7 @@ class GoToServicer:
         future = asyncio.run_coroutine_threadsafe(
             self.bridge_node.send_goto_cartesian_goal(
                 part_name,
+                joint_names,
                 goal_pose,
                 duration,
                 mode=mode,
@@ -384,6 +390,7 @@ class GoToServicer:
 
         goal_request = {}
         goal_request["goal_pose"] = goal_pose
+        goal_request["interpolation_space"] = "cartesian"
         goal_request["duration"] = duration
         goal_request["mode"] = mode
 
@@ -397,10 +404,12 @@ class GoToServicer:
 
         return GoToId(id=goal_id)
 
-    def goto_joints(self, part_name, joint_names, goal_positions, duration, mode="minimum_jerk"):
+    def goto_joints_space(self, part_name, joint_names, goal_positions, duration, mode="minimum_jerk"):
         """Sends an action request to the goto action server in an async (non-blocking) way.
         The goal handle is then stored for future use and monitoring.
         """
+        self.logger.error("in goto_joints_space")
+
         future = asyncio.run_coroutine_threadsafe(
             self.bridge_node.send_goto_goal(
                 part_name,
@@ -419,6 +428,7 @@ class GoToServicer:
 
         goal_request = {}
         goal_request["goal_positions"] = goal_positions
+        goal_request["interpolation_space"] = "joints"
         goal_request["duration"] = duration
         goal_request["mode"] = mode
 
@@ -432,7 +442,7 @@ class GoToServicer:
 
         return GoToId(id=goal_id)
 
-    def goto_joints_from_quat(
+    def goto_joints_space_from_quat(
         self, part_id: PartId, q: Tuple[float, float, float, float], duration: float, interpolation_mode: str
     ) -> GoToId:
         """Computes the inverse kinematics for the neck and performs a goto_joints with the computed joint positions."""
@@ -454,7 +464,7 @@ class GoToServicer:
         joint_names = joint_position.name
         goal_positions = joint_position.position
 
-        return self.goto_joints(
+        return self.goto_joints_space(
             "neck",
             joint_names,
             goal_positions,
