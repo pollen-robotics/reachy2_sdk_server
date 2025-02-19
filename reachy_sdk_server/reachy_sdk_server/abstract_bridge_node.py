@@ -2,7 +2,7 @@ from asyncio.events import AbstractEventLoop
 from collections import deque
 from functools import partial
 from threading import Event, Lock
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import prometheus_client as pc
@@ -391,8 +391,10 @@ class AbstractBridgeNode(Node):
         joint_names: List[str],
         goal_pose: np.array,
         duration: float,
-        mode: str = "minimum_jerk",  # "linear" or "minimum_jerk"
+        mode: str = "minimum_jerk",  # "linear", "minimum_jerk" or "elliptical"
         sampling_freq: float = 150.0,
+        arc_direction: Optional[str] = None,
+        secondary_radius: Optional[float] = None,
         feedback_callback=None,
         return_handle=False,
     ):
@@ -410,6 +412,11 @@ class AbstractBridgeNode(Node):
 
         request.goal_pose = PoseStamped()
         request.goal_pose.pose = matrix_to_pose(goal_pose)
+
+        if arc_direction is not None:
+            request.arc_direction = arc_direction
+        if secondary_radius is not None:
+            request.secondary_radius = secondary_radius
 
         self.get_logger().debug("Sending goal request...")
 

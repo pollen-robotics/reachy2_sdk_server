@@ -12,6 +12,7 @@ from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import FloatValue
 from reachy2_sdk_api.arm_pb2 import ArmJointGoal, ArmPosition
 from reachy2_sdk_api.goto_pb2 import (
+    ArcDirection,
     GoToAck,
     GoToGoalStatus,
     GoToId,
@@ -161,7 +162,7 @@ class GoToServicer:
 
             arm = self.get_arm_part_by_part_id(arm_cartesian_goal.id, context)
 
-            if interpolation_space == "joints":
+            if interpolation_space == "joint_space":
                 success, joint_position = self.bridge_node.compute_inverse(
                     arm_cartesian_goal.id,
                     arm_cartesian_goal.goal_pose.data,
@@ -182,12 +183,19 @@ class GoToServicer:
                     mode=interpolation_mode,
                 )
 
-            elif interpolation_space == "cartesian":
+            elif interpolation_space == "cartesian_space":
                 joint_names = []
                 for c in arm.components:
                     joint_names.extend(c.get_all_joints())
 
                 goal_pose = np.reshape(arm_cartesian_goal.goal_pose.data, (4, 4))
+
+                if request.HasField("elliptical_parameters"):
+                    arc_direction = self._get_arc_direction(request.elliptical_parameters.arc_direction)
+                    if request.elliptical_parameters.HasField("secondary_radius"):
+                        secondary_radius = request.elliptical_parameters.secondary_radius.value
+                    else:
+                        secondary_radius = None
 
                 return self.goto_cartesian(
                     arm.name,
@@ -195,6 +203,8 @@ class GoToServicer:
                     goal_pose,
                     duration,
                     mode=interpolation_mode,
+                    arc_direction=arc_direction,
+                    secondary_radius=secondary_radius,
                 )
 
         elif request.cartesian_goal.HasField("neck_cartesian_goal"):
@@ -362,8 +372,16 @@ class GoToServicer:
         self.cancel_part_all_goals(part_name.name)
         return GoToAck(ack=True)
 
-    # NEW TODO
-    def goto_cartesian(self, part_name: str, joint_names, goal_pose: np.array, duration: float, mode: str = "minimum_jerk"):
+    def goto_cartesian(
+        self,
+        part_name: str,
+        joint_names,
+        goal_pose: np.array,
+        duration: float,
+        mode: str = "minimum_jerk",
+        arc_direction: Optional[str] = None,
+        secondary_radius: Optional[float] = None,
+    ):
         """Sends an action request to the goto action server in an async (non-blocking) way.
         The goal handle is then stored for future use and monitoring.
         """
@@ -374,6 +392,8 @@ class GoToServicer:
                 goal_pose,
                 duration,
                 mode=mode,
+                arc_direction=arc_direction,
+                secondary_radius=secondary_radius,
                 feedback_callback=None,
                 return_handle=True,
             ),
@@ -545,21 +565,23 @@ class GoToServicer:
             return "linear"
         elif interpolation_mode == InterpolationMode.MINIMUM_JERK:
             return "minimum_jerk"
+        elif interpolation_mode == InterpolationMode.ELLIPTICAL:
+            return "elliptical"
         else:
             self.logger.error(
-                f"Interpolation mode {interpolation_mode} not supported. Should be one of 'linear' or 'minimum_jerk'."
+                f"Interpolation mode {interpolation_mode} not supported. Should be one of 'linear', 'minimum_jerk' or 'elliptical'."
             )
             return None
 
     def get_interpolation_space(self, request: GoToRequest) -> str:
         interpolation_space = request.interpolation_space.interpolation_space
-        if interpolation_space == InterpolationSpace.JOINTS:
-            return "joints"
-        elif interpolation_space == InterpolationSpace.CARTESIAN:
-            return "cartesian"
+        if interpolation_space == InterpolationSpace.JOINT_SPACE:
+            return "joint_space"
+        elif interpolation_space == InterpolationSpace.CARTESIAN_SPACE:
+            return "cartesian_space"
         else:
             self.logger.error(
-                f"Interpolation space {interpolation_space} not supported. Should be one of 'joints' or 'cartesian'."
+                f"Interpolation space {interpolation_space} not supported. Should be one of 'joint_space' or 'cartesian_space'."
             )
             return None
 
@@ -568,9 +590,30 @@ class GoToServicer:
             return InterpolationMode.LINEAR
         elif interpolation_mode == "minimum_jerk":
             return InterpolationMode.MINIMUM_JERK
+        elif interpolation_mode == "elliptical":
+            return InterpolationMode.ELLIPTICAL
         else:
             self.logger.error(
-                f"Interpolation mode {interpolation_mode} not supported. Should be one of 'linear' or 'minimum_jerk'."
+                f"Interpolation mode {interpolation_mode} not supported. Should be one of 'linear', 'minimum_jerk' or 'elliptical'."
+            )
+            return None
+
+    def _get_arc_direction(self, arc_direction: ArcDirection) -> Optional[str]:
+        if arc_direction == ArcDirection.ABOVE:
+            return "above"
+        elif arc_direction == ArcDirection.BELOW:
+            return "below"
+        elif arc_direction == ArcDirection.LEFT:
+            return "left"
+        elif arc_direction == ArcDirection.RIGHT:
+            return "right"
+        elif arc_direction == ArcDirection.FRONT:
+            return "front"
+        elif arc_direction == ArcDirection.BACK:
+            return "back"
+        else:
+            self.logger.error(
+                f"Arc direction {arc_direction} not supported. Should be one of 'above', 'below', 'front', 'back', 'right' or 'left'."
             )
             return None
 
