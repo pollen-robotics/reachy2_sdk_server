@@ -188,8 +188,6 @@ class GoToServicer:
                     joint_names.extend(c.get_all_joints())
 
                 goal_pose = np.reshape(arm_cartesian_goal.goal_pose.data, (4, 4))
-                self.logger.error(f"goal_pose: {goal_pose}")
-                self.logger.error(f"joint_names: {joint_names}")
 
                 return self.goto_cartesian(
                     arm.name,
@@ -222,7 +220,7 @@ class GoToServicer:
         """This function can be called for an arm or the neck.
         In both cases, a goto_joints_space is performed to reach the goal positions in joint space.
         """
-        self.logger.error(f"GoToJoints: {request}")
+        self.logger.debug(f"GoToJoints: {request}")
         interpolation_mode = self.get_interpolation_mode(request)
         if not interpolation_mode:
             return GoToId(id=-1)
@@ -369,9 +367,6 @@ class GoToServicer:
         """Sends an action request to the goto action server in an async (non-blocking) way.
         The goal handle is then stored for future use and monitoring.
         """
-
-        self.logger.error("In Goto_cartesian")
-
         future = asyncio.run_coroutine_threadsafe(
             self.bridge_node.send_goto_cartesian_goal(
                 part_name,
@@ -408,8 +403,6 @@ class GoToServicer:
         """Sends an action request to the goto action server in an async (non-blocking) way.
         The goal handle is then stored for future use and monitoring.
         """
-        self.logger.error("in goto_joints_space")
-
         future = asyncio.run_coroutine_threadsafe(
             self.bridge_node.send_goto_goal(
                 part_name,
@@ -557,7 +550,7 @@ class GoToServicer:
                 f"Interpolation mode {interpolation_mode} not supported. Should be one of 'linear' or 'minimum_jerk'."
             )
             return None
-    
+
     def get_interpolation_space(self, request: GoToRequest) -> str:
         interpolation_space = request.interpolation_space.interpolation_space
         if interpolation_space == InterpolationSpace.JOINTS:
