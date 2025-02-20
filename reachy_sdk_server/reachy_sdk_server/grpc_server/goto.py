@@ -195,7 +195,10 @@ class GoToServicer:
                     if request.elliptical_parameters.HasField("secondary_radius"):
                         secondary_radius = request.elliptical_parameters.secondary_radius.value
                     else:
-                        secondary_radius = None
+                        secondary_radius = -1.0
+                else:
+                    arc_direction = None
+                    secondary_radius = -1.0
 
                 return self.goto_cartesian(
                     arm.name,
