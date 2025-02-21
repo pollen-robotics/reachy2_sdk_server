@@ -634,6 +634,25 @@ class GoToServicer:
             )
             return None
 
+    def _get_grpc_arc_direction(self, arc_direction: str) -> ArcDirection:
+        if arc_direction == "above":
+            return ArcDirection.ABOVE
+        elif arc_direction == "below":
+            return ArcDirection.BELOW
+        elif arc_direction == "left":
+            return ArcDirection.LEFT
+        elif arc_direction == "right":
+            return ArcDirection.RIGHT
+        elif arc_direction == "front":
+            return ArcDirection.FRONT
+        elif arc_direction == "back":
+            return ArcDirection.BACK
+        else:
+            self.logger.error(
+                f"Arc direction {arc_direction} not supported. Should be one of 'above', 'below', 'front', 'back', 'right' or 'left'."
+            )
+            return None
+
     def get_part_queue(self, part_name: str) -> GoToQueue:
         goal_ids_int = getattr(self.goal_manager, part_name + "_goal")
         goal_ids = [
@@ -706,7 +725,7 @@ class GoToServicer:
                 }
 
                 if goal_request["mode"] == "elliptical":
-                    arc_direction = self._get_arc_direction(goal_request["arc_direction"])
+                    arc_direction = self._get_grpc_arc_direction(goal_request["arc_direction"])
                     secondary_radius = goal_request["secondary_radius"]
                     elliptical_parameters = EllipticalGoToParameters(
                         arc_direction=arc_direction,
@@ -714,7 +733,6 @@ class GoToServicer:
                     )
                     req_params["elliptical_parameters"] = elliptical_parameters
 
-                # request = GoToRequest(**req_params)
                 request = GoToRequest(**req_params)
 
             else:
