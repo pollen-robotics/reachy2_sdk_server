@@ -802,7 +802,6 @@ class GoToServicer:
         self.logger.info(f"Removing all gotos goals for {part_name}")
 
         for goal_id in part_goal_ids:
-            self.logger.info(f"Cancelling goal_id {goal_id}")
             self.cancel_goal_by_goal_id(goal_id)
 
     def cancel_all_goals(self) -> None:
