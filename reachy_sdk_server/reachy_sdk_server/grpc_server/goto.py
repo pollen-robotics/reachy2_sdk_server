@@ -66,6 +66,14 @@ class GoToServicer:
 
         return part
 
+    def get_component_by_component_id(self, component_id: ComponentId, context: grpc.ServicerContext) -> Optional[Part]:
+        component = self.bridge_node.components.get_by_component_id(component_id)
+
+        if component is None:
+            context.abort(grpc.StatusCode.NOT_FOUND, f"Component not found (id={component_id}).")
+
+        return component
+
     def get_arm_part_by_part_id(self, part_id: PartId, context: grpc.ServicerContext) -> Part:
         part = self.bridge_node.parts.get_by_part_id(part_id)
 
@@ -381,15 +389,30 @@ class GoToServicer:
 
     def GetPartGoToPlaying(self, part_id: PartId, context: grpc.ServicerContext) -> GoToId:
         part_name = self.get_part_by_part_id(part_id, context)
-        return self.get_part_goto_playing(part_name.name)
+        self.logger.error(f"GetPartGoToPlaying: {part_name}")
+        return self.get_element_goto_playing(part_name.name)
 
     def GetPartGoToQueue(self, part_id: PartId, context: grpc.ServicerContext) -> GoToQueue:
         part_name = self.get_part_by_part_id(part_id, context)
-        return self.get_part_queue(part_name.name)
+        return self.get_element_queue(part_name.name)
 
     def CancelPartAllGoTo(self, part_id: PartId, context: grpc.ServicerContext) -> GoToAck:
         part_name = self.get_part_by_part_id(part_id, context)
-        self.cancel_part_all_goals(part_name.name)
+        self.cancel_element_all_goals(part_name.name)
+        return GoToAck(ack=True)
+
+    def GetComponentGoToPlaying(self, component_id: ComponentId, context: grpc.ServicerContext) -> GoToId:
+        component_name = self.get_component_by_component_id(component_id, context)
+        self.logger.error(f"GetPartGoToPlaying: {component_name}")
+        return self.get_element_goto_playing(component_name.name)
+
+    def GetComponentGoToQueue(self, component_id: ComponentId, context: grpc.ServicerContext) -> GoToQueue:
+        component_name = self.get_component_by_component_id(component_id, context)
+        return self.get_element_queue(component_name.name)
+
+    def CancelComponentAllGoTo(self, component_id: ComponentId, context: grpc.ServicerContext) -> GoToAck:
+        component_name = self.get_component_by_component_id(component_id, context)
+        self.cancel_element_all_goals(component_name.name)
         return GoToAck(ack=True)
 
     def goto_cartesian(
@@ -673,8 +696,8 @@ class GoToServicer:
             )
             return None
 
-    def get_part_queue(self, part_name: str) -> GoToQueue:
-        goal_ids_int = getattr(self.goal_manager, part_name + "_goal")
+    def get_element_queue(self, element_name: str) -> GoToQueue:
+        goal_ids_int = getattr(self.goal_manager, element_name + "_goal")
         goal_ids = [
             GoToId(id=goal_id_int)
             for goal_id_int in goal_ids_int
@@ -682,8 +705,8 @@ class GoToServicer:
         ]
         return GoToQueue(goto_ids=goal_ids)
 
-    def get_part_goto_playing(self, part_name: str) -> GoToId:
-        goal_ids = getattr(self.goal_manager, part_name + "_goal")
+    def get_element_goto_playing(self, element_name: str) -> GoToId:
+        goal_ids = getattr(self.goal_manager, element_name + "_goal")
         for goal_id in goal_ids:
             if goal_id in self.goal_manager.goal_handles and self.goal_manager.goal_handles[goal_id].status == 2:
                 return GoToId(id=goal_id)
@@ -862,11 +885,11 @@ class GoToServicer:
         else:
             return False
 
-    def cancel_part_all_goals(self, part_name: str) -> None:
-        part_goal_ids = getattr(self.goal_manager, part_name + "_goal")
-        self.logger.info(f"Removing all gotos goals for {part_name}")
+    def cancel_element_all_goals(self, element_name: str) -> None:
+        element_goal_ids = getattr(self.goal_manager, element_name + "_goal")
+        self.logger.info(f"Removing all gotos goals for {element_name}")
 
-        for goal_id in part_goal_ids:
+        for goal_id in element_goal_ids:
             self.cancel_goal_by_goal_id(goal_id)
 
     def cancel_all_goals(self) -> None:
