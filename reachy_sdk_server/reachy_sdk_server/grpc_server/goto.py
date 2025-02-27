@@ -346,7 +346,6 @@ class GoToServicer:
             joint_names = [antenna_joint_goal.antenna.id.name]
             goal_positions = [antenna_joint_goal.joint_goal.value]
 
-            self.logger.error("Coucou")
             return self.goto_joints_space(
                 antenna.name,
                 joint_names,
@@ -446,8 +445,6 @@ class GoToServicer:
         """Sends an action request to the goto action server in an async (non-blocking) way.
         The goal handle is then stored for future use and monitoring.
         """
-        self.logger.error("goto_joints_space")
-        self.logger.error(f"part {part_name}")
         future = asyncio.run_coroutine_threadsafe(
             self.bridge_node.send_goto_goal(
                 part_name,
