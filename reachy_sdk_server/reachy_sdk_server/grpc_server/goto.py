@@ -337,6 +337,21 @@ class GoToServicer:
                     duration,
                     mode=interpolation_mode,
                 )
+        elif request.joints_goal.HasField("antenna_joint_goal"):
+            antenna_joint_goal = request.joints_goal.antenna_joint_goal
+            antenna= self.bridge_node.components.get_by_name(antenna_joint_goal.antenna.id.name)
+            duration = antenna_joint_goal.duration.value
+            joint_names = [antenna_joint_goal.antenna.id.name]
+            goal_positions = [antenna_joint_goal.joint_goal.value]
+
+            self.logger.error("Coucou")
+            return self.goto_joints_space(
+                antenna.name,
+                joint_names,
+                goal_positions,
+                duration,
+                mode=interpolation_mode,
+            )
         else:
             self.logger.error(f"{request} is ill formed. Expected arm_joint_goal, neck_joint_goal or custom_joint_goal")
             return GoToId(id=-1)
@@ -429,6 +444,8 @@ class GoToServicer:
         """Sends an action request to the goto action server in an async (non-blocking) way.
         The goal handle is then stored for future use and monitoring.
         """
+        self.logger.error("goto_joints_space")
+        self.logger.error(f"part {part_name}")
         future = asyncio.run_coroutine_threadsafe(
             self.bridge_node.send_goto_goal(
                 part_name,
@@ -457,6 +474,10 @@ class GoToServicer:
 
         if part_name == "neck":
             part_name = "head"
+        if part_name == "antenna_right":
+            part_name = "r_antenna"
+        if part_name == "antenna_left":
+            part_name = "l_antenna"
         goal_id = self.goal_manager.store_goal_handle(part_name, goal_handle, goal_request)
 
         return GoToId(id=goal_id)
@@ -836,6 +857,8 @@ class GoalManager:
         self.l_arm_goal = []
         self.head_goal = []
         self.mobile_base_goal = []
+        self.l_antenna_goal = []
+        self.r_antenna_goal = []
         self.goal_id_counter = 0
         self.lock = threading.Lock()
         self._hoarder_collector = threading.Thread(target=self._sort_goal_handles, daemon=True)
