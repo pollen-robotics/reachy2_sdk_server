@@ -11,6 +11,8 @@ from action_msgs.msg import GoalStatus
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import FloatValue
 from reachy2_sdk_api.arm_pb2 import ArmCartesianGoal, ArmJointGoal, ArmPosition
+from reachy2_sdk_api.component_pb2 import ComponentId
+from reachy2_sdk_api.dynamixel_motor_pb2 import DynamixelMotor
 from reachy2_sdk_api.goto_pb2 import (
     ArcDirection,
     CartesianGoal,
@@ -28,7 +30,7 @@ from reachy2_sdk_api.goto_pb2 import (
     OdometryGoal,
 )
 from reachy2_sdk_api.goto_pb2_grpc import add_GoToServiceServicer_to_server
-from reachy2_sdk_api.head_pb2 import NeckJointGoal, NeckOrientation
+from reachy2_sdk_api.head_pb2 import AntennaJointGoal, NeckJointGoal, NeckOrientation
 from reachy2_sdk_api.kinematics_pb2 import ExtEulerAngles, Matrix4x4, Quaternion, Rotation3d
 from reachy2_sdk_api.mobile_base_mobility_pb2 import DirectionVector, TargetDirectionCommand
 from reachy2_sdk_api.orbita2d_pb2 import Pose2d
@@ -811,6 +813,33 @@ class GoToServicer:
 
             request = GoToRequest(
                 odometry_goal=odometry_goal,
+            )
+
+            return request
+
+        if goal_id in self.goal_manager.r_antenna_goal:
+            part = self.bridge_node.parts.get_by_name("head")
+            component = self.bridge_node.components.get_by_name("antenna_right")
+        elif goal_id in self.goal_manager.l_antenna_goal:
+            part = self.bridge_node.parts.get_by_name("head")
+            component = self.bridge_node.components.get_by_name("antenna_left")
+        if part is not None:
+            mode = self._get_grpc_interpolation_mode(goal_request["mode"])
+            duration = goal_request["duration"]
+            joints_goal = goal_request["goal_positions"]
+            part_id = PartId(id=part.id, name=part.name)
+            antenna_joint_goal = AntennaJointGoal(
+                id=part_id,
+                antenna=DynamixelMotor(
+                    id=ComponentId(id=component.id, name=component.name),
+                ),
+                joint_goal=FloatValue(value=joints_goal[0]),
+                duration=FloatValue(value=duration),
+            )
+
+            request = GoToRequest(
+                joints_goal=JointsGoal(antenna_joint_goal=antenna_joint_goal),
+                interpolation_mode=GoToInterpolation(interpolation_type=mode),
             )
 
             return request
