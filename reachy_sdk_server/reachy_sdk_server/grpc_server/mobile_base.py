@@ -1,7 +1,6 @@
 """Expose main mobile base ROS services/topics through gRPC allowing remote client SDK."""
 
 import io
-import zlib
 from queue import Empty
 from subprocess import PIPE, check_output, run
 from typing import Optional
@@ -448,8 +447,7 @@ class MobileBaseServicer(
         buf = io.BytesIO()
         img.save(buf, format="JPEG")  # Format can be changed as needed
         uncompressed_bytes = buf.getvalue()
-        compressed_bytes = zlib.compress(uncompressed_bytes)
-        return LidarMap(data=compressed_bytes)
+        return LidarMap(data=uncompressed_bytes)
 
     def Audit(self, request: PartId, context: grpc.ServicerContext) -> MobileBaseStatus:
         return MobileBaseStatus()
