@@ -219,6 +219,21 @@ class HeadServicer:
                 )
             )
 
+        dxl_motors = [
+            self.bridge_node.components.get_by_name("antenna_left"),
+            self.bridge_node.components.get_by_name("antenna_right"),
+        ]
+
+        for dxl in dxl_motors:
+            if dxl is not None:
+                cmd.joint_names.append(dxl.name)
+                cmd.interface_values.append(
+                    InterfaceValue(
+                        interface_names=["torque"],
+                        values=[torque],
+                    )
+                )
+
         self.bridge_node.publish_command(cmd)
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:

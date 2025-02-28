@@ -349,7 +349,7 @@ class GoToServicer:
                 )
         elif request.joints_goal.HasField("antenna_joint_goal"):
             antenna_joint_goal = request.joints_goal.antenna_joint_goal
-            antenna= self.bridge_node.components.get_by_name(antenna_joint_goal.antenna.id.name)
+            antenna = self.bridge_node.components.get_by_name(antenna_joint_goal.antenna.id.name)
             duration = antenna_joint_goal.duration.value
             joint_names = [antenna_joint_goal.antenna.id.name]
             goal_positions = [antenna_joint_goal.joint_goal.value]
@@ -389,7 +389,6 @@ class GoToServicer:
 
     def GetPartGoToPlaying(self, part_id: PartId, context: grpc.ServicerContext) -> GoToId:
         part_name = self.get_part_by_part_id(part_id, context)
-        self.logger.error(f"GetPartGoToPlaying: {part_name}")
         return self.get_element_goto_playing(part_name.name)
 
     def GetPartGoToQueue(self, part_id: PartId, context: grpc.ServicerContext) -> GoToQueue:
@@ -403,7 +402,6 @@ class GoToServicer:
 
     def GetComponentGoToPlaying(self, component_id: ComponentId, context: grpc.ServicerContext) -> GoToId:
         component_name = self.get_component_by_component_id(component_id, context)
-        self.logger.error(f"GetPartGoToPlaying: {component_name}")
         return self.get_element_goto_playing(component_name.name)
 
     def GetComponentGoToQueue(self, component_id: ComponentId, context: grpc.ServicerContext) -> GoToQueue:
@@ -496,10 +494,6 @@ class GoToServicer:
 
         if part_name == "neck":
             part_name = "head"
-        if part_name == "antenna_right":
-            part_name = "r_antenna"
-        if part_name == "antenna_left":
-            part_name = "l_antenna"
         goal_id = self.goal_manager.store_goal_handle(part_name, goal_handle, goal_request)
 
         return GoToId(id=goal_id)
@@ -555,7 +549,6 @@ class GoToServicer:
         """Sends an action request to the mobile base goto action server in an async (non-blocking) way.
         The goal handle is then stored for future use and monitoring.
         """
-        self.logger.info(f"XXXXX Sending ZuuuGotoGoal request to mobile base")
         future = asyncio.run_coroutine_threadsafe(
             self.bridge_node.send_zuuu_goto_goal(
                 x_goal,
@@ -837,10 +830,10 @@ class GoToServicer:
 
             return request
 
-        if goal_id in self.goal_manager.r_antenna_goal:
+        if goal_id in self.goal_manager.antenna_right_goal:
             part = self.bridge_node.parts.get_by_name("head")
             component = self.bridge_node.components.get_by_name("antenna_right")
-        elif goal_id in self.goal_manager.l_antenna_goal:
+        elif goal_id in self.goal_manager.antenna_left_goal:
             part = self.bridge_node.parts.get_by_name("head")
             component = self.bridge_node.components.get_by_name("antenna_left")
         if part is not None:
@@ -906,8 +899,8 @@ class GoalManager:
         self.l_arm_goal = []
         self.head_goal = []
         self.mobile_base_goal = []
-        self.l_antenna_goal = []
-        self.r_antenna_goal = []
+        self.antenna_left_goal = []
+        self.antenna_right_goal = []
         self.goal_id_counter = 0
         self.lock = threading.Lock()
         self._hoarder_collector = threading.Thread(target=self._sort_goal_handles, daemon=True)

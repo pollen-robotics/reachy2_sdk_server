@@ -492,7 +492,7 @@ class AbstractBridgeNode(Node):
 
         goal_handle = await self.goto_zuuu_action_client.send_goal_async(goal_msg, feedback_callback=feedback_callback)
 
-        self.get_logger().warning("zuuu goto feedback_callback setuped")
+        self.get_logger().debug("zuuu goto feedback_callback setuped")
 
         if not goal_handle.accepted:
             self.get_logger().warning("zuuu goto Goal rejected!")
@@ -523,7 +523,7 @@ class AbstractBridgeNode(Node):
         cmd.joint_names = []
 
         for name in self.joint_names:
-            if name.startswith(joint_prefix):
+            if name.startswith(joint_prefix) or (joint_prefix == "neck" and name.startswith("antenna")):
                 # Note: any string starts with the empty string
                 component = self.components.get_by_name(name)
                 if "position" in component.state and "target_position" in component.state:
