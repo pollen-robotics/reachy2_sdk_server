@@ -137,7 +137,7 @@ class AbstractBridgeNode(Node):
         self.control_mode = "NONE_CONTROL_MODE"
 
         # Setup goto action clients
-        self.prefixes = ["r_arm", "l_arm", "neck", "antenna_right", "antenna_left"]
+        self.prefixes = ["r_arm", "l_arm", "neck", "r_hand", "l_hand", "antenna_right", "antenna_left"]
         self.goto_action_client = {}
         for prefix in self.prefixes:
             self.goto_action_client[prefix] = ActionClient(self, Goto, f"{prefix}_goto")

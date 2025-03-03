@@ -88,6 +88,20 @@ class GoToServicer:
 
         return part
 
+    def get_hand_part_by_part_id(self, part_id: PartId, context: grpc.ServicerContext) -> Part:
+        part = self.bridge_node.parts.get_by_part_id(part_id)
+
+        if part is None:
+            context.abort(grpc.StatusCode.NOT_FOUND, f"Part not found (id={part_id}).")
+
+        if part.type != "hand":
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT,
+                f"Part '{part_id}' is not an hand.",
+            )
+
+        return part
+
     def get_head_part_by_part_id(self, part_id: PartId, context: grpc.ServicerContext) -> Part:
         part = self.bridge_node.parts.get_by_part_id(part_id)
 
@@ -356,6 +370,34 @@ class GoToServicer:
 
             return self.goto_joints_space(
                 antenna.name,
+                joint_names,
+                goal_positions,
+                duration,
+                mode=interpolation_mode,
+            )
+        elif request.joints_goal.HasField("hand_joint_goal"):
+            hand_joint_goal = request.joints_goal.hand_joint_goal
+            hand = self.get_hand_part_by_part_id(hand_joint_goal.goal_request.id, context)
+            duration = hand_joint_goal.duration.value
+            joint_names = [hand_joint_goal.goal_request.id.name + "_finger"]
+
+            def opening_to_position(opening: float) -> float:
+                OPEN_POSITION = np.deg2rad(130)
+                CLOSE_POSITION = np.deg2rad(-5.0)
+                position = opening * (OPEN_POSITION - CLOSE_POSITION) + CLOSE_POSITION
+                return position
+
+            if hand_joint_goal.goal_request.position.parallel_gripper.HasField("position"):
+                goal_positions = [hand_joint_goal.goal_request.position.parallel_gripper.position.value]
+            else:
+                goal_positions = [
+                    opening_to_position(
+                        np.clip(hand_joint_goal.goal_request.position.parallel_gripper.opening_percentage.value, 0, 1)
+                    )
+                ]
+
+            return self.goto_joints_space(
+                hand.name,
                 joint_names,
                 goal_positions,
                 duration,
@@ -897,6 +939,8 @@ class GoalManager:
         self.goal_requests = {}
         self.r_arm_goal = []
         self.l_arm_goal = []
+        self.r_hand_goal = []
+        self.l_hand_goal = []
         self.head_goal = []
         self.mobile_base_goal = []
         self.antenna_left_goal = []
