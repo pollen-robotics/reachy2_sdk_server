@@ -30,6 +30,7 @@ from reachy2_sdk_api.goto_pb2 import (
     OdometryGoal,
 )
 from reachy2_sdk_api.goto_pb2_grpc import add_GoToServiceServicer_to_server
+from reachy2_sdk_api.hand_pb2 import HandJointGoal, HandPosition, HandPositionRequest, ParallelGripperPosition
 from reachy2_sdk_api.head_pb2 import AntennaJointGoal, NeckJointGoal, NeckOrientation
 from reachy2_sdk_api.kinematics_pb2 import ExtEulerAngles, Matrix4x4, Quaternion, Rotation3d
 from reachy2_sdk_api.mobile_base_mobility_pb2 import DirectionVector, TargetDirectionCommand
@@ -894,6 +895,34 @@ class GoToServicer:
 
             request = GoToRequest(
                 joints_goal=JointsGoal(antenna_joint_goal=antenna_joint_goal),
+                interpolation_mode=GoToInterpolation(interpolation_type=mode),
+            )
+
+            return request
+
+        if goal_id in self.goal_manager.r_hand_goal:
+            part = self.bridge_node.parts.get_by_name("r_hand")
+        elif goal_id in self.goal_manager.l_hand_goal:
+            part = self.bridge_node.parts.get_by_name("l_hand")
+        if part is not None:
+            mode = self._get_grpc_interpolation_mode(goal_request["mode"])
+            duration = goal_request["duration"]
+            joints_goal = goal_request["goal_positions"]
+            part_id = PartId(id=part.id, name=part.name)
+            hand_joint_goal = HandJointGoal(
+                goal_request=HandPositionRequest(
+                    id=part_id,
+                    position=HandPosition(
+                        parallel_gripper=ParallelGripperPosition(
+                            position=FloatValue(value=joints_goal[0]),
+                        ),
+                    ),
+                ),
+                duration=FloatValue(value=duration),
+            )
+
+            request = GoToRequest(
+                joints_goal=JointsGoal(hand_joint_goal=hand_joint_goal),
                 interpolation_mode=GoToInterpolation(interpolation_type=mode),
             )
 
