@@ -832,10 +832,10 @@ class GoToServicer:
 
         if goal_id in self.goal_manager.antenna_right_goal:
             part = self.bridge_node.parts.get_by_name("head")
-            component = self.bridge_node.components.get_by_name("antenna_right")
+            component = part.components_dict["antenna_right"]
         elif goal_id in self.goal_manager.antenna_left_goal:
             part = self.bridge_node.parts.get_by_name("head")
-            component = self.bridge_node.components.get_by_name("antenna_left")
+            component = part.components_dict["antenna_left"]
         if part is not None:
             mode = self._get_grpc_interpolation_mode(goal_request["mode"])
             duration = goal_request["duration"]
