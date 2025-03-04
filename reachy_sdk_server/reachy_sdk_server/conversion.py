@@ -146,7 +146,8 @@ def neck_rotation_to_joint_state(rot: Rotation3d, head: Part) -> JointState:
     js = JointState()
 
     for c in head.components:
-        js.name.extend(c.get_all_joints())
+        if c.type == "orbita3d":
+            js.name.extend(c.get_all_joints())
 
     neck_pos = rotation3d_as_extrinsinc_euler_angles(rot)
 

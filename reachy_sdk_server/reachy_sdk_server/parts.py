@@ -99,6 +99,8 @@ class PartsHolder:
             return "arm"
         elif part_name == "head" and set(part_config.keys()) == {
             "neck",
+            "l_antenna",
+            "r_antenna",
         }:
             return "head"
         elif part_name.endswith("_hand"):
