@@ -16,6 +16,7 @@ from reachy2_sdk_api.hand_pb2 import (
     HandState,
     HandStatus,
     HandTemperatures,
+    HandType,
     JointsLimits,
     ListOfHand,
     ParallelGripperPosition,
@@ -48,6 +49,7 @@ class HandServicer:
     def get_hand(self, hand: Part, context: grpc.ServicerContext) -> Hand:
         return Hand(
             part_id=PartId(name=hand.name, id=hand.id),
+            type=HandType.PARALLEL_GRIPPER,
         )
 
     def get_hand_part_from_part_id(self, part_id: PartId, context: grpc.ServicerContext) -> Part:
