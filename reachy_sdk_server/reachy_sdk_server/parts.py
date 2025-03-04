@@ -15,6 +15,7 @@ class PartsHolder:
         self.logger.info("Creating parts.")
 
         mobile_base_config = config["mobile_base"]
+        tripod_config = config["tripod"]
         config = config["reachy"]
 
         self.parts = {}
@@ -67,6 +68,23 @@ class PartsHolder:
 
             self.logger.info(f"\t - {p}")
 
+        if tripod_config["enable"] == True:
+            part = "tripod"
+            p = Part(
+                name=part,
+                id=part_id,
+                type=self.guess_part_type(part, dict()),
+                components=[],  # No components for the tripod
+                components_dict=dict(),
+            )
+
+            self.parts[part] = p
+            self.by_name[p.name] = p
+            self.by_id[p.id] = p
+            self.by_type[p.type].append(p)
+
+            self.logger.info(f"\t - {p}")
+
         self.logger.info(f"Parts created (nb_parts={len(self.parts)}).\n")
 
     def __iter__(self):
@@ -105,5 +123,7 @@ class PartsHolder:
             return "hand"
         elif part_name == "mobile_base":
             return "mobile_base"
+        elif part_name == "tripod":
+            return "tripod"
         else:
             raise ValueError(f"Unknown part type for {part_name}.")
