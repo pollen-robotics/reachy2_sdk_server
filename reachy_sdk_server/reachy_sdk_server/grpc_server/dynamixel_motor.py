@@ -62,7 +62,7 @@ class DynamixelMotorServicer:
 
     def GetAllDynamixelMotor(self, request: Empty, context: grpc.ServicerContext) -> ListOfDynamixelMotor:
         return ListOfDynamixelMotor(
-            orbita2d=[self.get_info(o) for o in self.bridge_node.components.get_by_type("dynamixel_motor")]
+            info=[self.get_info(o) for o in self.bridge_node.components.get_by_type("dynamixel_motor")]
         )
 
     # State
