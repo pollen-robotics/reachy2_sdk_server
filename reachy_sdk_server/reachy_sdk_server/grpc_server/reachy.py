@@ -4,8 +4,8 @@ from typing import Iterator
 import grpc
 import rclpy
 import reachy2_monitoring as rm
-from google.protobuf.empty_pb2 import Empty
 import reachy2_sdk_api
+from google.protobuf.empty_pb2 import Empty
 from reachy2_sdk_api.part_pb2 import PartId
 from reachy2_sdk_api.reachy_pb2 import (
     Reachy,
