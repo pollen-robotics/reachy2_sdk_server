@@ -5,6 +5,7 @@ import grpc
 import rclpy
 import reachy2_monitoring as rm
 from google.protobuf.empty_pb2 import Empty
+import reachy2_sdk_api
 from reachy2_sdk_api.part_pb2 import PartId
 from reachy2_sdk_api.reachy_pb2 import (
     Reachy,
@@ -79,6 +80,7 @@ class ReachyServicer:
             params["info"] = ReachyInfo(
                 serial_number=str(self.reachy_config["serial_number"]),
                 version_soft=os.getenv("IMAGE_VERSION_TAG", ""),
+                api_version=reachy2_sdk_api.__version__,
                 core_mode=self.core_mode,
             )
 
