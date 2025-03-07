@@ -20,6 +20,7 @@ from .mobile_base import MobileBaseServicer
 from .orbita2d import Orbita2dServicer
 from .orbita3d import Orbita3dServicer
 from .reachy import ReachyServicer
+from .tripod import TripodServicer
 
 
 class ReachyGRPCJointSDKServicer:
@@ -64,6 +65,7 @@ class ReachyGRPCJointSDKServicer:
         head_servicer = HeadServicer(self.bridge_node, self.logger, orbita3d_servicer, dynamixel_motor_servicer)
         goto_servicer = GoToServicer(self.bridge_node, self.logger)
         mobile_base_servicer = MobileBaseServicer(self.bridge_node, self.logger, reachy_config.mobile_base)
+        tripod_servicer = TripodServicer(self.bridge_node, self.logger)
         reachy_servicer = ReachyServicer(
             self.bridge_node,
             self.logger,
@@ -71,6 +73,7 @@ class ReachyGRPCJointSDKServicer:
             hand_servicer,
             head_servicer,
             mobile_base_servicer,
+            tripod_servicer,
             reachy_config.config["reachy"]["config"],
             core_mode,
         )
@@ -85,6 +88,7 @@ class ReachyGRPCJointSDKServicer:
             orbita2d_servicer,
             orbita3d_servicer,
             reachy_servicer,
+            tripod_servicer,
         ]
 
         self.logger.info("Reachy GRPC Joint SDK Servicer initialized.")

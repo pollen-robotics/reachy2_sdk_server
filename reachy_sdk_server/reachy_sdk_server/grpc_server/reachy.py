@@ -26,6 +26,7 @@ from .arm import ArmServicer
 from .hand import HandServicer
 from .head import HeadServicer
 from .mobile_base import MobileBaseServicer
+from .tripod import TripodServicer
 
 
 class ReachyServicer:
@@ -37,6 +38,7 @@ class ReachyServicer:
         hand_servicer: HandServicer,
         head_servicer: HeadServicer,
         mobile_base_servicer: MobileBaseServicer,
+        tripod_servicer: TripodServicer,
         reachy_config: dict = {},
         core_mode: ReachyCoreMode = ReachyCoreMode.FAKE,
     ):
@@ -47,6 +49,7 @@ class ReachyServicer:
         self.hand_servicer = hand_servicer
         self.head_servicer = head_servicer
         self.mobile_base_servicer = mobile_base_servicer
+        self.tripod_servicer = tripod_servicer
         self.core_mode = core_mode
         self.reachy_config = reachy_config
         self.reachy_id = ReachyId(id=1, name="reachy")
@@ -76,6 +79,9 @@ class ReachyServicer:
                 elif p.type == "mobile_base":
                     with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachy::type=mobile_base"):
                         params[p.name] = self.mobile_base_servicer.get_mobile_base(p, context)
+                elif p.type == "tripod":
+                    with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachy::type=tripod"):
+                        params[p.name] = self.tripod_servicer.get_tripod(p, context)
 
             params["info"] = ReachyInfo(
                 serial_number=str(self.reachy_config["serial_number"]),
@@ -120,6 +126,9 @@ class ReachyServicer:
                     elif p.type == "mobile_base":
                         with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachyState::type=mobile_base"):
                             params[f"{p.name}_state"] = self.mobile_base_servicer.GetState(PartId(id=p.id), context)
+                    elif p.type == "tripod":
+                        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachyState::type=tripod"):
+                            params[f"{p.name}_state"] = self.tripod_servicer.GetState(PartId(id=p.id), context)
 
         return ReachyState(**params)
 
