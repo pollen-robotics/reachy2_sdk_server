@@ -1,13 +1,9 @@
-import math
-from typing import Iterator
-
 import grpc
 import rclpy
-import reachy2_monitoring as rm
 from control_msgs.msg import DynamicJointState, InterfaceValue
 from google.protobuf.empty_pb2 import Empty
-from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
-from reachy2_sdk_api.component_pb2 import ComponentId, JointLimits, PIDGains
+from google.protobuf.wrappers_pb2 import FloatValue
+from reachy2_sdk_api.component_pb2 import JointLimits
 from reachy2_sdk_api.tripod_pb2 import (
     Tripod,
     TripodAxis,
@@ -19,11 +15,9 @@ from reachy2_sdk_api.tripod_pb2 import (
     TripodState,
 )
 from reachy2_sdk_api.tripod_pb2_grpc import add_TripodServiceServicer_to_server
-from sensor_msgs.msg import JointState
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..parts import Part, PartId
-from ..utils import endless_get_stream, extract_fields, get_current_timestamp
 
 
 class TripodServicer:
