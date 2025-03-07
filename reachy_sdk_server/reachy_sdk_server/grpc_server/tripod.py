@@ -55,7 +55,7 @@ class TripodServicer:
     def GetState(self, request: PartId, context: grpc.ServicerContext) -> TripodState:
         component = self.bridge_node.components.get_by_name(self.joint)
         tripod_state = TripodState(
-            part_id=PartId(name=request.part_id.name, id=request.part_id.id),
+            part_id=PartId(name=request.name, id=request.id),
             height=TripodJointState(
                 joint=TripodJoint(axis=TripodAxis.HEIGHT),
                 present_position=FloatValue(value=component.state.get("position", 0) + self.min_height),
