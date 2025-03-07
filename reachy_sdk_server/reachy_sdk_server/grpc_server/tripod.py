@@ -1,3 +1,5 @@
+from typing import Optional
+
 import grpc
 import rclpy
 from control_msgs.msg import DynamicJointState, InterfaceValue
@@ -29,7 +31,7 @@ class TripodServicer:
         self.bridge_node = bridge_node
         self.logger = logger
 
-        self.tripod = self.bridge_node.parts.get_by_type("tripod")[0]
+        self.tripods = self.bridge_node.parts.get_by_type("tripod")
         self.joint = "tripod_joint"
         self.min_height = 0.996
         self.max_height = 1.2
@@ -38,20 +40,22 @@ class TripodServicer:
         self.logger.info("Registering 'TripodServiceServicer' to server.")
         add_TripodServiceServicer_to_server(self, server)
 
-    def get_tripod(self, tripod: Part, context: grpc.ServicerContext) -> Tripod:
+    def get_tripod(self, tripod: Optional[Part], context: grpc.ServicerContext) -> Tripod:
+        if tripod is None:
+            tripod = self.tripods[0]
         return Tripod(
-            part_id=PartId(name=self.tripod.name, id=self.tripod.id),
+            part_id=PartId(name=tripod.name, id=tripod.id),
             description=TripodDescription(height_joint=TripodJoint(axis=TripodAxis.HEIGHT)),
         )
 
     def GetTripod(self, request: Empty, context: grpc.ServicerContext) -> Tripod:
-        return self.get_tripod(self.tripod, context)
+        return self.get_tripod(None, context)
 
     # State
     def GetState(self, request: PartId, context: grpc.ServicerContext) -> TripodState:
         component = self.bridge_node.components.get_by_name(self.joint)
         tripod_state = TripodState(
-            part_id=PartId(name=self.tripod.name, id=self.tripod.id),
+            part_id=PartId(name=request.part_id.name, id=request.part_id.id),
             height=TripodJointState(
                 joint=TripodJoint(axis=TripodAxis.HEIGHT),
                 present_position=FloatValue(value=component.state.get("position", 0) + self.min_height),
