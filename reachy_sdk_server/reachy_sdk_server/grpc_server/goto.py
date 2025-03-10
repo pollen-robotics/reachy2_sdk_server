@@ -10,21 +10,26 @@ import rclpy
 from action_msgs.msg import GoalStatus
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import FloatValue
-from reachy2_sdk_api.arm_pb2 import ArmJointGoal, ArmPosition
+from reachy2_sdk_api.arm_pb2 import ArmCartesianGoal, ArmJointGoal, ArmPosition
 from reachy2_sdk_api.goto_pb2 import (
+    ArcDirection,
+    CartesianGoal,
+    EllipticalGoToParameters,
     GoToAck,
     GoToGoalStatus,
     GoToId,
     GoToInterpolation,
+    GoToInterpolationSpace,
     GoToQueue,
     GoToRequest,
     InterpolationMode,
+    InterpolationSpace,
     JointsGoal,
     OdometryGoal,
 )
 from reachy2_sdk_api.goto_pb2_grpc import add_GoToServiceServicer_to_server
 from reachy2_sdk_api.head_pb2 import NeckJointGoal, NeckOrientation
-from reachy2_sdk_api.kinematics_pb2 import ExtEulerAngles, Quaternion, Rotation3d
+from reachy2_sdk_api.kinematics_pb2 import ExtEulerAngles, Matrix4x4, Quaternion, Rotation3d
 from reachy2_sdk_api.mobile_base_mobility_pb2 import DirectionVector, TargetDirectionCommand
 from reachy2_sdk_api.orbita2d_pb2 import Pose2d
 from reachy2_sdk_api.part_pb2 import PartId
@@ -127,12 +132,13 @@ class GoToServicer:
         For an arm, a full pose is expected in the torso frame.
         For the neck, a point is expected in the torso frame.
         At the end of the movement, the robot should look at that point.
-        In both cases, the IK is called and a goto_joints is performed to reach the computed joint positions.
+        In both cases, the IK is called and a goto_joints_space is performed to reach the computed joint positions.
         """
         interpolation_mode = self.get_interpolation_mode(request)
 
         if request.cartesian_goal.HasField("arm_cartesian_goal"):
             # this is an ArmCartesianGoal
+            interpolation_space = self.get_interpolation_space(request)
             arm_cartesian_goal = request.cartesian_goal.arm_cartesian_goal
 
             arm = self.get_arm_part_by_part_id(arm_cartesian_goal.id, context)
@@ -157,27 +163,55 @@ class GoToServicer:
                 default_q0_position = [0.0, 0.0, 0.0, -math.pi / 2, 0.0, 0.0, 0.0]
                 q0.position = default_q0_position
 
-            success, joint_position = self.bridge_node.compute_inverse(
-                arm_cartesian_goal.id,
-                arm_cartesian_goal.goal_pose.data,
-                q0,
-            )  # 'joint_position': 'sensor_msgs/JointState'
-            if not success:
-                self.logger.error(f"Could not compute inverse kinematics for arm {arm_cartesian_goal.id}")
-                return GoToId(id=-1)
-
-            joint_names = joint_position.name
-            goal_positions = joint_position.position
-
             arm = self.get_arm_part_by_part_id(arm_cartesian_goal.id, context)
 
-            return self.goto_joints(
-                arm.name,
-                joint_names,
-                goal_positions,
-                duration,
-                mode=interpolation_mode,
-            )
+            if interpolation_space == "joint_space":
+                success, joint_position = self.bridge_node.compute_inverse(
+                    arm_cartesian_goal.id,
+                    arm_cartesian_goal.goal_pose.data,
+                    q0,
+                )  # 'joint_position': 'sensor_msgs/JointState'
+                if not success:
+                    self.logger.error(f"Could not compute inverse kinematics for arm {arm_cartesian_goal.id}")
+                    return GoToId(id=-1)
+
+                joint_names = joint_position.name
+                goal_positions = joint_position.position
+
+                return self.goto_joints_space(
+                    arm.name,
+                    joint_names,
+                    goal_positions,
+                    duration,
+                    mode=interpolation_mode,
+                )
+
+            elif interpolation_space == "cartesian_space":
+                joint_names = []
+                for c in arm.components:
+                    joint_names.extend(c.get_all_joints())
+
+                goal_pose = np.reshape(arm_cartesian_goal.goal_pose.data, (4, 4))
+
+                if request.HasField("elliptical_parameters"):
+                    arc_direction = self._get_arc_direction(request.elliptical_parameters.arc_direction)
+                    if request.elliptical_parameters.HasField("secondary_radius"):
+                        secondary_radius = request.elliptical_parameters.secondary_radius.value
+                    else:
+                        secondary_radius = -1.0
+                else:
+                    arc_direction = None
+                    secondary_radius = -1.0
+
+                return self.goto_cartesian(
+                    arm.name,
+                    joint_names,
+                    goal_pose,
+                    duration,
+                    mode=interpolation_mode,
+                    arc_direction=arc_direction,
+                    secondary_radius=secondary_radius,
+                )
 
         elif request.cartesian_goal.HasField("neck_cartesian_goal"):
             # this is a NeckCartesianGoal https://github.com/pollen-robotics/reachy2-sdk-api/blob/81-adjust-goto-methods/protos/head.proto
@@ -192,7 +226,7 @@ class GoToServicer:
             z = neck_cartesian_goal.point.z
 
             q_numpy = _find_neck_quaternion_transform((1, 0, 0), (x, y, z))
-            return self.goto_joints_from_quat(neck_cartesian_goal.id, q_numpy, duration, interpolation_mode)
+            return self.goto_joints_space_from_quat(neck_cartesian_goal.id, q_numpy, duration, interpolation_mode)
 
         else:
             self.logger.error(f"{request} is ill formed. Expected arm_cartesian_goal or neck_cartesian_goal")
@@ -200,7 +234,7 @@ class GoToServicer:
 
     def GoToJoints(self, request: GoToRequest, context: grpc.ServicerContext) -> GoToId:
         """This function can be called for an arm or the neck.
-        In both cases, a goto_joints is performed to reach the goal positions in joint space.
+        In both cases, a goto_joints_space is performed to reach the goal positions in joint space.
         """
         self.logger.debug(f"GoToJoints: {request}")
         interpolation_mode = self.get_interpolation_mode(request)
@@ -226,7 +260,7 @@ class GoToServicer:
                 arm_joint_goal.joints_goal.wrist_position.rpy.yaw.value,
             ]
 
-            return self.goto_joints(
+            return self.goto_joints_space(
                 arm.name,
                 joint_names,
                 goal_positions,
@@ -245,7 +279,7 @@ class GoToServicer:
             if request.joints_goal.neck_joint_goal.joints_goal.rotation.HasField("rpy"):
                 goal_positions = rotation3d_as_extrinsinc_euler_angles(neck_joint_goal.joints_goal.rotation)
 
-                return self.goto_joints(
+                return self.goto_joints_space(
                     "neck",
                     joint_names,
                     goal_positions,
@@ -255,7 +289,7 @@ class GoToServicer:
 
             else:
                 q_numpy = rotation3d_as_quat(neck_joint_goal.joints_goal.rotation)
-                return self.goto_joints_from_quat(neck_joint_goal.id, q_numpy, duration, interpolation_mode)
+                return self.goto_joints_space_from_quat(neck_joint_goal.id, q_numpy, duration, interpolation_mode)
 
         elif request.joints_goal.HasField("custom_joint_goal"):
             custom_joint_goal = request.joints_goal.custom_joint_goal
@@ -274,7 +308,7 @@ class GoToServicer:
                 for goal in custom_joint_goal.joints_goals:
                     goal_positions.append(goal.value)
 
-                return self.goto_joints(
+                return self.goto_joints_space(
                     "neck",
                     joint_names,
                     goal_positions,
@@ -296,9 +330,7 @@ class GoToServicer:
                 for goal in custom_joint_goal.joints_goals:
                     goal_positions.append(goal.value)
 
-                self.logger.warning(f"{goal_positions}")
-
-                return self.goto_joints(
+                return self.goto_joints_space(
                     arm.name,
                     joint_names,
                     goal_positions,
@@ -344,7 +376,56 @@ class GoToServicer:
         self.cancel_part_all_goals(part_name.name)
         return GoToAck(ack=True)
 
-    def goto_joints(self, part_name, joint_names, goal_positions, duration, mode="minimum_jerk"):
+    def goto_cartesian(
+        self,
+        part_name: str,
+        joint_names,
+        goal_pose: np.array,
+        duration: float,
+        mode: str = "minimum_jerk",
+        arc_direction: Optional[str] = None,
+        secondary_radius: Optional[float] = None,
+    ):
+        """Sends an action request to the goto action server in an async (non-blocking) way.
+        The goal handle is then stored for future use and monitoring.
+        """
+        future = asyncio.run_coroutine_threadsafe(
+            self.bridge_node.send_goto_cartesian_goal(
+                part_name,
+                joint_names,
+                goal_pose,
+                duration,
+                mode=mode,
+                arc_direction=arc_direction,
+                secondary_radius=secondary_radius,
+                feedback_callback=None,
+                return_handle=True,
+            ),
+            self.bridge_node.asyncio_loop,
+        )
+
+        # Wait for the result and get it => This has to be fast
+        goal_handle = future.result()
+
+        goal_request = {}
+        goal_request["goal_pose"] = goal_pose
+        goal_request["interpolation_space"] = "cartesian_space"
+        goal_request["duration"] = duration
+        goal_request["mode"] = mode
+        goal_request["arc_direction"] = arc_direction
+        goal_request["secondary_radius"] = secondary_radius
+
+        if goal_handle is None:
+            self.logger.info("GotoGoal was rejected")
+            return GoToId(id=-1)
+
+        if part_name == "neck":
+            part_name = "head"
+        goal_id = self.goal_manager.store_goal_handle(part_name, goal_handle, goal_request)
+
+        return GoToId(id=goal_id)
+
+    def goto_joints_space(self, part_name, joint_names, goal_positions, duration, mode="minimum_jerk"):
         """Sends an action request to the goto action server in an async (non-blocking) way.
         The goal handle is then stored for future use and monitoring.
         """
@@ -366,6 +447,7 @@ class GoToServicer:
 
         goal_request = {}
         goal_request["goal_positions"] = goal_positions
+        goal_request["interpolation_space"] = "joint_space"
         goal_request["duration"] = duration
         goal_request["mode"] = mode
 
@@ -379,7 +461,7 @@ class GoToServicer:
 
         return GoToId(id=goal_id)
 
-    def goto_joints_from_quat(
+    def goto_joints_space_from_quat(
         self, part_id: PartId, q: Tuple[float, float, float, float], duration: float, interpolation_mode: str
     ) -> GoToId:
         """Computes the inverse kinematics for the neck and performs a goto_joints with the computed joint positions."""
@@ -401,7 +483,7 @@ class GoToServicer:
         joint_names = joint_position.name
         goal_positions = joint_position.position
 
-        return self.goto_joints(
+        return self.goto_joints_space(
             "neck",
             joint_names,
             goal_positions,
@@ -489,9 +571,23 @@ class GoToServicer:
             return "linear"
         elif interpolation_mode == InterpolationMode.MINIMUM_JERK:
             return "minimum_jerk"
+        elif interpolation_mode == InterpolationMode.ELLIPTICAL:
+            return "elliptical"
         else:
             self.logger.error(
-                f"Interpolation mode {interpolation_mode} not supported. Should be one of 'linear' or 'minimum_jerk'."
+                f"Interpolation mode {interpolation_mode} not supported. Should be one of 'linear', 'minimum_jerk' or 'elliptical'."
+            )
+            return None
+
+    def get_interpolation_space(self, request: GoToRequest) -> str:
+        interpolation_space = request.interpolation_space.interpolation_space
+        if interpolation_space == InterpolationSpace.JOINT_SPACE:
+            return "joint_space"
+        elif interpolation_space == InterpolationSpace.CARTESIAN_SPACE:
+            return "cartesian_space"
+        else:
+            self.logger.error(
+                f"Interpolation space {interpolation_space} not supported. Should be one of 'joint_space' or 'cartesian_space'."
             )
             return None
 
@@ -500,9 +596,60 @@ class GoToServicer:
             return InterpolationMode.LINEAR
         elif interpolation_mode == "minimum_jerk":
             return InterpolationMode.MINIMUM_JERK
+        elif interpolation_mode == "elliptical":
+            return InterpolationMode.ELLIPTICAL
         else:
             self.logger.error(
-                f"Interpolation mode {interpolation_mode} not supported. Should be one of 'linear' or 'minimum_jerk'."
+                f"Interpolation mode {interpolation_mode} not supported. Should be one of 'linear', 'minimum_jerk' or 'elliptical'."
+            )
+            return None
+
+    def _get_grpc_interpolation_space(self, interpolation_space: str) -> InterpolationSpace:
+        if interpolation_space == "joint_space":
+            return InterpolationSpace.JOINT_SPACE
+        elif interpolation_space == "cartesian_space":
+            return InterpolationSpace.CARTESIAN_SPACE
+        else:
+            self.logger.error(
+                f"Interpolation space {interpolation_space} not supported. Should be one of 'joint_space' or 'cartesian_space'."
+            )
+            return None
+
+    def _get_arc_direction(self, arc_direction: ArcDirection) -> Optional[str]:
+        if arc_direction == ArcDirection.ABOVE:
+            return "above"
+        elif arc_direction == ArcDirection.BELOW:
+            return "below"
+        elif arc_direction == ArcDirection.LEFT:
+            return "left"
+        elif arc_direction == ArcDirection.RIGHT:
+            return "right"
+        elif arc_direction == ArcDirection.FRONT:
+            return "front"
+        elif arc_direction == ArcDirection.BACK:
+            return "back"
+        else:
+            self.logger.error(
+                f"Arc direction {arc_direction} not supported. Should be one of 'above', 'below', 'front', 'back', 'right' or 'left'."
+            )
+            return None
+
+    def _get_grpc_arc_direction(self, arc_direction: str) -> ArcDirection:
+        if arc_direction == "above":
+            return ArcDirection.ABOVE
+        elif arc_direction == "below":
+            return ArcDirection.BELOW
+        elif arc_direction == "left":
+            return ArcDirection.LEFT
+        elif arc_direction == "right":
+            return ArcDirection.RIGHT
+        elif arc_direction == "front":
+            return ArcDirection.FRONT
+        elif arc_direction == "back":
+            return ArcDirection.BACK
+        else:
+            self.logger.error(
+                f"Arc direction {arc_direction} not supported. Should be one of 'above', 'below', 'front', 'back', 'right' or 'left'."
             )
             return None
 
@@ -532,29 +679,64 @@ class GoToServicer:
             part = self.bridge_node.parts.get_by_name("l_arm")
         if part is not None:
             mode = self._get_grpc_interpolation_mode(goal_request["mode"])
+            space = self._get_grpc_interpolation_space(goal_request["interpolation_space"])
             duration = goal_request["duration"]
-            joints_goal = goal_request["goal_positions"]
             part_id = PartId(id=part.id, name=part.name)
-            arm_joint_goal = ArmJointGoal(
-                id=part_id,
-                joints_goal=ArmPosition(
-                    shoulder_position=Pose2d(axis_1=FloatValue(value=joints_goal[0]), axis_2=FloatValue(value=joints_goal[1])),
-                    elbow_position=Pose2d(axis_1=FloatValue(value=joints_goal[2]), axis_2=FloatValue(value=joints_goal[3])),
-                    wrist_position=Rotation3d(
-                        rpy=ExtEulerAngles(
-                            roll=FloatValue(value=joints_goal[4]),
-                            pitch=FloatValue(value=joints_goal[5]),
-                            yaw=FloatValue(value=joints_goal[6]),
-                        )
-                    ),
-                ),
-                duration=FloatValue(value=duration),
-            )
 
-            request = GoToRequest(
-                joints_goal=JointsGoal(arm_joint_goal=arm_joint_goal),
-                interpolation_mode=GoToInterpolation(interpolation_type=mode),
-            )
+            if goal_request.get("goal_positions", None) is not None:
+                joints_goal = goal_request["goal_positions"]
+
+                arm_joint_goal = ArmJointGoal(
+                    id=part_id,
+                    joints_goal=ArmPosition(
+                        shoulder_position=Pose2d(
+                            axis_1=FloatValue(value=joints_goal[0]), axis_2=FloatValue(value=joints_goal[1])
+                        ),
+                        elbow_position=Pose2d(axis_1=FloatValue(value=joints_goal[2]), axis_2=FloatValue(value=joints_goal[3])),
+                        wrist_position=Rotation3d(
+                            rpy=ExtEulerAngles(
+                                roll=FloatValue(value=joints_goal[4]),
+                                pitch=FloatValue(value=joints_goal[5]),
+                                yaw=FloatValue(value=joints_goal[6]),
+                            )
+                        ),
+                    ),
+                    duration=FloatValue(value=duration),
+                )
+
+                request = GoToRequest(
+                    joints_goal=JointsGoal(arm_joint_goal=arm_joint_goal),
+                    interpolation_space=GoToInterpolationSpace(interpolation_space=space),
+                    interpolation_mode=GoToInterpolation(interpolation_type=mode),
+                )
+
+            elif goal_request.get("goal_pose", None) is not None:
+                target_pose = goal_request["goal_pose"].flatten()
+                arm_cartesian_goal = ArmCartesianGoal(
+                    id=part_id,
+                    goal_pose=Matrix4x4(data=target_pose),
+                    duration=FloatValue(value=duration),
+                )
+
+                req_params = {
+                    "cartesian_goal": CartesianGoal(arm_cartesian_goal=arm_cartesian_goal),
+                    "interpolation_space": GoToInterpolationSpace(interpolation_space=space),
+                    "interpolation_mode": GoToInterpolation(interpolation_type=mode),
+                }
+
+                if goal_request["mode"] == "elliptical":
+                    arc_direction = self._get_grpc_arc_direction(goal_request["arc_direction"])
+                    secondary_radius = goal_request["secondary_radius"]
+                    elliptical_parameters = EllipticalGoToParameters(
+                        arc_direction=arc_direction,
+                        secondary_radius=FloatValue(value=secondary_radius),
+                    )
+                    req_params["elliptical_parameters"] = elliptical_parameters
+
+                request = GoToRequest(**req_params)
+
+            else:
+                context.abort(grpc.StatusCode.NOT_FOUND, f"GoalId not found (id={goal_id}).")
 
             return request
 
@@ -562,6 +744,7 @@ class GoToServicer:
             part = self.bridge_node.parts.get_by_name("head")
         if part is not None:
             mode = self._get_grpc_interpolation_mode(goal_request["mode"])
+            space = self._get_grpc_interpolation_space(goal_request["interpolation_space"])
             duration = goal_request["duration"]
             joints_goal = goal_request["goal_positions"]
             part_id = PartId(id=part.id, name=part.name)
@@ -581,6 +764,7 @@ class GoToServicer:
 
             request = GoToRequest(
                 joints_goal=JointsGoal(neck_joint_goal=neck_joint_goal),
+                interpolation_space=GoToInterpolationSpace(interpolation_space=space),
                 interpolation_mode=GoToInterpolation(interpolation_type=mode),
             )
 
@@ -636,7 +820,6 @@ class GoToServicer:
         self.logger.info(f"Removing all gotos goals for {part_name}")
 
         for goal_id in part_goal_ids:
-            self.logger.info(f"Cancelling goal_id {goal_id}")
             self.cancel_goal_by_goal_id(goal_id)
 
     def cancel_all_goals(self) -> None:

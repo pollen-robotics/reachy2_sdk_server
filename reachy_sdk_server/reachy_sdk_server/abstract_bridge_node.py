@@ -2,7 +2,7 @@ from asyncio.events import AbstractEventLoop
 from collections import deque
 from functools import partial
 from threading import Event, Lock
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import prometheus_client as pc
@@ -354,6 +354,7 @@ class AbstractBridgeNode(Node):
         request = goal_msg.request  # This is of type pollen_msgs/GotoRequest
 
         request.duration = duration
+        request.interpolation_space = "joints"
         request.mode = mode
         request.sampling_freq = sampling_freq
         request.safety_on = False
@@ -363,6 +364,59 @@ class AbstractBridgeNode(Node):
         request.goal_joints.position = goal_positions
         request.goal_joints.velocity = goal_velocities
         request.goal_joints.effort = []  # Not implemented for now
+
+        self.get_logger().debug("Sending goal request...")
+
+        goal_handle = await self.goto_action_client[part].send_goal_async(goal_msg, feedback_callback=feedback_callback)
+        self.get_logger().debug("feedback_callback setuped")
+
+        if not goal_handle.accepted:
+            self.get_logger().warning("Goal rejected!")
+            return None
+
+        self.get_logger().debug("Goal accepted")
+
+        if return_handle:
+            return goal_handle
+        else:
+            res = await goal_handle.get_result_async()
+            result = res.result
+            status = res.status
+            self.get_logger().debug(f"Goto finished. Result: {result.result.status}")
+            return result, status
+
+    async def send_goto_cartesian_goal(
+        self,
+        part: str,
+        joint_names: List[str],
+        goal_pose: np.array,
+        duration: float,
+        mode: str = "minimum_jerk",  # "linear", "minimum_jerk" or "elliptical"
+        sampling_freq: float = 150.0,
+        arc_direction: Optional[str] = None,
+        secondary_radius: Optional[float] = None,
+        feedback_callback=None,
+        return_handle=False,
+    ):
+        goal_msg = Goto.Goal()
+        request = goal_msg.request  # This is of type pollen_msgs/GotoRequest
+
+        request.duration = duration
+        request.interpolation_space = "cartesian"
+        request.mode = mode
+        request.sampling_freq = sampling_freq
+        request.safety_on = False
+
+        request.goal_joints = JointState()
+        request.goal_joints.name = joint_names
+
+        request.goal_pose = PoseStamped()
+        request.goal_pose.pose = matrix_to_pose(goal_pose)
+
+        if arc_direction is not None:
+            request.arc_direction = arc_direction
+        if secondary_radius is not None:
+            request.secondary_radius = secondary_radius
 
         self.get_logger().debug("Sending goal request...")
 
