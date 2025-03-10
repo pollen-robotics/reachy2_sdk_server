@@ -191,7 +191,7 @@ class HandServicer:
         return Force()
 
     OPEN_POSITION = np.deg2rad(130)
-    CLOSE_POSITION = 0.0
+    CLOSE_POSITION = np.deg2rad(-5.0)
 
     def position_to_opening(self, position: float) -> float:
         opening = (position - self.CLOSE_POSITION) / (self.OPEN_POSITION - self.CLOSE_POSITION)
