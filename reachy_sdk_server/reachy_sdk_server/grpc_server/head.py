@@ -110,14 +110,14 @@ class HeadServicer:
             l_antenna_state=self.dynamixel_servicer.GetState(
                 DynamixelMotorStateRequest(
                     fields=self.dynamixel_servicer.default_fields,
-                    id=ComponentId(id=self.bridge_node.components.get_by_name("antenna_left").id),
+                    id=ComponentId(id=head.components_dict["antenna_left"].id),
                 ),
                 context,
             ),
             r_antenna_state=self.dynamixel_servicer.GetState(
                 DynamixelMotorStateRequest(
                     fields=self.dynamixel_servicer.default_fields,
-                    id=ComponentId(id=self.bridge_node.components.get_by_name("antenna_right").id),
+                    id=ComponentId(id=head.components_dict["antenna_right"].id),
                 ),
                 context,
             ),
@@ -266,15 +266,16 @@ class HeadServicer:
             cmd.joint_names = []
 
             for c in part.components:
-                for i in range(1, 4):
-                    cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
+                if c.type == "orbita3d":
+                    for i in range(1, 4):
+                        cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
 
-                    cmd.interface_values.append(
-                        InterfaceValue(
-                            interface_names=["speed_limit"],
-                            values=[request.limit / 100],
+                        cmd.interface_values.append(
+                            InterfaceValue(
+                                interface_names=["speed_limit"],
+                                values=[request.limit / 100],
+                            )
                         )
-                    )
 
             self.bridge_node.publish_command(cmd)
         return Empty()
@@ -288,15 +289,16 @@ class HeadServicer:
             cmd.joint_names = []
 
             for c in part.components:
-                for i in range(1, 4):
-                    cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
+                if c.type == "orbita3d":
+                    for i in range(1, 4):
+                        cmd.joint_names.append(f"{c.name}_raw_motor_{i}")
 
-                    cmd.interface_values.append(
-                        InterfaceValue(
-                            interface_names=["torque_limit"],
-                            values=[request.limit / 100],
+                        cmd.interface_values.append(
+                            InterfaceValue(
+                                interface_names=["torque_limit"],
+                                values=[request.limit / 100],
+                            )
                         )
-                    )
 
             self.bridge_node.publish_command(cmd)
         return Empty()
