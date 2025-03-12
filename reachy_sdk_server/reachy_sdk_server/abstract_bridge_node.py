@@ -346,7 +346,6 @@ class AbstractBridgeNode(Node):
         duration: float,
         goal_velocities: List[float] = [],
         mode: str = "minimum_jerk",  # "linear" or "minimum_jerk"
-        sampling_freq: float = 150.0,
         feedback_callback=None,
         return_handle=False,
     ):
@@ -356,7 +355,6 @@ class AbstractBridgeNode(Node):
         request.duration = duration
         request.interpolation_space = "joints"
         request.mode = mode
-        request.sampling_freq = sampling_freq
         request.safety_on = False
 
         request.goal_joints = JointState()
@@ -392,7 +390,6 @@ class AbstractBridgeNode(Node):
         goal_pose: np.array,
         duration: float,
         mode: str = "minimum_jerk",  # "linear", "minimum_jerk" or "elliptical"
-        sampling_freq: float = 150.0,
         arc_direction: Optional[str] = None,
         secondary_radius: Optional[float] = None,
         feedback_callback=None,
@@ -404,7 +401,6 @@ class AbstractBridgeNode(Node):
         request.duration = duration
         request.interpolation_space = "cartesian"
         request.mode = mode
-        request.sampling_freq = sampling_freq
         request.safety_on = False
 
         request.goal_joints = JointState()
