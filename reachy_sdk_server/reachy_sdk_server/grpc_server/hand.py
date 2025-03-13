@@ -16,6 +16,7 @@ from reachy2_sdk_api.hand_pb2 import (
     HandState,
     HandStatus,
     HandTemperatures,
+    HandType,
     JointsLimits,
     ListOfHand,
     ParallelGripperPosition,
@@ -26,6 +27,7 @@ from reachy2_sdk_api.part_pb2 import PartId
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..parts import Part
+from .dynamixel_motor import DynamixelMotorServicer
 
 HandComponents = namedtuple("HandComponents", ["actuator", "finger", "raw_motor_1"])
 
@@ -48,6 +50,7 @@ class HandServicer:
     def get_hand(self, hand: Part, context: grpc.ServicerContext) -> Hand:
         return Hand(
             part_id=PartId(name=hand.name, id=hand.id),
+            type=HandType.PARALLEL_GRIPPER,
         )
 
     def get_hand_part_from_part_id(self, part_id: PartId, context: grpc.ServicerContext) -> Part:
