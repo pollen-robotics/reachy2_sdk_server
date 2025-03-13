@@ -394,10 +394,24 @@ class ArmServicer:
         return Empty()
 
     def SendComponentsCommands(self, request: ArmComponentsCommands, context: grpc.ServicerContext) -> Empty:
-        if request.HasField("shoulder_command"):
-            self.orbita2d_servicer.SendCommand(request.shoulder_command, context)
-        if request.HasField("elbow_command"):
-            self.orbita2d_servicer.SendCommand(request.elbow_command, context)
-        if request.HasField("wrist_command"):
-            self.orbita3d_servicer.SendCommand(request.wrist_command, context)
+        cmd = self.build_command(request, context)
+        if cmd.joint_names:
+            self.bridge_node.publish_command(cmd)
         return Empty()
+
+    def build_command(self, request: ArmComponentsCommands, context: grpc.ServicerContext) -> DynamicJointState:
+        cmd = DynamicJointState()
+        cmd.joint_names = []
+        if request.HasField("shoulder_command"):
+            shoulder_command = self.orbita2d_servicer.build_command(request.shoulder_command, context)
+            cmd.joint_names.extend(shoulder_command.joint_names)
+            cmd.interface_values.extend(shoulder_command.interface_values)
+        if request.HasField("elbow_command"):
+            elbow_command = self.orbita2d_servicer.build_command(request.elbow_command, context)
+            cmd.joint_names.extend(elbow_command.joint_names)
+            cmd.interface_values.extend(elbow_command.interface_values)
+        if request.HasField("wrist_command"):
+            wrist_command = self.orbita3d_servicer.build_command(request.wrist_command, context)
+            cmd.joint_names.extend(wrist_command.joint_names)
+            cmd.interface_values.extend(wrist_command.interface_values)
+        return cmd

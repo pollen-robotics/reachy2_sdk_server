@@ -356,6 +356,16 @@ class HeadServicer:
         return Empty()
 
     def SendComponentsCommands(self, request: HeadComponentsCommands, context: grpc.ServicerContext) -> Empty:
-        if request.HasField("neck_command"):
-            self.orbita3d_servicer.SendCommand(request.neck_command, context)
+        cmd = self.build_command(request, context)
+        if cmd.joint_names:
+            self.bridge_node.publish_command(cmd)
         return Empty()
+
+    def build_command(self, request: HeadComponentsCommands, context: grpc.ServicerContext) -> DynamicJointState:
+        cmd = DynamicJointState()
+        cmd.joint_names = []
+        if request.HasField("neck_command"):
+            neck_command = self.orbita3d_servicer.build_command(request.neck_command, context)
+            cmd.joint_names.extend(neck_command.joint_names)
+            cmd.interface_values.extend(neck_command.interface_values)
+        return cmd

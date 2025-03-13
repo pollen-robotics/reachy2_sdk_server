@@ -5,6 +5,7 @@ import grpc
 import rclpy
 import reachy2_monitoring as rm
 import reachy2_sdk_api
+from control_msgs.msg import DynamicJointState
 from google.protobuf.empty_pb2 import Empty
 from reachy2_sdk_api.part_pb2 import PartId
 from reachy2_sdk_api.reachy_pb2 import (
@@ -182,14 +183,27 @@ class ReachyServicer:
         )
 
     def SendComponentsCommands(self, request: ReachyComponentsCommands, context: grpc.ServicerContext) -> Empty:
+        cmd = DynamicJointState()
+        cmd.joint_names = []
         if request.HasField("r_arm_commands"):
-            self.arm_servicer.SendComponentsCommands(request.r_arm_commands, context)
+            r_arm_commands = self.arm_servicer.build_command(request.r_arm_commands, context)
+            cmd.joint_names.extend(r_arm_commands.joint_names)
+            cmd.interface_values.extend(r_arm_commands.interface_values)
         if request.HasField("l_arm_commands"):
-            self.arm_servicer.SendComponentsCommands(request.l_arm_commands, context)
+            l_arm_commands = self.arm_servicer.build_command(request.l_arm_commands, context)
+            cmd.joint_names.extend(l_arm_commands.joint_names)
+            cmd.interface_values.extend(l_arm_commands.interface_values)
         if request.HasField("head_commands"):
-            self.head_servicer.SendComponentsCommands(request.head_commands, context)
+            head_commands = self.head_servicer.build_command(request.head_commands, context)
+            cmd.joint_names.extend(head_commands.joint_names)
+            cmd.interface_values.extend(head_commands.interface_values)
         if request.HasField("r_hand_command"):
-            self.hand_servicer.SetHandPosition(request.r_hand_command, context)
+            r_hand_command = self.hand_servicer.build_command(request.r_hand_command, context)
+            cmd.joint_names.extend(r_hand_command.joint_names)
+            cmd.interface_values.extend(r_hand_command.interface_values)
         if request.HasField("l_hand_command"):
-            self.hand_servicer.SetHandPosition(request.l_hand_command, context)
+            l_hand_command = self.hand_servicer.build_command(request.l_hand_command, context)
+            cmd.joint_names.extend(l_hand_command.joint_names)
+            cmd.interface_values.extend(l_hand_command.interface_values)
+        self.bridge_node.publish_command(cmd)
         return Empty()
