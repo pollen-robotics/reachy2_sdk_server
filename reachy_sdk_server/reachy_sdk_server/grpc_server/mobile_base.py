@@ -1,9 +1,9 @@
 """Expose main mobile base ROS services/topics through gRPC allowing remote client SDK."""
 
 import io
-import zlib
 from queue import Empty
 from subprocess import PIPE, check_output, run
+from typing import Optional
 
 import grpc
 import rclpy
@@ -27,7 +27,6 @@ from reachy2_sdk_api.mobile_base_lidar_pb2_grpc import (
 from reachy2_sdk_api.mobile_base_mobility_pb2 import (
     DirectionVector,
     DistanceToGoalVector,
-    GoToVector,
     MobilityServiceAck,
     SetSpeedVector,
     TargetDirectionCommand,
@@ -60,7 +59,6 @@ from zuuu_interfaces.srv import (
     GetOdometry,
     GetZuuuMode,
     GetZuuuSafety,
-    GoToXYTheta,
     ResetOdometry,
     SetSpeed,
     SetZuuuMode,
@@ -68,6 +66,7 @@ from zuuu_interfaces.srv import (
 )
 
 from ..abstract_bridge_node import AbstractBridgeNode
+from ..parts import Part
 from ..utils import get_current_timestamp
 
 
@@ -85,7 +84,7 @@ class MobileBaseServicer(
 
         Get mobile base basic info such as its odometry, battery level, drive mode or control mode
         from the mobile base hal.
-        Send commands through the GoToXYTheta or SetSpeed services or by publishing to cmd_vel topic.
+        Send commands through the SetSpeed service or by publishing to cmd_vel topic.
         """
         self.logger = logger
         self.bridge_node = bridge_node
@@ -114,10 +113,6 @@ class MobileBaseServicer(
         self.set_speed_client = self.bridge_node.create_client(SetSpeed, "SetSpeed")
         while not self.set_speed_client.wait_for_service(timeout_sec=1.0):
             self.logger.info("service SetSpeed not available, waiting again...")
-
-        self.go_to_client = self.bridge_node.create_client(GoToXYTheta, "GoToXYTheta")
-        while not self.go_to_client.wait_for_service(timeout_sec=1.0):
-            self.logger.info("service GoToXYTheta not available, waiting again...")
 
         self.distance_to_goal_client = self.bridge_node.create_client(DistanceToGoal, "DistanceToGoal")
         while not self.distance_to_goal_client.wait_for_service(timeout_sec=1.0):
@@ -152,7 +147,7 @@ class MobileBaseServicer(
             self.logger.info("service GetZuuuSafety not available, waiting again...")
 
         # TODO: handle part_id correctly
-        self._part_id = PartId(id=100, name="mobile_base")
+        self.mobile_bases = self.bridge_node.parts.get_by_type("mobile_base")
         self.logger.info("Initialized mobile base server.")
 
     def register_to_server(self, server: grpc.Server) -> None:
@@ -162,11 +157,13 @@ class MobileBaseServicer(
         add_MobileBaseMobilityServiceServicer_to_server(self, server)
         add_MobileBaseUtilityServiceServicer_to_server(self, server)
 
-    def get_mobile_base(self, context: grpc.ServicerContext) -> MobileBase:
+    def get_mobile_base(self, mobile_base: Optional[Part], context: grpc.ServicerContext) -> MobileBase:
         """Get mobile base basic info."""
         if self.mobile_base_enabled:
+            if mobile_base is None:
+                mobile_base = self.mobile_bases[0]
             return MobileBase(
-                part_id=self._part_id,
+                part_id=PartId(name=mobile_base.name, id=mobile_base.id),
                 info=PartInfo(
                     serial_number=self.info["serial_number"],
                     version_hard=str(self.info["version_hard"]),
@@ -184,7 +181,7 @@ class MobileBaseServicer(
 
     def GetMobileBase(self, request: Empty, context) -> PartInfo:
         """Get mobile base basic info."""
-        return self.get_mobile_base(context)
+        return self.get_mobile_base(None, context)
 
     def GetState(self, request: PartId, context) -> MobileBaseState:
         """Get mobile base state."""
@@ -193,22 +190,27 @@ class MobileBaseServicer(
 
         res_status = LidarSafety(id=request)
         lidar_info = self.bridge_node.get_safety_status()
-        if lidar_info["status"] == 0:
+        status_number = lidar_info["status"]
+        if status_number == 0.0:
             grpc_obstacle_detection_status = LidarObstacleDetectionEnum.DETECTION_ERROR
-        elif lidar_info["status"] == 1:
+        elif status_number == 1.0:
             grpc_obstacle_detection_status = LidarObstacleDetectionEnum.NO_OBJECT_DETECTED
-        elif lidar_info["status"] == 2:
+        elif status_number == 2.0:
             grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_SLOWDOWN
-        elif lidar_info["status"] == 3:
+        elif status_number == 3.0:
             grpc_obstacle_detection_status = LidarObstacleDetectionEnum.OBJECT_DETECTED_STOP
+        else:
+            grpc_obstacle_detection_status = LidarObstacleDetectionEnum.DETECTION_ERROR
+            self.logger.warning(f"Unknown LIDAR safety status: {status_number}")
+
         res_status.safety_on.value = lidar_info["safety_on"]
         res_status.safety_distance.value = lidar_info["safety_distance"]
         res_status.critical_distance.value = lidar_info["critical_distance"]
         res_status.obstacle_detection_status.status = grpc_obstacle_detection_status
 
-        res_zuuu_mode = ZuuuModeCommand(id=self._part_id, mode=getattr(ZuuuModePossiblities, self.bridge_node.get_zuuu_mode()))
+        res_zuuu_mode = ZuuuModeCommand(id=request, mode=getattr(ZuuuModePossiblities, self.bridge_node.get_zuuu_mode()))
         res_control_mode = ControlModeCommand(
-            id=self._part_id, mode=getattr(ControlModePossiblities, self.bridge_node.get_control_mode())
+            id=request, mode=getattr(ControlModePossiblities, self.bridge_node.get_control_mode())
         )
 
         res_bat = BatteryLevel(level=FloatValue(value=self.bridge_node.get_battery_voltage()))
@@ -259,20 +261,6 @@ class MobileBaseServicer(
         self.set_speed_client.call_async(req)
         return MobilityServiceAck(success=BoolValue(value=True))
 
-    def SendGoTo(self, request: GoToVector, context) -> MobilityServiceAck:
-        """Send a target to the mobile base in the odom frame.
-
-        The origin of the frame is initialised when the hal is started or whenever the odometry
-        is reset. x and y are in meters and theta in radian.
-        """
-        req = GoToXYTheta.Request()
-        req.x_goal = request.x_goal.value
-        req.y_goal = request.y_goal.value
-        req.theta_goal = request.theta_goal.value
-
-        self.go_to_client.call_async(req)
-        return MobilityServiceAck(success=BoolValue(value=True))
-
     def DistanceToGoal(self, request: PartId, context):
         """Return the distance left to reach the last goto target sent.
 
@@ -291,7 +279,7 @@ class MobileBaseServicer(
 
         if result is not None:
             ros_response = result
-            print(ros_response)
+            # print(ros_response)
             response.delta_x.value = ros_response.delta_x
             response.delta_y.value = ros_response.delta_y
             response.delta_theta.value = ros_response.delta_theta
@@ -321,7 +309,7 @@ class MobileBaseServicer(
         mode = output.split(": ")[-1].split()[0]
 
         mode_grpc = getattr(ControlModePossiblities, mode)
-        return ControlModeCommand(id=self._part_id, mode=mode_grpc)
+        return ControlModeCommand(id=PartId(name=self.mobile_bases[0].name, id=self.mobile_bases[0].id), mode=mode_grpc)
 
     def SetZuuuMode(self, request: ZuuuModeCommand, context) -> MobilityServiceAck:
         """Set mobile base drive mode.
@@ -349,7 +337,7 @@ class MobileBaseServicer(
             mode = result.mode
             mode = getattr(ZuuuModePossiblities, mode)
 
-        return ZuuuModeCommand(id=self._part_id, mode=mode)
+        return ZuuuModeCommand(id=PartId(name=self.mobile_bases[0].name, id=self.mobile_bases[0].id), mode=mode)
 
     def GetBatteryLevel(self, request: PartId, context) -> BatteryLevel:
         """Get mobile base battery level in Volt."""
@@ -416,11 +404,10 @@ class MobileBaseServicer(
 
         result = self.get_zuuu_safety_client.call(req)
 
-        response = LidarSafety()
+        response = LidarSafety(id=request)
 
         if result is not None:
             ros_response = result
-            response.id = self._part_id
             response.safety_on.value = ros_response.safety_on
             response.safety_distance.value = ros_response.safety_distance
             response.critical_distance.value = ros_response.critical_distance
@@ -460,8 +447,7 @@ class MobileBaseServicer(
         buf = io.BytesIO()
         img.save(buf, format="JPEG")  # Format can be changed as needed
         uncompressed_bytes = buf.getvalue()
-        compressed_bytes = zlib.compress(uncompressed_bytes)
-        return LidarMap(data=compressed_bytes)
+        return LidarMap(data=uncompressed_bytes)
 
     def Audit(self, request: PartId, context: grpc.ServicerContext) -> MobileBaseStatus:
         return MobileBaseStatus()
@@ -472,13 +458,17 @@ class MobileBaseServicer(
     def Restart(self, request: PartId, context: grpc.ServicerContext) -> Empty:
         return Empty()
 
-    def ResetDefaultValues(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        self._stub.SetZuuuSafety(LidarSafety(critical_distance=FloatValue(value=0.55), safety_distance=FloatValue(value=0.7)))
-        return Empty()
+    def ResetDefaultSafetyDistances(self, request: PartId, context: grpc.ServicerContext) -> MobilityServiceAck:
+        safety_on = self.GetZuuuSafety(request, context).safety_on
+        ack = self.SetZuuuSafety(
+            LidarSafety(safety_on=safety_on, critical_distance=FloatValue(value=0.55), safety_distance=FloatValue(value=0.7)),
+            context,
+        )
+        return ack
 
     def TurnOn(self, request: PartId, context: grpc.ServicerContext) -> Empty:
-        # zuuu_mode = ZuuuModeCommand(id=request, mode=ZuuuModePossiblities.CMD_GOTO)
-        # self.SetZuuuMode(zuuu_mode, context)
+        zuuu_mode = ZuuuModeCommand(id=request, mode=ZuuuModePossiblities.CMD_GOTO)
+        self.SetZuuuMode(zuuu_mode, context)
         return Empty()
 
     def TurnOff(self, request: PartId, context: grpc.ServicerContext) -> Empty:

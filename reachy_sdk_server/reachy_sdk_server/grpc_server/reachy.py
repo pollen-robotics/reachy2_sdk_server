@@ -4,6 +4,7 @@ from typing import Iterator
 import grpc
 import rclpy
 import reachy2_monitoring as rm
+import reachy2_sdk_api
 from google.protobuf.empty_pb2 import Empty
 from reachy2_sdk_api.part_pb2 import PartId
 from reachy2_sdk_api.reachy_pb2 import (
@@ -18,6 +19,7 @@ from reachy2_sdk_api.reachy_pb2 import (
     ReachyStreamStateRequest,
 )
 from reachy2_sdk_api.reachy_pb2_grpc import add_ReachyServiceServicer_to_server
+from reachy_config import ReachyConfig
 
 from ..abstract_bridge_node import AbstractBridgeNode
 from ..utils import endless_timer_get_stream, endless_timer_get_stream_works, get_current_timestamp
@@ -25,6 +27,7 @@ from .arm import ArmServicer
 from .hand import HandServicer
 from .head import HeadServicer
 from .mobile_base import MobileBaseServicer
+from .tripod import TripodServicer
 
 
 class ReachyServicer:
@@ -36,6 +39,7 @@ class ReachyServicer:
         hand_servicer: HandServicer,
         head_servicer: HeadServicer,
         mobile_base_servicer: MobileBaseServicer,
+        tripod_servicer: TripodServicer,
         reachy_config: dict = {},
         core_mode: ReachyCoreMode = ReachyCoreMode.FAKE,
     ):
@@ -46,9 +50,10 @@ class ReachyServicer:
         self.hand_servicer = hand_servicer
         self.head_servicer = head_servicer
         self.mobile_base_servicer = mobile_base_servicer
+        self.tripod_servicer = tripod_servicer
         self.core_mode = core_mode
+        self.reachy_config = reachy_config
         self.reachy_id = ReachyId(id=1, name="reachy")
-        self.config = reachy_config
 
     def register_to_server(self, server: grpc.Server):
         self.logger.info("Registering 'ArmServiceServicer' to server.")
@@ -72,14 +77,17 @@ class ReachyServicer:
                 elif p.type == "hand":
                     with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachy::type=hand"):
                         params[p.name] = self.hand_servicer.get_hand(p, context)
-
-            if self.mobile_base_servicer.get_mobile_base(context) is not None:
-                with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachy::type=mobile_base"):
-                    params["mobile_base"] = self.mobile_base_servicer.get_mobile_base(context)
+                elif p.type == "mobile_base":
+                    with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachy::type=mobile_base"):
+                        params[p.name] = self.mobile_base_servicer.get_mobile_base(p, context)
+                elif p.type == "tripod":
+                    with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachy::type=tripod"):
+                        params[p.name] = self.tripod_servicer.get_tripod(p, context)
 
             params["info"] = ReachyInfo(
-                serial_number=str(self.config["serial_number"]),
+                serial_number=str(self.reachy_config["serial_number"]),
                 version_soft=os.getenv("IMAGE_VERSION_TAG", ""),
+                api_version=reachy2_sdk_api.__version__,
                 core_mode=self.core_mode,
             )
 
@@ -116,9 +124,12 @@ class ReachyServicer:
                     elif p.type == "hand":
                         with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachyState::type=hand"):
                             params[f"{p.name}_state"] = self.hand_servicer.GetState(PartId(id=p.id), context)
-
-                with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachyState::type=mobile_base"):
-                    params["mobile_base_state"] = self.mobile_base_servicer.GetState(PartId(id=100), context)
+                    elif p.type == "mobile_base":
+                        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachyState::type=mobile_base"):
+                            params[f"{p.name}_state"] = self.mobile_base_servicer.GetState(PartId(id=p.id), context)
+                    elif p.type == "tripod":
+                        with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"GetReachyState::type=tripod"):
+                            params[f"{p.name}_state"] = self.tripod_servicer.GetState(PartId(id=p.id), context)
 
         return ReachyState(**params)
 
@@ -153,9 +164,9 @@ class ReachyServicer:
                 elif p.type == "hand":
                     with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"Audit::type=hand"):
                         params[f"{p.name}_status"] = self.hand_servicer.Audit(PartId(id=p.id), context)
-
-            # with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"Audit::type=mobile_base"):
-            #     params["mobile_base_state"] = self.mobile_base_servicer.GetState(Empty(), context)
+                elif p.type == "mobile_base":
+                    with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"Audit::type=mobile_base"):
+                        params[f"{p.name}_status"] = self.mobile_base_servicer.Audit(PartId(id=p.id), context)
 
         return ReachyStatus(**params)
 

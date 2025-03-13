@@ -2,7 +2,7 @@ from asyncio.events import AbstractEventLoop
 from collections import deque
 from functools import partial
 from threading import Event, Lock
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import prometheus_client as pc
@@ -18,8 +18,10 @@ from rclpy.node import Node
 from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.part_pb2 import PartId
+from reachy_config import ReachyConfig
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float32, Float32MultiArray
+from zuuu_interfaces.action import ZuuuGoto
 
 from .components import ComponentsHolder
 from .conversion import matrix_to_pose, pose_to_matrix
@@ -41,7 +43,6 @@ class AbstractBridgeNode(Node):
             },
         )
         self.tracer = rm.tracer(NODE_NAME, grpc_type="server")
-
         metrics_port = 10000 + int(port)
         self.logger.info(f"Start port:{port}, metrics_port:{metrics_port} (port+10000).")
 
@@ -60,6 +61,16 @@ class AbstractBridgeNode(Node):
             callback=self.update_state,
             qos_profile=10,
         )
+
+        self.mobile_base_enabled = reachy_config["mobile_base"]["enable"]
+        if not self.mobile_base_enabled:
+            self.logger.info("No mobile base found in the config file. Mobile base server not initialized.")
+
+        self.info = {
+            "serial_number": reachy_config["mobile_base"]["serial_number"],
+            "version_hard": reachy_config["mobile_base"]["version_hard"],
+            "version_soft": reachy_config["mobile_base"]["version_soft"],
+        }
 
         # TODO create publisher
         # self.create_subscription(
@@ -126,12 +137,17 @@ class AbstractBridgeNode(Node):
         self.control_mode = "NONE_CONTROL_MODE"
 
         # Setup goto action clients
-        self.prefixes = ["r_arm", "l_arm", "neck"]
+        self.prefixes = ["r_arm", "l_arm", "neck", "r_hand", "l_hand", "antenna_right", "antenna_left"]
         self.goto_action_client = {}
         for prefix in self.prefixes:
             self.goto_action_client[prefix] = ActionClient(self, Goto, f"{prefix}_goto")
             self.get_logger().info(f"Waiting for action server {prefix}_goto...")
             self.goto_action_client[prefix].wait_for_server()
+
+        if self.mobile_base_enabled:
+            self.goto_zuuu_action_client = ActionClient(self, ZuuuGoto, "mobile_base_goto")
+            self.get_logger().info(f"Waiting for action server mobile_base_goto...")
+            self.goto_zuuu_action_client.wait_for_server()
 
         # Start up the server to expose the metrics.
         pc.start_http_server(metrics_port)
@@ -330,7 +346,6 @@ class AbstractBridgeNode(Node):
         duration: float,
         goal_velocities: List[float] = [],
         mode: str = "minimum_jerk",  # "linear" or "minimum_jerk"
-        sampling_freq: float = 150.0,
         feedback_callback=None,
         return_handle=False,
     ):
@@ -338,8 +353,8 @@ class AbstractBridgeNode(Node):
         request = goal_msg.request  # This is of type pollen_msgs/GotoRequest
 
         request.duration = duration
+        request.interpolation_space = "joints"
         request.mode = mode
-        request.sampling_freq = sampling_freq
         request.safety_on = False
 
         request.goal_joints = JointState()
@@ -368,6 +383,126 @@ class AbstractBridgeNode(Node):
             self.get_logger().debug(f"Goto finished. Result: {result.result.status}")
             return result, status
 
+    async def send_goto_cartesian_goal(
+        self,
+        part: str,
+        joint_names: List[str],
+        goal_pose: np.array,
+        duration: float,
+        mode: str = "minimum_jerk",  # "linear", "minimum_jerk" or "elliptical"
+        arc_direction: Optional[str] = None,
+        secondary_radius: Optional[float] = None,
+        feedback_callback=None,
+        return_handle=False,
+    ):
+        goal_msg = Goto.Goal()
+        request = goal_msg.request  # This is of type pollen_msgs/GotoRequest
+
+        request.duration = duration
+        request.interpolation_space = "cartesian"
+        request.mode = mode
+        request.safety_on = False
+
+        request.goal_joints = JointState()
+        request.goal_joints.name = joint_names
+
+        request.goal_pose = PoseStamped()
+        request.goal_pose.pose = matrix_to_pose(goal_pose)
+
+        if arc_direction is not None:
+            request.arc_direction = arc_direction
+        if secondary_radius is not None:
+            request.secondary_radius = secondary_radius
+
+        self.get_logger().debug("Sending goal request...")
+
+        goal_handle = await self.goto_action_client[part].send_goal_async(goal_msg, feedback_callback=feedback_callback)
+        self.get_logger().debug("feedback_callback setuped")
+
+        if not goal_handle.accepted:
+            self.get_logger().warning("Goal rejected!")
+            return None
+
+        self.get_logger().debug("Goal accepted")
+
+        if return_handle:
+            return goal_handle
+        else:
+            res = await goal_handle.get_result_async()
+            result = res.result
+            status = res.status
+            self.get_logger().debug(f"Goto finished. Result: {result.result.status}")
+            return result, status
+
+    async def send_zuuu_goto_goal(
+        self,
+        x_goal,
+        y_goal,
+        theta_goal,
+        dist_tol=0.05,
+        angle_tol=np.deg2rad(5),
+        timeout=10.0,
+        keep_control_on_arrival=True,
+        distance_p=5.0,
+        distance_i=0.0,
+        distance_d=0.0,
+        distance_max_command=0.4,
+        angle_p=5.0,
+        angle_i=0.0,
+        angle_d=0.0,
+        angle_max_command=1.0,
+        feedback_callback=None,
+        return_handle=False,
+    ):
+        """Send a goal to the zuuu_goto action server.
+        x_goal (m), y_goal (m), theta_goal (rads) ->  goal pose in the odom frame
+        dist_tol (m), angle_tol (rads) -> distance and angle tolerance for the goal
+        timeout (s) -> timeout for the goal, the goto action will end if the goal is not reached in time
+        keep_control_on_arrival (bool) -> if True, the goto control loop will keep running even if the goal is reached
+        distance_p, distance_i, distance_d -> PID gains for the xy distance control loop
+        distance_max_command (m/s - ish) -> limits the maximum command for the xy distance PID controller
+        angle_p, angle_i, angle_d -> PID gains for the angle control loop
+        angle_max_command (rads/s -ish) -> limits the maximum command for the angle PID controller
+        feedback_callback -> callback function to be called when feedback is received
+        return_handle (bool) -> if True, the function will return the goal handle, else it will wait for the goal to finish and return the result and status
+        """
+        goal_msg = ZuuuGoto.Goal()
+
+        request = goal_msg.request  # This is of type zuuu_interfaces/ZuuuGotoRequest
+
+        request.x_goal = x_goal
+        request.y_goal = y_goal
+        request.theta_goal = theta_goal
+        request.dist_tol = dist_tol
+        request.angle_tol = angle_tol
+        request.timeout = timeout
+        request.keep_control_on_arrival = keep_control_on_arrival
+        request.distance_p = distance_p
+        request.distance_i = distance_i
+        request.distance_d = distance_d
+        request.distance_max_command = distance_max_command
+        request.angle_p = angle_p
+        request.angle_i = angle_i
+        request.angle_d = angle_d
+        request.angle_max_command = angle_max_command
+
+        goal_handle = await self.goto_zuuu_action_client.send_goal_async(goal_msg, feedback_callback=feedback_callback)
+
+        self.get_logger().debug("zuuu goto feedback_callback setuped")
+
+        if not goal_handle.accepted:
+            self.get_logger().warning("zuuu goto Goal rejected!")
+            return None
+
+        if return_handle:
+            return goal_handle
+        else:
+            res = await goal_handle.get_result_async()
+            result = res.result
+            status = res.status
+            self.get_logger().info(f"zuuu goto goto finished. Result: {result.result.status}")
+            return result, status
+
     def set_all_joints_to_current_position(self, part_name: str = "") -> None:
         """Set all joints to their current position if part_name is an empty string,
         else only the joints of the given part_name (e.g. r_arm) are set."""
@@ -384,7 +519,7 @@ class AbstractBridgeNode(Node):
         cmd.joint_names = []
 
         for name in self.joint_names:
-            if name.startswith(joint_prefix):
+            if name.startswith(joint_prefix) or (joint_prefix == "neck" and name.startswith("antenna")):
                 # Note: any string starts with the empty string
                 component = self.components.get_by_name(name)
                 if "position" in component.state and "target_position" in component.state:
