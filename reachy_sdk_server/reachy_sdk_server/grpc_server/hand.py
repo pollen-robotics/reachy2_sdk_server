@@ -11,7 +11,6 @@ from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.hand_pb2 import (
     Force,
     Hand,
-    HandDescription,
     HandPosition,
     HandPositionRequest,
     HandState,
@@ -20,7 +19,6 @@ from reachy2_sdk_api.hand_pb2 import (
     HandType,
     JointsLimits,
     ListOfHand,
-    ParallelGripperDescription,
     ParallelGripperPosition,
     SpeedLimitRequest,
 )
@@ -53,11 +51,6 @@ class HandServicer:
         return Hand(
             part_id=PartId(name=hand.name, id=hand.id),
             type=HandType.PARALLEL_GRIPPER,
-            description=HandDescription(
-                parallel_gripper=ParallelGripperDescription(
-                    motor=DynamixelMotorServicer.get_info(self.bridge_node.components.get_by_name(hand.components_dict["hand"].name))
-                )
-            ),
         )
 
     def get_hand_part_from_part_id(self, part_id: PartId, context: grpc.ServicerContext) -> Part:
