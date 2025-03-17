@@ -197,13 +197,13 @@ class ReachyServicer:
             head_commands = self.head_servicer.build_command(request.head_commands, context)
             cmd.joint_names.extend(head_commands.joint_names)
             cmd.interface_values.extend(head_commands.interface_values)
-        if request.HasField("r_hand_command"):
-            r_hand_command = self.hand_servicer.build_command(request.r_hand_command, context)
-            cmd.joint_names.extend(r_hand_command.joint_names)
-            cmd.interface_values.extend(r_hand_command.interface_values)
-        if request.HasField("l_hand_command"):
-            l_hand_command = self.hand_servicer.build_command(request.l_hand_command, context)
-            cmd.joint_names.extend(l_hand_command.joint_names)
-            cmd.interface_values.extend(l_hand_command.interface_values)
+        if request.HasField("r_hand_commands"):
+            r_hand_commands = self.hand_servicer.build_command(request.r_hand_commands, context)
+            cmd.joint_names.extend(r_hand_commands.joint_names)
+            cmd.interface_values.extend(r_hand_commands.interface_values)
+        if request.HasField("l_hand_commands"):
+            l_hand_commands = self.hand_servicer.build_command(request.l_hand_commands, context)
+            cmd.joint_names.extend(l_hand_commands.joint_names)
+            cmd.interface_values.extend(l_hand_commands.interface_values)
         self.bridge_node.publish_command(cmd)
         return Empty()
