@@ -85,8 +85,7 @@ class DynamixelMotorServicer:
             # 1 / request.freq,
         )
 
-    # Command
-    def SendCommand(self, request: DynamixelMotorsCommand, context: grpc.ServicerContext) -> Empty:
+    def build_command(self, request: DynamixelMotorsCommand, context: grpc.ServicerContext) -> DynamicJointState:
         cmd = DynamicJointState()
         cmd.joint_names = []
 
@@ -138,6 +137,11 @@ class DynamixelMotorServicer:
                             values=[req_cmd.torque_limit.value],
                         )
                     )
+        return cmd
+
+    # Command
+    def SendCommand(self, request: DynamixelMotorsCommand, context: grpc.ServicerContext) -> Empty:
+        cmd = self.build_command(request, context)
 
         if cmd.joint_names:
             self.bridge_node.publish_command(cmd)
