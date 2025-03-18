@@ -13,6 +13,7 @@ from pollen_msgs.msg import IKRequest
 from reachy2_sdk_api.arm_pb2 import (
     Arm,
     ArmCartesianGoal,
+    ArmComponentsCommands,
     ArmDescription,
     ArmFKRequest,
     ArmFKSolution,
@@ -391,3 +392,26 @@ class ArmServicer:
 
         # self.bridge_node.logger.info(f"Received goal pose for arm : request {request}  \nmsg : {msg}'.")
         return Empty()
+
+    def SendComponentsCommands(self, request: ArmComponentsCommands, context: grpc.ServicerContext) -> Empty:
+        cmd = self.build_command(request, context)
+        if cmd.joint_names:
+            self.bridge_node.publish_command(cmd)
+        return Empty()
+
+    def build_command(self, request: ArmComponentsCommands, context: grpc.ServicerContext) -> DynamicJointState:
+        cmd = DynamicJointState()
+        cmd.joint_names = []
+        if request.HasField("shoulder_command"):
+            shoulder_command = self.orbita2d_servicer.build_command(request.shoulder_command, context)
+            cmd.joint_names.extend(shoulder_command.joint_names)
+            cmd.interface_values.extend(shoulder_command.interface_values)
+        if request.HasField("elbow_command"):
+            elbow_command = self.orbita2d_servicer.build_command(request.elbow_command, context)
+            cmd.joint_names.extend(elbow_command.joint_names)
+            cmd.interface_values.extend(elbow_command.interface_values)
+        if request.HasField("wrist_command"):
+            wrist_command = self.orbita3d_servicer.build_command(request.wrist_command, context)
+            cmd.joint_names.extend(wrist_command.joint_names)
+            cmd.interface_values.extend(wrist_command.interface_values)
+        return cmd

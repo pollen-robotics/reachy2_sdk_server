@@ -144,28 +144,34 @@ class HandServicer:
             parallel_gripper=ParallelGripperPosition(position=FloatValue(value=position)),
         )
 
+    def build_command(self, request: HandPositionRequest, context: grpc.ServicerContext) -> DynamicJointState:
+        hand = self.get_hand_part_from_part_id(request.id, context)
+
+        if request.position.parallel_gripper.HasField("position"):
+            opening = self.position_to_opening(request.position.parallel_gripper.position.value)
+        else:
+            # This is a % of the opening
+            opening = np.clip(request.position.parallel_gripper.opening_percentage.value, 0, 1)
+
+        cmd = DynamicJointState()
+        cmd.joint_names = []
+
+        for c in hand.components:
+            cmd.joint_names.append(c.name + "_finger")
+            cmd.interface_values.append(
+                InterfaceValue(
+                    interface_names=["position"],
+                    values=[opening],
+                )
+            )
+        return cmd
+
     def SetHandPosition(self, request: HandPositionRequest, context: grpc.ServicerContext) -> Empty:
         with rm.PollenSpan(tracer=self.bridge_node.tracer, trace_name=f"SetHandPosition"):
-            hand = self.get_hand_part_from_part_id(request.id, context)
+            cmd = self.build_command(request, context)
 
-            if request.position.parallel_gripper.HasField("position"):
-                opening = self.position_to_opening(request.position.parallel_gripper.position.value)
-            else:
-                # This is a % of the opening
-                opening = np.clip(request.position.parallel_gripper.opening_percentage.value, 0, 1)
-
-            cmd = DynamicJointState()
-            cmd.joint_names = []
-
-            for c in hand.components:
-                cmd.joint_names.append(c.name + "_finger")
-                cmd.interface_values.append(
-                    InterfaceValue(
-                        interface_names=["position"],
-                        values=[opening],
-                    )
-                )
-            self.bridge_node.publish_command(cmd)
+            if cmd.joint_names:
+                self.bridge_node.publish_command(cmd)
 
         return Empty()
 

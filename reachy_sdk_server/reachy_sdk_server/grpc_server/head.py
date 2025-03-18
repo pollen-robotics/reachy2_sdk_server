@@ -8,6 +8,7 @@ from pollen_msgs.msg import CartTarget
 from reachy2_sdk_api.component_pb2 import ComponentId
 from reachy2_sdk_api.head_pb2 import (
     Head,
+    HeadComponentsCommands,
     HeadDescription,
     HeadPosition,
     HeadState,
@@ -353,3 +354,26 @@ class HeadServicer:
                 )
 
         return Empty()
+
+    def SendComponentsCommands(self, request: HeadComponentsCommands, context: grpc.ServicerContext) -> Empty:
+        cmd = self.build_command(request, context)
+        if cmd.joint_names:
+            self.bridge_node.publish_command(cmd)
+        return Empty()
+
+    def build_command(self, request: HeadComponentsCommands, context: grpc.ServicerContext) -> DynamicJointState:
+        cmd = DynamicJointState()
+        cmd.joint_names = []
+        if request.HasField("neck_command"):
+            neck_command = self.orbita3d_servicer.build_command(request.neck_command, context)
+            cmd.joint_names.extend(neck_command.joint_names)
+            cmd.interface_values.extend(neck_command.interface_values)
+        if request.HasField("l_antenna_command"):
+            l_antenna_command = self.dynamixel_servicer.build_command(request.l_antenna_command, context)
+            cmd.joint_names.extend(l_antenna_command.joint_names)
+            cmd.interface_values.extend(l_antenna_command.interface_values)
+        if request.HasField("r_antenna_command"):
+            r_antenna_command = self.dynamixel_servicer.build_command(request.r_antenna_command, context)
+            cmd.joint_names.extend(r_antenna_command.joint_names)
+            cmd.interface_values.extend(r_antenna_command.interface_values)
+        return cmd

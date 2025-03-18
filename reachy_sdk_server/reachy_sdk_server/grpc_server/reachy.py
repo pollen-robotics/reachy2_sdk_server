@@ -5,10 +5,12 @@ import grpc
 import rclpy
 import reachy2_monitoring as rm
 import reachy2_sdk_api
+from control_msgs.msg import DynamicJointState
 from google.protobuf.empty_pb2 import Empty
 from reachy2_sdk_api.part_pb2 import PartId
 from reachy2_sdk_api.reachy_pb2 import (
     Reachy,
+    ReachyComponentsCommands,
     ReachyCoreMode,
     ReachyId,
     ReachyInfo,
@@ -179,3 +181,29 @@ class ReachyServicer:
             context,
             1 / request.publish_frequency,
         )
+
+    def SendComponentsCommands(self, request: ReachyComponentsCommands, context: grpc.ServicerContext) -> Empty:
+        cmd = DynamicJointState()
+        cmd.joint_names = []
+        if request.HasField("r_arm_commands"):
+            r_arm_commands = self.arm_servicer.build_command(request.r_arm_commands, context)
+            cmd.joint_names.extend(r_arm_commands.joint_names)
+            cmd.interface_values.extend(r_arm_commands.interface_values)
+        if request.HasField("l_arm_commands"):
+            l_arm_commands = self.arm_servicer.build_command(request.l_arm_commands, context)
+            cmd.joint_names.extend(l_arm_commands.joint_names)
+            cmd.interface_values.extend(l_arm_commands.interface_values)
+        if request.HasField("head_commands"):
+            head_commands = self.head_servicer.build_command(request.head_commands, context)
+            cmd.joint_names.extend(head_commands.joint_names)
+            cmd.interface_values.extend(head_commands.interface_values)
+        if request.HasField("r_hand_commands"):
+            r_hand_commands = self.hand_servicer.build_command(request.r_hand_commands, context)
+            cmd.joint_names.extend(r_hand_commands.joint_names)
+            cmd.interface_values.extend(r_hand_commands.interface_values)
+        if request.HasField("l_hand_commands"):
+            l_hand_commands = self.hand_servicer.build_command(request.l_hand_commands, context)
+            cmd.joint_names.extend(l_hand_commands.joint_names)
+            cmd.interface_values.extend(l_hand_commands.interface_values)
+        self.bridge_node.publish_command(cmd)
+        return Empty()

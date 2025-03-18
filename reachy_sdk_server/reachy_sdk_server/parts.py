@@ -66,6 +66,8 @@ class PartsHolder:
             self.by_id[p.id] = p
             self.by_type[p.type].append(p)
 
+            part_id += 1
+
             self.logger.info(f"\t - {p}")
 
         if tripod_config["enable"] == True:
