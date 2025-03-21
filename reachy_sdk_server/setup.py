@@ -15,7 +15,6 @@ setup(
     ],
     install_requires=[
         "setuptools",
-        "pillow",
     ],
     zip_safe=True,
     maintainer="pierre",
