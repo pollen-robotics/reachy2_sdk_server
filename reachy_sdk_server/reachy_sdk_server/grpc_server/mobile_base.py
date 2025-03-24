@@ -52,6 +52,7 @@ from reachy2_sdk_api.mobile_base_utility_pb2_grpc import (
     add_MobileBaseUtilityServiceServicer_to_server,
 )
 from reachy2_sdk_api.part_pb2 import PartId, PartInfo
+from reachy2_sdk_api.reachy_pb2 import ReachyCoreMode
 from sensor_msgs.msg import Image
 from zuuu_interfaces.srv import (
     DistanceToGoal,
@@ -78,7 +79,11 @@ class MobileBaseServicer(
     """Mobile base SDK server node."""
 
     def __init__(
-        self, bridge_node: AbstractBridgeNode, logger: rclpy.impl.rcutils_logger.RcutilsLogger, mobile_base_config: dict
+        self,
+        bridge_node: AbstractBridgeNode,
+        logger: rclpy.impl.rcutils_logger.RcutilsLogger,
+        mobile_base_config: dict,
+        core_mode: ReachyCoreMode = ReachyCoreMode.FAKE,
     ) -> None:
         """Set up the node.
 
@@ -88,6 +93,7 @@ class MobileBaseServicer(
         """
         self.logger = logger
         self.bridge_node = bridge_node
+        self.core_mode = core_mode
         self.mobile_base_enabled = True  # Keep track of mobile base status in order to return None for teleop
 
         self.info = {
@@ -442,6 +448,9 @@ class MobileBaseServicer(
 
     def GetLidarMap(self, request: PartId, context) -> LidarMap:
         """Get the lidar map."""
+        if self.core_mode == ReachyCoreMode.FAKE:
+            self.logger.warning("Lidar map not available in FAKE mode.")
+            return LidarMap()
         img = PilImage.fromarray(self.lidar_img)
 
         buf = io.BytesIO()
