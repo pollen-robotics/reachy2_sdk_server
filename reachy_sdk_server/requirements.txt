@@ -1,2 +1,3 @@
 grpcio-tools
 reachy2-sdk-api
+pillow
