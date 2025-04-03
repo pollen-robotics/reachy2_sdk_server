@@ -7,11 +7,9 @@ from typing import Optional
 
 import grpc
 import rclpy
-from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
-from geometry_msgs.msg import TransformStamped
 import tf_transformations
 from cv_bridge import CvBridge
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import TransformStamped, Twist
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.wrappers_pb2 import BoolValue, FloatValue
 from nav_msgs.msg import Odometry
@@ -56,6 +54,7 @@ from reachy2_sdk_api.mobile_base_utility_pb2_grpc import (
 from reachy2_sdk_api.part_pb2 import PartId, PartInfo
 from reachy2_sdk_api.reachy_pb2 import ReachyCoreMode
 from sensor_msgs.msg import Image
+from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
 from zuuu_interfaces.srv import (
     DistanceToGoal,
     GetBatteryVoltage,
@@ -165,10 +164,10 @@ class MobileBaseServicer(
         add_MobileBaseLidarServiceServicer_to_server(self, server)
         add_MobileBaseMobilityServiceServicer_to_server(self, server)
         add_MobileBaseUtilityServiceServicer_to_server(self, server)
-        
+
     def publish_static_odom(self):
         """Publish static odometry<->base_link TF and one message on /odom no mobile base is connected.
-            odom and base_link should be the same frame since the robot is static.
+        odom and base_link should be the same frame since the robot is static.
         """
         self.tf_static_broadcaster = StaticTransformBroadcaster(self.bridge_node)
         self.pub_odom = self.bridge_node.create_publisher(Odometry, "odom", 2)
@@ -207,7 +206,6 @@ class MobileBaseServicer(
         t.transform.rotation.w = q[3]
 
         self.tf_static_broadcaster.sendTransform(t)
-
 
     def get_mobile_base(self, mobile_base: Optional[Part], context: grpc.ServicerContext) -> MobileBase:
         """Get mobile base basic info."""
