@@ -7,6 +7,8 @@ from typing import Optional
 
 import grpc
 import rclpy
+from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
+from geometry_msgs.msg import TransformStamped
 import tf_transformations
 from cv_bridge import CvBridge
 from geometry_msgs.msg import Twist
@@ -105,6 +107,7 @@ class MobileBaseServicer(
         if not mobile_base_config["enable"]:
             self.logger.info("No mobile base found in the config file. Mobile base server not initialized.")
             self.mobile_base_enabled = False
+            self.publish_static_odom()
             return
 
         self.cmd_vel_pub = self.bridge_node.create_publisher(Twist, "cmd_vel", 10)
@@ -162,6 +165,49 @@ class MobileBaseServicer(
         add_MobileBaseLidarServiceServicer_to_server(self, server)
         add_MobileBaseMobilityServiceServicer_to_server(self, server)
         add_MobileBaseUtilityServiceServicer_to_server(self, server)
+        
+    def publish_static_odom(self):
+        """Publish static odometry<->base_link TF and one message on /odom no mobile base is connected.
+            odom and base_link should be the same frame since the robot is static.
+        """
+        self.tf_static_broadcaster = StaticTransformBroadcaster(self.bridge_node)
+        self.pub_odom = self.bridge_node.create_publisher(Odometry, "odom", 2)
+        # Odom
+        odom = Odometry()
+        odom.header.frame_id = "odom"
+        odom.header.stamp = self.bridge_node.get_clock().now().to_msg()
+        odom.child_frame_id = "base_link"
+        odom.pose.pose.position.x = 0.0
+        odom.pose.pose.position.y = 0.0
+        odom.pose.pose.position.z = 0.0
+        odom.twist.twist.linear.x = 0.0
+        odom.twist.twist.linear.y = 0.0
+        odom.twist.twist.angular.z = 0.0
+
+        q = tf_transformations.quaternion_from_euler(0.0, 0.0, 0.0)
+        odom.pose.pose.orientation.x = q[0]
+        odom.pose.pose.orientation.y = q[1]
+        odom.pose.pose.orientation.z = q[2]
+        odom.pose.pose.orientation.w = q[3]
+
+        self.pub_odom.publish(odom)
+
+        # TF
+        t = TransformStamped()
+        t.header.stamp = self.bridge_node.get_clock().now().to_msg()
+        t.header.frame_id = "odom"
+        t.child_frame_id = "base_link"
+
+        t.transform.translation.x = 0.0
+        t.transform.translation.y = 0.0
+        t.transform.translation.z = 0.0
+        t.transform.rotation.x = q[0]
+        t.transform.rotation.y = q[1]
+        t.transform.rotation.z = q[2]
+        t.transform.rotation.w = q[3]
+
+        self.tf_static_broadcaster.sendTransform(t)
+
 
     def get_mobile_base(self, mobile_base: Optional[Part], context: grpc.ServicerContext) -> MobileBase:
         """Get mobile base basic info."""
