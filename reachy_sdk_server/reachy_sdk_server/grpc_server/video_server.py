@@ -98,12 +98,20 @@ class ReachyGRPCVideoSDKServicer:
 
     def _init_cameras(self) -> None:
         self._list_cam.clear()
-        if self._find_device("Luxonis") or self._gazebo_mode:
+        if self._gazebo_mode:
+            self._logger.info("Running in fake mode, configuring cameras accordingly.")
             self._list_cam.append(self._configure_teleop_camera())
-        if self._find_device("Orbbec") or self._gazebo_mode:
+            self._list_cam.append(self._configure_depth_camera())
+            return
+
+        self._logger.info("Searching for cameras...")
+        if self._find_device("Luxonis"):
+            self._list_cam.append(self._configure_teleop_camera())
+        if self._find_device("Orbbec"):
             self._list_cam.append(self._configure_depth_camera())
 
     def _find_device(self, name: str) -> bool:
+        self._logger.info(f"Searching for camera: {name}")
         devices = subprocess.check_output("lsusb").decode().split("\n")
         for device in devices:
             if name in device:
