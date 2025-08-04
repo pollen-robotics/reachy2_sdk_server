@@ -64,10 +64,11 @@ class ROSCamInfo:
 
 
 class ReachyGRPCVideoSDKServicer:
-    def __init__(self, gazebo: bool = False) -> None:
+    def __init__(self, gazebo: bool = False, fake: bool = False) -> None:
         rclpy.init()
         self.node = rclpy.create_node("ReachyGRPCVideoSDKServicer_node")
         self._logger = self.node.get_logger()
+        self._fake_mode = fake
         self._gazebo_mode = gazebo
 
         if self._gazebo_mode:
@@ -98,12 +99,20 @@ class ReachyGRPCVideoSDKServicer:
 
     def _init_cameras(self) -> None:
         self._list_cam.clear()
-        if self._find_device("Luxonis") or self._gazebo_mode:
+        if self._gazebo_mode or self._fake_mode:
+            self._logger.info("Running in fake mode, configuring cameras accordingly.")
             self._list_cam.append(self._configure_teleop_camera())
-        if self._find_device("Orbbec") or self._gazebo_mode:
+            self._list_cam.append(self._configure_depth_camera())
+            return
+
+        self._logger.info("Searching for cameras...")
+        if self._find_device("Luxonis"):
+            self._list_cam.append(self._configure_teleop_camera())
+        if self._find_device("Orbbec"):
             self._list_cam.append(self._configure_depth_camera())
 
     def _find_device(self, name: str) -> bool:
+        self._logger.info(f"Searching for camera: {name}")
         devices = subprocess.check_output("lsusb").decode().split("\n")
         for device in devices:
             if name in device:
@@ -345,10 +354,11 @@ def main():
     parser.add_argument("--max-workers", type=int, default=10)
     parser.add_argument("--ros-args", action="store_true")
     parser.add_argument("--gazebo", default=False, action="store_true")
+    parser.add_argument("--fake", default=False, action="store_true")
 
     args = parser.parse_args()
 
-    servicer = ReachyGRPCVideoSDKServicer(args.gazebo)
+    servicer = ReachyGRPCVideoSDKServicer(args.gazebo, args.fake)
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers))
 
     servicer.register_to_server(server)
