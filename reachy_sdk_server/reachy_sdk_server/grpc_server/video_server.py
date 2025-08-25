@@ -64,15 +64,14 @@ class ROSCamInfo:
 
 
 class ReachyGRPCVideoSDKServicer:
-    def __init__(self, gazebo: bool = False, fake: bool = False) -> None:
+    def __init__(self, simulation: bool = False) -> None:
         rclpy.init()
         self.node = rclpy.create_node("ReachyGRPCVideoSDKServicer_node")
         self._logger = self.node.get_logger()
-        self._fake_mode = fake
-        self._gazebo_mode = gazebo
+        self._simulation_mode = simulation
 
-        if self._gazebo_mode:
-            self._logger.info("Reachy GRPC Video SDK Servicer initialized (Gazebo mode).")
+        if self._simulation_mode:
+            self._logger.info("Reachy GRPC Video SDK Servicer initialized (simulation mode, using gazebo or mujoco).")
         else:
             self._logger.info("Reachy GRPC Video SDK Servicer initialized.")
         self._list_cam = []
@@ -99,8 +98,8 @@ class ReachyGRPCVideoSDKServicer:
 
     def _init_cameras(self) -> None:
         self._list_cam.clear()
-        if self._gazebo_mode or self._fake_mode:
-            self._logger.info("Running in fake mode, configuring cameras accordingly.")
+        if self._simulation_mode:
+            self._logger.info("Running in gazebo or mujoco mode, configuring cameras accordingly.")
             self._list_cam.append(self._configure_teleop_camera())
             self._list_cam.append(self._configure_depth_camera())
             return
@@ -198,7 +197,7 @@ class ReachyGRPCVideoSDKServicer:
         data = msg.data.tobytes()
         encoding = msg.encoding
 
-        if cam_type == CameraType.DEPTH and self._gazebo_mode:
+        if cam_type == CameraType.DEPTH and self._simulation_mode:
             data = np.frombuffer(data, dtype=np.float32)  # specific conversion from Gazebo 32FC1 (in m) to 16UC1 (in mm)
             data = data.astype(np.float64)
             data = data * 1000.0
@@ -353,12 +352,11 @@ def main():
     parser.add_argument("--port", type=int, default=50065)
     parser.add_argument("--max-workers", type=int, default=10)
     parser.add_argument("--ros-args", action="store_true")
-    parser.add_argument("--gazebo", default=False, action="store_true")
-    parser.add_argument("--fake", default=False, action="store_true")
+    parser.add_argument("--simulation", default=False, action="store_true")
 
     args = parser.parse_args()
 
-    servicer = ReachyGRPCVideoSDKServicer(args.gazebo, args.fake)
+    servicer = ReachyGRPCVideoSDKServicer(args.simulation)
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers))
 
     servicer.register_to_server(server)
