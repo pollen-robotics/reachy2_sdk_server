@@ -71,7 +71,7 @@ class ReachyGRPCVideoSDKServicer:
         self._simulation_mode = simulation
 
         if self._simulation_mode:
-            self._logger.info("Reachy GRPC Video SDK Servicer initialized (Gazebo mode).")
+            self._logger.info("Reachy GRPC Video SDK Servicer initialized (simulation mode, using gazebo or mujoco).")
         else:
             self._logger.info("Reachy GRPC Video SDK Servicer initialized.")
         self._list_cam = []
