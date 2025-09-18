@@ -136,6 +136,15 @@ class AbstractBridgeNode(Node):
         self.zuuu_mode = "NONE_ZUUU_MODE"
         self.control_mode = "NONE_CONTROL_MODE"
 
+        # create a subscriber to the Mujoco objects poses
+        self.mujoco_objects_poses: dict = {}
+        self.create_subscription(
+            msg_type=PoseStamped,
+            topic="/mujoco/item_position",
+            callback=self.update_mujoco_object_pose,
+            qos_profile=10,
+        )
+
         # Setup goto action clients
         self.prefixes = ["r_arm", "l_arm", "neck", "r_hand", "l_hand", "antenna_right", "antenna_left"]
         self.goto_action_client = {}
@@ -244,6 +253,11 @@ class AbstractBridgeNode(Node):
             self.logger.error("No safety status received yet.")
             return {"safety_on": False, "safety_distance": 0.0, "critical_distance": 0.0, "status": 0}
         return self.lidar_safety
+    
+    # callback function for the /mujoco/item_position topic
+    def update_mujoco_object_pose(self, msg: PoseStamped) -> None:
+        matrix = pose_to_matrix(msg.pose)
+        self.mujoco_objects_poses[msg.header.frame_id] = matrix
 
     def publish_command(self, msg: DynamicJointState) -> None:
         self.joint_command_pub.publish(msg)
