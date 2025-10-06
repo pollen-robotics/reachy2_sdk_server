@@ -253,7 +253,7 @@ class AbstractBridgeNode(Node):
             self.logger.error("No safety status received yet.")
             return {"safety_on": False, "safety_distance": 0.0, "critical_distance": 0.0, "status": 0}
         return self.lidar_safety
-    
+
     # callback function for the /mujoco/item_position topic
     def update_mujoco_object_pose(self, msg: PoseStamped) -> None:
         matrix = pose_to_matrix(msg.pose)
