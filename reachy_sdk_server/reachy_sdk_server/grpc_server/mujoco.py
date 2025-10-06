@@ -1,19 +1,7 @@
-import os
-from typing import Iterator
-
 import grpc
 import rclpy
-import reachy2_sdk_api
-
 from google.protobuf.empty_pb2 import Empty
-from reachy2_sdk_api.reachy_pb2 import (
-    ReachyCoreMode,
-)
-from reachy2_sdk_api.mujoco_pb2 import (
-    MujocoObjectPose,
-    MujocoObjectsPoses,
-)
-
+from reachy2_sdk_api.mujoco_pb2 import MujocoObjectPose, MujocoObjectsPoses
 from reachy2_sdk_api.mujoco_pb2_grpc import add_MujocoServiceServicer_to_server
 
 from ..abstract_bridge_node import AbstractBridgeNode
@@ -38,7 +26,7 @@ class MujocoServicer:
         for obj_name, pose_matrix in self.bridge_node.mujoco_objects_poses.items():
             obj_pose = MujocoObjectPose()
             obj_pose.name = obj_name
-            obj_pose.pose.pose.data.extend(pose_matrix.flatten())
+            obj_pose.pose.data.extend(pose_matrix)
             response.poses.append(obj_pose)
 
         return response

@@ -257,7 +257,8 @@ class AbstractBridgeNode(Node):
     # callback function for the /mujoco/item_position topic
     def update_mujoco_object_pose(self, msg: PoseStamped) -> None:
         matrix = pose_to_matrix(msg.pose)
-        self.mujoco_objects_poses[msg.header.frame_id] = matrix
+        matrix_list = matrix.flatten().astype(float).tolist()
+        self.mujoco_objects_poses[msg.header.frame_id] = matrix_list
 
     def publish_command(self, msg: DynamicJointState) -> None:
         self.joint_command_pub.publish(msg)
