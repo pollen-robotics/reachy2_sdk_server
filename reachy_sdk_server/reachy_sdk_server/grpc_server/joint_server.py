@@ -80,17 +80,17 @@ class ReachyGRPCJointSDKServicer:
         )
 
         self.services = [
-                arm_servicer,
-                dynamixel_motor_servicer,
-                goto_servicer,
-                hand_servicer,
-                head_servicer,
-                mobile_base_servicer,
-                orbita2d_servicer,
-                orbita3d_servicer,
-                reachy_servicer,
-                tripod_servicer,
-            ]
+            arm_servicer,
+            dynamixel_motor_servicer,
+            goto_servicer,
+            hand_servicer,
+            head_servicer,
+            mobile_base_servicer,
+            orbita2d_servicer,
+            orbita3d_servicer,
+            reachy_servicer,
+            tripod_servicer,
+        ]
 
         if core_mode == ReachyCoreMode.MUJOCO:
             mujoco_servicer = MujocoServicer(self.bridge_node, self.logger)
