@@ -17,6 +17,7 @@ from .goto import GoToServicer
 from .hand import HandServicer
 from .head import HeadServicer
 from .mobile_base import MobileBaseServicer
+from .mujoco import MujocoServicer
 from .orbita2d import Orbita2dServicer
 from .orbita3d import Orbita3dServicer
 from .reachy import ReachyServicer
@@ -90,6 +91,10 @@ class ReachyGRPCJointSDKServicer:
             reachy_servicer,
             tripod_servicer,
         ]
+
+        if core_mode == ReachyCoreMode.MUJOCO:
+            mujoco_servicer = MujocoServicer(self.bridge_node, self.logger)
+            self.services.append(mujoco_servicer)
 
         self.logger.info("Reachy GRPC Joint SDK Servicer initialized.")
 
